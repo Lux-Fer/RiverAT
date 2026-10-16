@@ -1,18 +1,44 @@
-# Python-generated files
+# ---------- Python ----------
 __pycache__/
+*.py[cod]
 *.py[oc]
 build/
 dist/
 wheels/
-*.egg-info
+*.egg-info/
 
-# Virtual environments
+# ---------- 虚拟环境 ----------
 .venv/
+venv/
 
-# 忽略项
-*.py[cod]
+# ---------- 环境与密钥 ----------
 .env
+.env.*
+!.env.example          # ← 必须保留这一条，否则上面的 .env.* 会把模板文件也吃掉
 *.db
+*.sqlite3
+
+# ---------- 工具缓存 ----------
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+htmlcov/
+
+# ---------- 前端（将来有 frontend/ 时自动生效）----------
+node_modules/
+.next/
+.vite/
+*.local
+npm-debug.log*
+pnpm-debug.log*
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+Thumbs.db
+.DS_Store
+*.log

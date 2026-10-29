@@ -35,6 +35,7 @@ class RunOut(BaseModel):
     status: str
     trigger: str
     host_id: UUID | None = None
+    plan_sha256: str | None = None
     steps: list[StepOut] = []
 
 
@@ -52,6 +53,7 @@ async def _to_run_out(session: AsyncSession, run) -> RunOut:
         status=run.status,
         trigger=run.trigger,
         host_id=run.host_id,
+        plan_sha256=run.plan_sha256,
         steps=[
             StepOut(
                 node_key=step.node_key,

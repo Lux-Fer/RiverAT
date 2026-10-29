@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from uuid import UUID
 
 import yaml
@@ -137,10 +139,17 @@ async def create_plan(
         product_version_id=product_version_id,
         name=name,
         definition=definition_data,
+        snapshot={"nodes": expanded},
+        snapshot_sha256=_digest({"nodes": expanded}),
     )
     session.add(plan)
     await session.flush()
     return plan
+
+
+def _digest(payload: dict) -> str:
+    canonical = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 async def list_plans(session: AsyncSession, limit: int = 50) -> list[Plan]:

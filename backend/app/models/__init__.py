@@ -114,6 +114,9 @@ class Plan(Base):
     )
     name: Mapped[str] = mapped_column(String(200))
     definition: Mapped[dict] = mapped_column(JSONB, default=dict)
+    # 创建时冻结的展开结果与哈希（D59）：子计划之后怎么改，都不影响这条计划
+    snapshot: Mapped[dict] = mapped_column(JSONB, default=dict)
+    snapshot_sha256: Mapped[str] = mapped_column(String(64), default="")
     revision: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -162,6 +165,8 @@ class Run(Base):
     trigger: Mapped[str] = mapped_column(String(32), default="manual")
     status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
     priority: Mapped[int] = mapped_column(Integer, default=3)
+    # 这次执行用的是哪一版计划快照（审计用）
+    plan_sha256: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

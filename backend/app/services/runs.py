@@ -50,14 +50,19 @@ async def execute_plan(
     if plan is None:
         raise RunError(f"计划不存在: {plan_id}")
 
-    definition = plan.definition or {}
-    try:
-        nodes = await expand_nodes(
-            session, definition, parent_version_id=plan.product_version_id
-        )
-    except PlanError as exc:
-        raise RunError(str(exc)) from exc
-    nodes = order_nodes(nodes)
+    snapshot_nodes = (plan.snapshot or {}).get("nodes")
+    if snapshot_nodes:
+        # 计划创建时冻结的展开结果；子计划之后怎么改都不影响这次执行（D59）
+        nodes = order_nodes([dict(node) for node in snapshot_nodes])
+    else:
+        definition = plan.definition or {}
+        try:
+            nodes = await expand_nodes(
+                session, definition, parent_version_id=plan.product_version_id
+            )
+        except PlanError as exc:
+            raise RunError(str(exc)) from exc
+        nodes = order_nodes(nodes)
 
     run = Run(
         plan_id=plan.id,
@@ -65,6 +70,7 @@ async def execute_plan(
         product_version_id=plan.product_version_id,
         trigger=trigger,
         status="running",
+        plan_sha256=plan.snapshot_sha256 or None,
         started_at=datetime.now(UTC),
     )
     session.add(run)

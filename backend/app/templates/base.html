@@ -34,7 +34,16 @@
   </style>
 </head>
 <body>
-  <h1><a href="/">RiverAT</a></h1>
+  <div style="display:flex; justify-content:space-between; align-items:baseline;">
+    <h1><a href="/">RiverAT</a></h1>
+    {% if user %}
+    <form method="post" action="/logout" style="margin:0;">
+      <span class="muted">{{ user.display_name }}（{{ user.role }}）</span>
+      <button type="submit"
+              style="margin-left:.5rem; padding:.2rem .6rem; cursor:pointer;">退出</button>
+    </form>
+    {% endif %}
+  </div>
   <p class="muted" style="margin-top:-.4rem">
     <a href="/">执行记录</a> · <a href="/products">产品树</a>
     · 产品组合自动化测试平台 v0

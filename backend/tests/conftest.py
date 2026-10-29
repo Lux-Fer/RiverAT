@@ -148,7 +148,7 @@ async def session(engine):
         await session.execute(
             text(
                 "TRUNCATE run_step, run, plan, version_component, "
-                "product_version, product RESTART IDENTITY CASCADE"
+                'product_version, product, host, "user" RESTART IDENTITY CASCADE'
             )
         )
         await session.commit()

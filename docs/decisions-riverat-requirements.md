@@ -97,6 +97,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D57 | 计划继承用 `includes: [{plan_id, prefix}]`：**只能引用当前版本已锁定的子版本的计划**；子计划节点 key 加前缀（默认子产品编码），依赖一起改写；展开后统一做 DAG 校验，创建时就返回 422 | 组合测试的本质是"父计划 = 子计划节点的并集 + 自己的集成节点"；把校验放在写入时，才不会跑到一半才发现引用错版本 |
 | D58 | 测试机存在 `host` 表；密码用 **Fernet（密钥由 `SECRET_KEY` 派生）加密**入库，接口只回显非敏感字段；`run.host_id` 记录执行目标；远端工作目录 `/tmp/riverat-runs/<run_id>`，跑完删除 | 推送模型（D22）落地；凭据既不能明文入库，也不能通过 API 回显 |
 | D59 | 计划**创建时冻结展开快照**（`plan.snapshot` + `snapshot_sha256`），执行只读快照；`run.plan_sha256` 记录本次用的是哪一版 | 回答 Q14：子计划之后被编辑，不会改变既有计划的行为，历史结果可复现 |
+| D60 | v1 登录 = 本地账号（argon2）+ **服务端会话**：cookie 只带 token（HttpOnly / SameSite=Lax），会话数据在 Redis（测试用内存）；API 未登录 401，页面 303 跳 `/login`；首个管理员由 `ADMIN_PASSWORD` 引导 | 落地 D43；LDAP/SSO 只需换 Provider（D36/D40），`user.auth_source` 已留位 |
 
 ## 4. 待定
 
@@ -177,3 +178,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 计划继承：includes + 前缀展开 + 展开后 DAG 校验（D57），全套 68 passed / 3 skipped。
 - 2026-10-29 测试机与远端执行：host 表 + 凭据加密 + run.host_id + SSH 执行（D58），全套 74 passed / 3 skipped。
 - 2026-10-29 计划快照：创建时冻结展开结果 + run.plan_sha256（D59，Q14 关闭），全套 75 passed / 3 skipped。
+- 2026-10-29 登录与会话：本地账号 + Redis 会话 + 接口/页面保护（D60），全套 81 passed / 3 skipped。

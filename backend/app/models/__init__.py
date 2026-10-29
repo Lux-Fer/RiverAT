@@ -37,6 +37,26 @@ def _new_uuid() -> uuid.UUID:
     return uuid.uuid4()
 
 
+class User(Base):
+    """本地账号（D36/D40）。LDAP/SSO 用户 `password_hash` 为空、`auth_source` 不同。"""
+
+    __tablename__ = "user"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    username: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(200), default="")
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    auth_source: Mapped[str] = mapped_column(String(32), default="local")
+    external_id: Mapped[str | None] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(32), default="engineer")
+    is_active: Mapped[bool] = mapped_column(default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 class Product(Base):
     """产品树节点。"""
 

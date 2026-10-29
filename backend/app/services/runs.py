@@ -64,23 +64,43 @@ async def execute_plan(
     transport = LocalTransport()
     workdir = tempfile.mkdtemp(prefix="riverat-run-")
     statuses: list[str] = []
+    state_by_key: dict[str, str] = {}
 
     try:
-        for node in nodes:
-            if not isinstance(node, dict) or "key" not in node or "plugin" not in node:
-                raise RunError(f"节点配置非法: {node!r}")
+        for node in order_nodes(nodes):
+            key = str(node["key"])
+            deps = [str(d) for d in (node.get("depends_on") or [])]
+            blocked_by = [d for d in deps if state_by_key.get(d) != "passed"]
+            if blocked_by:
+                state_by_key[key] = "blocked"
+                statuses.append("blocked")
+                session.add(
+                    RunStep(
+                        run_id=run.id,
+                        node_key=key,
+                        status="blocked",
+                        reason=f"依赖未通过: {', '.join(blocked_by)}",
+                        evidence={},
+                        started_at=datetime.now(UTC),
+                        finished_at=datetime.now(UTC),
+                    )
+                )
+                await session.flush()
+                continue
+
             started = datetime.now(UTC)
             outcome = await asyncio.to_thread(
                 run_step,
                 transport,
                 _resolve_bundle(str(node["plugin"])),
                 workdir=workdir,
-                step={"step_id": str(node["key"]), "args": node.get("args") or {}},
+                step={"step_id": key, "args": node.get("args") or {}},
                 timeout=node.get("timeout"),
             )
             finished = datetime.now(UTC)
+            state_by_key[key] = outcome.status.value
             statuses.append(outcome.status.value)
-            session.add(_to_run_step(run.id, str(node["key"]), outcome, started, finished))
+            session.add(_to_run_step(run.id, key, outcome, started, finished))
             await session.flush()
     finally:
         transport.close()
@@ -89,6 +109,43 @@ async def execute_plan(
         await session.flush()
 
     return run
+
+
+def order_nodes(nodes: list[dict]) -> list[dict]:
+    """按 depends_on 做稳定拓扑排序；依赖不存在或成环都报错。"""
+
+    by_key: dict[str, dict] = {}
+    for node in nodes:
+        if not isinstance(node, dict) or "key" not in node or "plugin" not in node:
+            raise RunError(f"节点配置非法: {node!r}")
+        key = str(node["key"])
+        if key in by_key:
+            raise RunError(f"节点 key 重复: {key}")
+        by_key[key] = node
+
+    indegree = {key: 0 for key in by_key}
+    children: dict[str, list[str]] = {key: [] for key in by_key}
+    for key, node in by_key.items():
+        for dep in node.get("depends_on") or []:
+            dep = str(dep)
+            if dep not in by_key:
+                raise RunError(f"节点 {key} 依赖不存在的节点: {dep}")
+            indegree[key] += 1
+            children[dep].append(key)
+
+    queue = [key for key in by_key if indegree[key] == 0]
+    ordered: list[dict] = []
+    while queue:
+        key = queue.pop(0)
+        ordered.append(by_key[key])
+        for child in children[key]:
+            indegree[child] -= 1
+            if indegree[child] == 0:
+                queue.append(child)
+
+    if len(ordered) != len(nodes):
+        raise RunError("节点依赖成环")
+    return ordered
 
 
 def _resolve_bundle(plugin: str) -> Path:

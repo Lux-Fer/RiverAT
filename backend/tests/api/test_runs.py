@@ -4,11 +4,6 @@ from __future__ import annotations
 
 import uuid
 
-import httpx
-import pytest
-
-from app.db.session import get_session
-from app.main import create_app
 from app.models import Plan, Product, ProductVersion, Run, RunStep
 from tests.plugins import make_plugin
 
@@ -28,25 +23,6 @@ async def _seed_plan(session, nodes: list[dict]) -> Plan:
     session.add(plan)
     await session.commit()
     return plan
-
-
-@pytest.fixture
-def app(session):
-    application = create_app()
-
-    async def _override():
-        yield session
-
-    application.dependency_overrides[get_session] = _override
-    yield application
-    application.dependency_overrides.clear()
-
-
-@pytest.fixture
-async def client(app):
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:
-        yield http
 
 
 def _pass_fail_plugins(tmp_path):
@@ -122,3 +98,35 @@ async def test_runs_page_lists_created_run(session, client, tmp_path):
 
     assert page.status_code == 200
     assert str(created.json()["id"]) in page.text
+
+
+async def test_dependency_failure_blocks_downstream(session, client, tmp_path):
+    ok, bad = _pass_fail_plugins(tmp_path)
+    plan = await _seed_plan(
+        session,
+        [
+            {"key": "login", "plugin": str(ok), "timeout": 30},
+            {"key": "logout", "plugin": str(bad), "timeout": 30},
+            {
+                "key": "report",
+                "plugin": str(ok),
+                "timeout": 30,
+                "depends_on": ["logout"],
+            },
+        ],
+    )
+
+    response = await client.post("/api/v1/runs", json={"plan_id": str(plan.id)})
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["status"] == "failed"
+    assert {step["node_key"]: step["status"] for step in body["steps"]} == {
+        "login": "passed",
+        "logout": "failed",
+        "report": "blocked",
+    }
+
+    page = await client.get(f"/runs/{body['id']}")
+    assert page.status_code == 200
+    assert 'class="badge blocked"' in page.text

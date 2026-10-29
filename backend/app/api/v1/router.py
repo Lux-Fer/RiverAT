@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.api.v1.plans import router as plans_router
 from app.api.v1.runs import router as runs_router
 
 api_router = APIRouter()
+api_router.include_router(plans_router)
 api_router.include_router(runs_router)
 
 

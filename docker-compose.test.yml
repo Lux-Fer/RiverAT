@@ -1,0 +1,22 @@
+# 仅用于测试的依赖服务：一个真实的 SSH 目标，让 SshTransport 跑同一套契约测试。
+#
+#   docker compose -f docker-compose.test.yml up -d
+#   $env:RIVERAT_TEST_SSH="127.0.0.1:2222:riverat:riverat"
+#   uv run pytest tests/transport -q
+#
+# 生产部署不要使用这个文件。
+services:
+  sshd:
+    image: lscr.io/linuxserver/openssh-server:latest
+    container_name: riverat-test-sshd
+    restart: unless-stopped
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      TZ: UTC
+      USER_NAME: riverat
+      USER_PASSWORD: riverat
+      PASSWORD_ACCESS: "true"
+      SUDO_ACCESS: "false"
+    ports:
+      - "2222:2222"

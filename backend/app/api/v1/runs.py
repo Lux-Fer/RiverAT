@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.services.hosts import get_host
 from app.services.runs import RunError, execute_plan, get_run, list_runs, list_steps
 
 router = APIRouter(prefix="/runs", tags=["runs"])
@@ -18,6 +19,7 @@ router = APIRouter(prefix="/runs", tags=["runs"])
 class RunCreate(BaseModel):
     plan_id: UUID
     trigger: str = "manual"
+    host_id: UUID | None = None
 
 
 class StepOut(BaseModel):
@@ -32,6 +34,7 @@ class RunOut(BaseModel):
     id: UUID
     status: str
     trigger: str
+    host_id: UUID | None = None
     steps: list[StepOut] = []
 
 
@@ -39,6 +42,7 @@ class RunSummary(BaseModel):
     id: UUID
     status: str
     trigger: str
+    host_id: UUID | None = None
 
 
 async def _to_run_out(session: AsyncSession, run) -> RunOut:
@@ -47,6 +51,7 @@ async def _to_run_out(session: AsyncSession, run) -> RunOut:
         id=run.id,
         status=run.status,
         trigger=run.trigger,
+        host_id=run.host_id,
         steps=[
             StepOut(
                 node_key=step.node_key,
@@ -65,8 +70,16 @@ async def create_run(
     payload: RunCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> RunOut:
+    host = None
+    if payload.host_id is not None:
+        host = await get_host(session, payload.host_id)
+        if host is None:
+            raise HTTPException(status_code=404, detail="测试机不存在")
+
     try:
-        run = await execute_plan(session, payload.plan_id, trigger=payload.trigger)
+        run = await execute_plan(
+            session, payload.plan_id, trigger=payload.trigger, host=host
+        )
     except RunError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     await session.commit()
@@ -78,7 +91,9 @@ async def read_runs(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> list[RunSummary]:
     return [
-        RunSummary(id=run.id, status=run.status, trigger=run.trigger)
+        RunSummary(
+            id=run.id, status=run.status, trigger=run.trigger, host_id=run.host_id
+        )
         for run in await list_runs(session)
     ]
 

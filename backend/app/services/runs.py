@@ -18,10 +18,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.models import Plan, Run, RunStep
+from app.models import Host, Plan, Run, RunStep
 from app.runner.executor import StepOutcome, run_step
+from app.services.hosts import HostError, build_transport
 from app.services.plans import PlanError, expand_nodes
-from app.transport.base import TransportError
+from app.transport.base import Transport, TransportError
 from app.transport.local import LocalTransport
 
 _MAX_EVIDENCE_CHARS = 16_384
@@ -43,6 +44,7 @@ async def execute_plan(
     plan_id: UUID,
     *,
     trigger: str = "manual",
+    host: Host | None = None,
 ) -> Run:
     plan = await session.get(Plan, plan_id)
     if plan is None:
@@ -59,6 +61,7 @@ async def execute_plan(
 
     run = Run(
         plan_id=plan.id,
+        host_id=host.id if host is not None else None,
         product_version_id=plan.product_version_id,
         trigger=trigger,
         status="running",
@@ -67,8 +70,18 @@ async def execute_plan(
     session.add(run)
     await session.flush()
 
-    transport = LocalTransport()
-    workdir = tempfile.mkdtemp(prefix="riverat-run-")
+    if host is None:
+        transport: Transport = LocalTransport()
+        workdir = tempfile.mkdtemp(prefix="riverat-run-")
+        remote_workdir: str | None = None
+    else:
+        try:
+            transport = build_transport(host)
+        except HostError as exc:
+            raise RunError(str(exc)) from exc
+        workdir = f"/tmp/riverat-runs/{run.id}"
+        remote_workdir = workdir
+
     statuses: list[str] = []
     state_by_key: dict[str, str] = {}
 
@@ -109,6 +122,11 @@ async def execute_plan(
             session.add(_to_run_step(run.id, key, outcome, started, finished))
             await session.flush()
     finally:
+        if remote_workdir is not None:
+            try:
+                transport.exec(["sh", "-c", f"rm -rf {remote_workdir}"], timeout=30)
+            except TransportError:
+                pass
         transport.close()
         run.finished_at = datetime.now(UTC)
         run.status = aggregate_status(statuses)

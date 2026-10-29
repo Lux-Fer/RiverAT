@@ -120,6 +120,28 @@ class Plan(Base):
     )
 
 
+class Host(Base):
+    """测试机（执行目标）。凭据只存密文（D22）。"""
+
+    __tablename__ = "host"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    name: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    hostname: Mapped[str] = mapped_column(String(200))
+    port: Mapped[int] = mapped_column(Integer, default=22)
+    username: Mapped[str] = mapped_column(String(100))
+    auth_type: Mapped[str] = mapped_column(String(32), default="password")
+    secret_encrypted: Mapped[str] = mapped_column(String(1000))
+    os: Mapped[str] = mapped_column(String(32), default="linux")
+    status: Mapped[str] = mapped_column(String(32), default="unknown")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class Run(Base):
     """一次执行实例。"""
 
@@ -130,6 +152,9 @@ class Run(Base):
     )
     plan_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("plan.id", ondelete="CASCADE"), index=True
+    )
+    host_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("host.id", ondelete="SET NULL"), index=True
     )
     product_version_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("product_version.id", ondelete="CASCADE"), index=True

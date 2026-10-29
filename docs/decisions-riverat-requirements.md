@@ -95,6 +95,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D55 | 计划由 `POST /plans` 创建，`definition` 接受 **JSON 或 YAML**；`depends_on` 做稳定拓扑排序，**依赖不存在/成环在创建时就返回 422**；运行时依赖未通过 → 下游 `blocked` | 错误要在"写计划"时就暴露，而不是跑到一半才发现；`blocked` 让"没测"和"测失败"在页面上可区分 |
 | D56 | **产品树的 `parent_id`（组织归属）与版本组成 `version_component`（版本锁定）是两条独立的线**；组成在写时校验（子版本属于子产品、同子产品只锁一个、禁止自引用） | 组织上"属于哪条产品线"和"这一版到底用哪个子版本"是不同问题，混在一张表里会同时失去两者的语义 |
 | D57 | 计划继承用 `includes: [{plan_id, prefix}]`：**只能引用当前版本已锁定的子版本的计划**；子计划节点 key 加前缀（默认子产品编码），依赖一起改写；展开后统一做 DAG 校验，创建时就返回 422 | 组合测试的本质是"父计划 = 子计划节点的并集 + 自己的集成节点"；把校验放在写入时，才不会跑到一半才发现引用错版本 |
+| D58 | 测试机存在 `host` 表；密码用 **Fernet（密钥由 `SECRET_KEY` 派生）加密**入库，接口只回显非敏感字段；`run.host_id` 记录执行目标；远端工作目录 `/tmp/riverat-runs/<run_id>`，跑完删除 | 推送模型（D22）落地；凭据既不能明文入库，也不能通过 API 回显 |
 
 ## 4. 待定
 
@@ -173,3 +174,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 计划接口与依赖：POST/GET plans（JSON/YAML）+ depends_on → blocked（D55），全套 58 passed / 3 skipped。
 - 2026-10-29 产品目录：产品树 + 版本 + 版本锁死（D56）+ 两个页面，全套 64 passed / 3 skipped。
 - 2026-10-29 计划继承：includes + 前缀展开 + 展开后 DAG 校验（D57），全套 68 passed / 3 skipped。
+- 2026-10-29 测试机与远端执行：host 表 + 凭据加密 + run.host_id + SSH 执行（D58），全套 74 passed / 3 skipped。

@@ -1,0 +1,168 @@
+"""核心数据模型（D28 的最小可执行子集）。
+
+设计要点：
+
+* **产品树**（D4）：``product.parent_id`` 指向父产品；真正的组合关系落在
+  ``version_component`` 上，因为"版本锁死"（D5）是版本级约束。
+* **版本锁死**（D5）：一个父版本里，同一个子产品只能出现一次
+  （``uq_component_child``），且必须指向一个具体的子版本。
+* **计划**（D8/D50）：``plan.definition`` 存声明式 YAML/JSON，平台不解释语义。
+* **执行**（D15）：``run_step.status`` 的五个终态由编排层写入，runner 只提供
+  passed / failed / skipped / error，blocked 由依赖关系判定。
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import datetime
+
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
+
+RUN_STEP_STATUSES = ("passed", "failed", "skipped", "blocked", "error")
+RUN_STATUSES = ("queued", "running", "passed", "failed", "error", "blocked")
+
+
+def _new_uuid() -> uuid.UUID:
+    return uuid.uuid4()
+
+
+class Product(Base):
+    """产品树节点。"""
+
+    __tablename__ = "product"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("product.id", ondelete="SET NULL"), index=True
+    )
+    department: Mapped[str | None] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ProductVersion(Base):
+    """可复现的测试对象：产品的一个具体版本。"""
+
+    __tablename__ = "product_version"
+    __table_args__ = (
+        UniqueConstraint("product_id", "version", name="uq_product_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    product_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product.id", ondelete="CASCADE"), index=True
+    )
+    version: Mapped[str] = mapped_column(String(64))
+    state: Mapped[str] = mapped_column(String(32), default="created")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class VersionComponent(Base):
+    """版本组成：父版本锁定的一组子版本（D5）。"""
+
+    __tablename__ = "version_component"
+    __table_args__ = (
+        UniqueConstraint(
+            "parent_version_id", "child_product_id", name="uq_component_child"
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    parent_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_version.id", ondelete="CASCADE"), index=True
+    )
+    child_product_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product.id", ondelete="RESTRICT"), index=True
+    )
+    child_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_version.id", ondelete="RESTRICT")
+    )
+
+
+class Plan(Base):
+    """声明式测试计划；内容不解释，只存原文（D8）。"""
+
+    __tablename__ = "plan"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    product_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_version.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    definition: Mapped[dict] = mapped_column(JSONB, default=dict)
+    revision: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Run(Base):
+    """一次执行实例。"""
+
+    __tablename__ = "run"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    plan_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plan.id", ondelete="CASCADE"), index=True
+    )
+    product_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_version.id", ondelete="CASCADE"), index=True
+    )
+    trigger: Mapped[str] = mapped_column(String(32), default="manual")
+    status: Mapped[str] = mapped_column(String(32), default="queued", index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=3)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RunStep(Base):
+    """计划节点的执行终态与证据指针（D15/D16）。"""
+
+    __tablename__ = "run_step"
+    __table_args__ = (
+        UniqueConstraint("run_id", "node_key", "attempt", name="uq_run_step_attempt"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    run_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("run.id", ondelete="CASCADE"), index=True
+    )
+    node_key: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(32))
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    exit_code: Mapped[int | None] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    reason: Mapped[str | None] = mapped_column(String(500))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

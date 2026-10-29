@@ -89,6 +89,8 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D28 | 核心 8 表：`product` / `product_version` / `version_component` / `plan` / `plan_node` / `plugin`(+version) / `run`(+run_step) / `evidence`；支撑表：`host`、`credential`、`notification`、`priority_override`、`audit_log`、`knowledge_source/doc/chunk` | 关系由 D4/D5/D8/D15 直接推出 |
 | D29 | 领导页 5 个数字：① 放行结论分布（绿/黄/红）② 剔除 flaky 的通过率趋势 ③ 节点终态覆盖率 ④ 风险敞口（变更未回归 + 离线未执行）⑤ 端到端耗时 P50/P90 | 领导要的是"能不能发、有没有风险"，不是执行细节 |
 | D30 | 现有技术栈（已定部分）：FastAPI + SQLAlchemy(async) + PostgreSQL + Redis + PyJWT/argon2 + Alembic + structlog；`frontend` / `plugin` / `rag` 未选型 | 见第 6 节 |
+| D52 | 数据层测试跑**真 PostgreSQL + 真 Alembic 迁移**（临时库 `riverat_test`，用完即删），不用 SQLite 替代 | UUID / JSONB / 唯一约束都是 PG 语义；换库测试等于自己考自己 |
+| D53 | `alembic.ini` 保持 **ASCII**；连接串留空，由 `migrations/env.py` 从 `.env` 读取，测试可覆盖 | configparser 按系统 locale 读文件，中文注释在 GBK 环境下会直接让 alembic 起不来 |
 
 ## 4. 待定
 
@@ -161,3 +163,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 执行层落地：transport 契约 + 一致性测试（local 14 项 / SSH 13 项全绿），新增 D45–D46 与 `docs/transport-contract.md`。
 - 2026-10-29 执行层修复：超时杀进程树、断连抛错、输出封顶（D47–D49），契约测试扩到 34 passed / 3 skipped。
 - 2026-10-29 插件执行闭环：runner（打包 → 上传 → 执行 → 回收 → 清理）+ 插件契约 v0（D50–D51），全套 46 passed / 3 skipped。
+- 2026-10-29 数据层：Settings + 异步会话 + 5 张核心表 + 首个迁移；测试跑真 PG（D52–D53），全套 49 passed / 3 skipped。

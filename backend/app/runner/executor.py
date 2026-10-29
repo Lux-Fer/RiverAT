@@ -51,6 +51,7 @@ class StepOutcome:
     reason: str = ""
     bundle_sha256: str = ""
     remote_workdir: str = ""
+    truncated: bool = False
 
 
 def run_step(
@@ -150,6 +151,7 @@ def run_step(
             reason=reason,
             bundle_sha256=digest,
             remote_workdir=remote,
+            truncated=result.truncated,
         )
 
 

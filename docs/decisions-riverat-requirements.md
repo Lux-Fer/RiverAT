@@ -91,6 +91,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D30 | 现有技术栈（已定部分）：FastAPI + SQLAlchemy(async) + PostgreSQL + Redis + PyJWT/argon2 + Alembic + structlog；`frontend` / `plugin` / `rag` 未选型 | 见第 6 节 |
 | D52 | 数据层测试跑**真 PostgreSQL + 真 Alembic 迁移**（临时库 `riverat_test`，用完即删），不用 SQLite 替代 | UUID / JSONB / 唯一约束都是 PG 语义；换库测试等于自己考自己 |
 | D53 | `alembic.ini` 保持 **ASCII**；连接串留空，由 `migrations/env.py` 从 `.env` 读取，测试可覆盖 | configparser 按系统 locale 读文件，中文注释在 GBK 环境下会直接让 alembic 起不来 |
+| D54 | v1 执行是**同步**的（`POST /runs` 等整轮跑完才返回）；队列化留到接 arq 时 | 先把"跑通 → 落库 → 页面可见"闭环做出来；接口形状不变，换实现不动调用方 |
 
 ## 4. 待定
 
@@ -164,3 +165,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 执行层修复：超时杀进程树、断连抛错、输出封顶（D47–D49），契约测试扩到 34 passed / 3 skipped。
 - 2026-10-29 插件执行闭环：runner（打包 → 上传 → 执行 → 回收 → 清理）+ 插件契约 v0（D50–D51），全套 46 passed / 3 skipped。
 - 2026-10-29 数据层：Settings + 异步会话 + 5 张核心表 + 首个迁移；测试跑真 PG（D52–D53），全套 49 passed / 3 skipped。
+- 2026-10-29 执行接口与页面：POST/GET runs + 服务端渲染；run_step 增加 evidence（D54），全套 53 passed / 3 skipped。

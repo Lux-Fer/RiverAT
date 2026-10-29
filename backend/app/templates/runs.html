@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+  {% if runs %}
+  <table>
+    <thead>
+      <tr><th>Run</th><th>状态</th><th>触发方式</th><th>创建时间</th></tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr>
+        <td><a href="/runs/{{ run.id }}">{{ run.id }}</a></td>
+        <td><span class="badge {{ run.status }}">{{ run.status }}</span></td>
+        <td>{{ run.trigger }}</td>
+        <td class="muted">{{ run.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">还没有执行记录。用 <code>POST /api/v1/runs</code> 触发一次。</p>
+  {% endif %}
+{% endblock %}

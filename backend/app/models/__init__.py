@@ -164,5 +164,8 @@ class RunStep(Base):
     exit_code: Mapped[int | None] = mapped_column(Integer)
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     reason: Mapped[str | None] = mapped_column(String(500))
+    # v0 证据：stdout/stderr 尾部（截断）、产物文件名、插件包哈希。
+    # 完整证据表（对象存储 + 大文件）留到附件功能一起做。
+    evidence: Mapped[dict] = mapped_column(JSONB, default=dict)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

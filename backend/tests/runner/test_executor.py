@@ -5,44 +5,14 @@
 
 from __future__ import annotations
 
-import json
 import shlex
-from pathlib import Path
 
 from app.runner.executor import StepStatus, run_step
-
-
-def _plugin(tmp_path: Path, name: str, sh_body: str, ps_body: str) -> Path:
-    directory = tmp_path / name
-    directory.mkdir(parents=True)
-    (directory / "plugin.json").write_text(
-        json.dumps(
-            {
-                "name": name,
-                "version": "0.1.0",
-                "timeout_seconds": 10,
-                "entrypoints": {
-                    "linux": ["sh", "main.sh"],
-                    "windows": [
-                        "powershell",
-                        "-NoProfile",
-                        "-ExecutionPolicy",
-                        "Bypass",
-                        "-File",
-                        "main.ps1",
-                    ],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    (directory / "main.sh").write_text(sh_body, encoding="utf-8", newline="\n")
-    (directory / "main.ps1").write_text(ps_body, encoding="utf-8")
-    return directory
+from tests.plugins import make_plugin
 
 
 def test_step_passes_and_captures_stdout(transport, workdir, tmp_path):
-    bundle = _plugin(
+    bundle = make_plugin(
         tmp_path,
         "passer",
         'echo "hello from plugin"\n',
@@ -60,7 +30,7 @@ def test_step_passes_and_captures_stdout(transport, workdir, tmp_path):
 
 
 def test_step_failure_keeps_exit_code_and_stderr(transport, workdir, tmp_path):
-    bundle = _plugin(
+    bundle = make_plugin(
         tmp_path,
         "failer",
         'echo "boom" >&2\nexit 7\n',
@@ -77,7 +47,7 @@ def test_step_failure_keeps_exit_code_and_stderr(transport, workdir, tmp_path):
 
 
 def test_step_can_declare_skipped(transport, workdir, tmp_path):
-    bundle = _plugin(
+    bundle = make_plugin(
         tmp_path,
         "skipper",
         "printf '%s' '{\"status\":\"skipped\",\"reason\":\"no device\"}' > plugin_result.json\n",
@@ -94,7 +64,7 @@ def test_step_can_declare_skipped(transport, workdir, tmp_path):
 
 
 def test_step_timeout_becomes_error(transport, workdir, tmp_path):
-    bundle = _plugin(
+    bundle = make_plugin(
         tmp_path,
         "sleeper",
         "sleep 30\n",
@@ -112,7 +82,7 @@ def test_step_timeout_becomes_error(transport, workdir, tmp_path):
 
 
 def test_step_collects_artifacts(transport, workdir, tmp_path):
-    bundle = _plugin(
+    bundle = make_plugin(
         tmp_path,
         "artist",
         'mkdir -p artifacts\necho ok > artifacts/result.txt\n',
@@ -129,7 +99,7 @@ def test_step_collects_artifacts(transport, workdir, tmp_path):
 
 
 def test_remote_workdir_is_cleaned(transport, target_os, workdir, tmp_path):
-    bundle = _plugin(
+    bundle = make_plugin(
         tmp_path, "cleaner", 'echo "done"\n', 'Write-Output "done"\n'
     )
 

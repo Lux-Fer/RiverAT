@@ -1,21 +1,38 @@
-"""所有 transport 一致性测试与 runner 测试共用的夹具。
+"""所有测试共用的夹具：执行目标（local/ssh）与数据库（真 PG + 真迁移）。
 
-``local`` 永远参与；设置 ``RIVERAT_TEST_SSH=host:port:user:password`` 时
-再加上真实 SSH 目标。同一套断言必须在两者上都通过。
+* transport：``local`` 永远参与；``RIVERAT_TEST_SSH=host:port:user:password``
+  时再加上真实 SSH 目标。
+* database：每次会话建一个临时库 ``riverat_test``，跑真实迁移，用完即删；
+  每个用例开始前 TRUNCATE，互不影响。
 """
 
 from __future__ import annotations
 
+import asyncio
 import os
 import shutil
 import tempfile
 import uuid
 from pathlib import Path
 
+import asyncpg
 import pytest
+import pytest_asyncio
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
+from app.core.config import BASE_DIR, get_settings
 from app.transport.local import LocalTransport
 from app.transport.ssh import SshTransport
+
+TEST_DATABASE = "riverat_test"
+
+
+# -- transport --------------------------------------------------------
 
 
 def _targets() -> list[pytest.param]:
@@ -74,3 +91,66 @@ def workdir(transport, target_os):
     transport.exec(["mkdir", "-p", path])
     yield path
     transport.exec(["rm", "-rf", path])
+
+
+# -- database ---------------------------------------------------------
+
+
+async def _admin_execute(*statements: str) -> None:
+    url = make_url(get_settings().database_url)
+    connection = await asyncpg.connect(
+        host=url.host,
+        port=url.port,
+        user=url.username,
+        password=url.password,
+        database="postgres",
+    )
+    try:
+        for statement in statements:
+            await connection.execute(statement)
+    finally:
+        await connection.close()
+
+
+@pytest.fixture(scope="session")
+def database_url() -> str:
+    """建干净的测试库 → 跑真实迁移 → 结束时删除。"""
+
+    url = make_url(get_settings().database_url)
+    asyncio.run(
+        _admin_execute(
+            f'DROP DATABASE IF EXISTS "{TEST_DATABASE}" WITH (FORCE)',
+            f'CREATE DATABASE "{TEST_DATABASE}"',
+        )
+    )
+
+    test_url = url.set(database=TEST_DATABASE).render_as_string(hide_password=False)
+    config = Config(str(BASE_DIR / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", test_url)
+    command.upgrade(config, "head")
+
+    yield test_url
+
+    asyncio.run(_admin_execute(f'DROP DATABASE IF EXISTS "{TEST_DATABASE}" WITH (FORCE)'))
+
+
+@pytest_asyncio.fixture
+async def engine(database_url):
+    engine = create_async_engine(database_url, poolclass=NullPool)
+    yield engine
+    await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def session(engine):
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as session:
+        await session.execute(
+            text(
+                "TRUNCATE run_step, run, plan, version_component, "
+                "product_version, product RESTART IDENTITY CASCADE"
+            )
+        )
+        await session.commit()
+        yield session
+        await session.rollback()

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     log_level: str = "INFO"
     cors_origins: list[str] = ["http://localhost:5173"]
+    # 相对路径的插件包从这儿解析（绝对路径原样使用）
+    bundle_root: Path = BASE_DIR / "var" / "plugins"
 
 
 @lru_cache

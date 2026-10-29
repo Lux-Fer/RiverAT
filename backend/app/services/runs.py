@@ -1,0 +1,151 @@
+"""把一条计划跑起来并落库（v1：同步执行，跑完才返回）。
+
+编排语义（D13/D15）：
+* 顺序执行 ``plan.definition["nodes"]``，每个节点一个 ``run_step``；
+* 节点失败**不中断**后续节点（失败是信息，不是中止理由）；
+* run 的终态取所有节点的最坏值：error > failed > blocked > passed。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import UUID
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.models import Plan, Run, RunStep
+from app.runner.executor import StepOutcome, run_step
+from app.transport.base import TransportError
+from app.transport.local import LocalTransport
+
+_MAX_EVIDENCE_CHARS = 16_384
+_STATUS_SEVERITY = {"error": 4, "failed": 3, "blocked": 2, "skipped": 1, "passed": 0}
+
+
+class RunError(RuntimeError):
+    """请求无法执行（计划不存在、节点配置非法等）。"""
+
+
+def aggregate_status(statuses: list[str]) -> str:
+    if not statuses:
+        return "error"
+    return max(statuses, key=lambda s: _STATUS_SEVERITY.get(s, 4))
+
+
+async def execute_plan(
+    session: AsyncSession,
+    plan_id: UUID,
+    *,
+    trigger: str = "manual",
+) -> Run:
+    plan = await session.get(Plan, plan_id)
+    if plan is None:
+        raise RunError(f"计划不存在: {plan_id}")
+
+    nodes = (plan.definition or {}).get("nodes") or []
+    if not isinstance(nodes, list):
+        raise RunError("plan.definition.nodes 必须是数组")
+
+    run = Run(
+        plan_id=plan.id,
+        product_version_id=plan.product_version_id,
+        trigger=trigger,
+        status="running",
+        started_at=datetime.now(UTC),
+    )
+    session.add(run)
+    await session.flush()
+
+    transport = LocalTransport()
+    workdir = tempfile.mkdtemp(prefix="riverat-run-")
+    statuses: list[str] = []
+
+    try:
+        for node in nodes:
+            if not isinstance(node, dict) or "key" not in node or "plugin" not in node:
+                raise RunError(f"节点配置非法: {node!r}")
+            started = datetime.now(UTC)
+            outcome = await asyncio.to_thread(
+                run_step,
+                transport,
+                _resolve_bundle(str(node["plugin"])),
+                workdir=workdir,
+                step={"step_id": str(node["key"]), "args": node.get("args") or {}},
+                timeout=node.get("timeout"),
+            )
+            finished = datetime.now(UTC)
+            statuses.append(outcome.status.value)
+            session.add(_to_run_step(run.id, str(node["key"]), outcome, started, finished))
+            await session.flush()
+    finally:
+        transport.close()
+        run.finished_at = datetime.now(UTC)
+        run.status = aggregate_status(statuses)
+        await session.flush()
+
+    return run
+
+
+def _resolve_bundle(plugin: str) -> Path:
+    path = Path(plugin)
+    if path.is_absolute():
+        return path
+    return get_settings().bundle_root / path
+
+
+def _to_run_step(
+    run_id: UUID,
+    node_key: str,
+    outcome: StepOutcome,
+    started: datetime,
+    finished: datetime,
+) -> RunStep:
+    return RunStep(
+        run_id=run_id,
+        node_key=node_key,
+        status=outcome.status.value,
+        exit_code=outcome.exit_code,
+        duration_ms=outcome.duration_ms,
+        reason=outcome.reason or None,
+        evidence={
+            "stdout": outcome.stdout.decode("utf-8", "replace")[-_MAX_EVIDENCE_CHARS:],
+            "stderr": outcome.stderr.decode("utf-8", "replace")[-_MAX_EVIDENCE_CHARS:],
+            "artifacts": sorted(outcome.artifacts),
+            "bundle_sha256": outcome.bundle_sha256,
+            "truncated": outcome.truncated,
+        },
+        started_at=started,
+        finished_at=finished,
+    )
+
+
+async def list_runs(session: AsyncSession, limit: int = 50) -> list[Run]:
+    result = await session.execute(select(Run).order_by(Run.created_at.desc()).limit(limit))
+    return list(result.scalars().all())
+
+
+async def get_run(session: AsyncSession, run_id: UUID) -> Run | None:
+    return await session.get(Run, run_id)
+
+
+async def list_steps(session: AsyncSession, run_id: UUID) -> list[RunStep]:
+    result = await session.execute(
+        select(RunStep).where(RunStep.run_id == run_id).order_by(RunStep.node_key)
+    )
+    return list(result.scalars().all())
+
+
+__all__ = [
+    "RunError",
+    "TransportError",
+    "aggregate_status",
+    "execute_plan",
+    "get_run",
+    "list_runs",
+    "list_steps",
+]

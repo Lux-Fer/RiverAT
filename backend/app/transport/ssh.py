@@ -3,12 +3,17 @@
 与 LocalTransport 走同一套契约（见 base.Transport）：
 非零退出码与超时都是返回值，不是异常。
 
+超时语义：优先用远端 ``timeout -k 5 <t>s`` 包一层，保证通道关闭时
+远端进程（含其子进程）真的退出；退出码 124 / 137 映射为超时。
+目标机没有 ``timeout`` 命令时退化为"本地等 deadline 后关通道"，
+此时远端进程可能残留 —— 这一点写进 docs/transport-contract.md。
+
 注意：
 * 主机密钥校验在 ``strict_host_key=False`` 时使用 AutoAddPolicy，
   只适合开发/内网首次接入；生产应打开严格校验并预置 known_hosts。
-* 大输出场景下 stdout/stderr 是顺序读取的（先 stdout 后 stderr）。
-  测试脚本把日志写在 stdout、错误写在 stderr 且都很大时，理论上可能
-  阻塞；runner 约定单流输出即可规避，后续可换 select/线程读。
+* stdout/stderr 用增量读取（每块 64 KiB）并受 ``max_output_bytes`` 限制，
+  超出部分丢弃、置 ``truncated``；不会把整份日志堆进内存。
+* 连接在命令结束前中断（拿不到退出码）时抛 ``ConnectError``，而不是返回 -1。
 """
 
 from __future__ import annotations
@@ -22,14 +27,19 @@ from pathlib import Path
 import paramiko
 
 from app.transport.base import (
+    DEFAULT_MAX_OUTPUT_BYTES,
     AuthError,
     ConnectError,
     ExecResult,
     TargetInfo,
     TransferError,
-    TransportError,
+    append_capped,
     elapsed_ms,
 )
+
+# GNU coreutils / busybox `timeout` 的退出码：超时 124，KILL 后 137。
+_TIMEOUT_EXIT_CODES = frozenset({124, 137})
+_TIMEOUT_GRACE_SECONDS = 5.0
 
 
 class SshTransport:
@@ -46,6 +56,7 @@ class SshTransport:
         strict_host_key: bool = False,
         connect_timeout: float = 10.0,
         default_timeout: float = 60.0,
+        max_output_bytes: int = DEFAULT_MAX_OUTPUT_BYTES,
     ) -> None:
         self._host = host
         self._port = port
@@ -55,7 +66,9 @@ class SshTransport:
         self._strict_host_key = strict_host_key
         self._connect_timeout = connect_timeout
         self._default_timeout = default_timeout
+        self._max_output_bytes = max_output_bytes
         self._client: paramiko.SSHClient | None = None
+        self._has_timeout_cmd: bool | None = None
 
     # -- 连接 ---------------------------------------------------------
 
@@ -117,6 +130,41 @@ class SshTransport:
 
     # -- 执行 ---------------------------------------------------------
 
+    @staticmethod
+    def _compose(
+        argv: Sequence[str],
+        cwd: str | None,
+        env: Mapping[str, str] | None,
+    ) -> str:
+        command = shlex.join([str(a) for a in argv])
+        if env:
+            assignments = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
+            command = f"env {assignments} {command}"
+        if cwd:
+            command = f"cd {shlex.quote(str(cwd))} && {command}"
+        return command
+
+    def _exec_raw(self, command: str, *, timeout: float = 10.0) -> bytes:
+        """内部使用：跑一条短命令，不走超时包装，避免递归探测。"""
+
+        client = self._connect()
+        chan = client.get_transport().open_session(timeout=timeout)
+        try:
+            chan.settimeout(timeout)
+            chan.exec_command(command)
+            return chan.makefile("rb").read() or b""
+        finally:
+            chan.close()
+
+    def _supports_timeout_cmd(self) -> bool:
+        if self._has_timeout_cmd is None:
+            try:
+                probe = self._exec_raw("command -v timeout 2>/dev/null", timeout=10)
+                self._has_timeout_cmd = bool(probe.strip())
+            except (TimeoutError, paramiko.SSHException, OSError):
+                self._has_timeout_cmd = False
+        return self._has_timeout_cmd
+
     def exec(
         self,
         argv: Sequence[str],
@@ -125,43 +173,93 @@ class SshTransport:
         env: Mapping[str, str] | None = None,
         stdin: bytes | None = None,
         timeout: float | None = None,
+        max_output_bytes: int | None = None,
     ) -> ExecResult:
         timeout = timeout or self._default_timeout
+        cap = max_output_bytes or self._max_output_bytes
         client = self._connect()
 
-        # 组合顺序：cd <cwd> && env K=V ... <argv>
-        command = shlex.join([str(a) for a in argv])
-        if env:
-            assignments = " ".join(f"{k}={shlex.quote(v)}" for k, v in env.items())
-            command = f"env {assignments} {command}"
-        if cwd:
-            command = f"cd {shlex.quote(str(cwd))} && {command}"
+        command = self._compose(argv, cwd, env)
+        if self._supports_timeout_cmd():
+            command = shlex.join(
+                ["timeout", "-k", "5", f"{int(timeout)}s", "sh", "-c", command]
+            )
 
         start = time.monotonic()
+        deadline = start + timeout + _TIMEOUT_GRACE_SECONDS
+        chan = client.get_transport().open_session(timeout=timeout)
+        stdout = bytearray()
+        stderr = bytearray()
+        truncated = False
+        timed_out = False
+        abnormal = False
+        exit_code: int | None = None
+
         try:
-            sin, sout, serr = client.exec_command(command, timeout=timeout)
+            chan.settimeout(timeout + _TIMEOUT_GRACE_SECONDS)
+            chan.exec_command(command)
             if stdin is not None:
-                sin.write(stdin)
-                sin.flush()
-                sin.channel.shutdown_write()
-            stdout = sout.read()
-            stderr = serr.read()
-            exit_code = sout.channel.recv_exit_status()
+                chan.sendall(stdin)
+                chan.shutdown_write()
+
+            while True:
+                if chan.recv_ready():
+                    truncated = append_capped(stdout, chan.recv(65536), cap) or truncated
+                    continue
+                if chan.recv_stderr_ready():
+                    truncated = append_capped(stderr, chan.recv_stderr(65536), cap) or truncated
+                    continue
+                if chan.exit_status_ready():
+                    break
+                if chan.closed:
+                    abnormal = True
+                    break
+                if time.monotonic() > deadline:
+                    timed_out = True
+                    break
+                time.sleep(0.01)
+
+            if not timed_out and not abnormal:
+                exit_code = chan.recv_exit_status()
         except TimeoutError:
+            timed_out = True
+        except (EOFError, OSError, paramiko.SSHException) as exc:
+            raise ConnectError(f"SSH 连接异常中断: {exc}") from exc
+        finally:
+            chan.close()
+
+        if timed_out:
             return ExecResult(
                 exit_code=-1,
-                stdout=b"",
-                stderr=b"",
+                stdout=bytes(stdout),
+                stderr=bytes(stderr),
                 duration_ms=elapsed_ms(start),
                 timed_out=True,
+                truncated=truncated,
             )
-        except paramiko.SSHException as exc:
-            raise TransportError(f"SSH 执行失败: {exc}") from exc
+
+        if abnormal or exit_code is None:
+            raise ConnectError("SSH 连接在命令结束前中断，未收到退出码")
+
+        if exit_code in _TIMEOUT_EXIT_CODES:
+            return ExecResult(
+                exit_code=-1,
+                stdout=bytes(stdout),
+                stderr=bytes(stderr),
+                duration_ms=elapsed_ms(start),
+                timed_out=True,
+                truncated=truncated,
+            )
+
+        if exit_code < 0:
+            raise ConnectError(f"SSH 未返回有效退出码（{exit_code}）")
+
         return ExecResult(
             exit_code=exit_code,
-            stdout=stdout or b"",
-            stderr=stderr or b"",
+            stdout=bytes(stdout),
+            stderr=bytes(stderr),
             duration_ms=elapsed_ms(start),
+            truncated=truncated,
         )
 
     # -- 文件 ---------------------------------------------------------

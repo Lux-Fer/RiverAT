@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
 
 from app.transport.base import ConnectError, TransferError, TransportError
+from app.transport.local import LocalTransport
 from app.transport.ssh import SshTransport
 
 
@@ -193,3 +197,100 @@ def test_ssh_connect_error_is_typed():
     )
     with pytest.raises(ConnectError):
         transport.probe()
+
+
+# -- 超时真的结束执行 -------------------------------------------------
+
+
+def test_timeout_kills_child_processes(transport):
+    """孙进程持有管道时，超时不能被拖住（回归：曾从 1.5s 拖到 29s）。"""
+
+    if not isinstance(transport, LocalTransport):
+        pytest.skip("进程树杀灭只在本地验证；远端由 SSH 用例覆盖")
+
+    script = (
+        "import subprocess, sys, time\n"
+        "subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(20)'])\n"
+        "time.sleep(20)\n"
+    )
+    started = time.monotonic()
+    result = transport.exec([sys.executable, "-c", script], timeout=1.5)
+    elapsed = time.monotonic() - started
+
+    assert result.timed_out is True
+    assert elapsed < 5.0, f"超时被孙进程拖住：{elapsed:.1f}s"
+
+
+def test_ssh_timeout_leaves_no_remote_process(transport):
+    """超时后远端进程必须消失，否则会占端口/设备，污染下一轮。"""
+
+    if not isinstance(transport, SshTransport):
+        pytest.skip("仅 SSH 目标")
+
+    result = transport.exec(["sleep", "30"], timeout=2)
+    assert result.timed_out is True
+
+    time.sleep(1.0)  # 给 timeout 的 TERM→KILL 留出窗口
+    listing = transport.exec(
+        ["sh", "-c", "ps -eo args 2>/dev/null | grep -c '[s]leep 30' || true"]
+    )
+    assert listing.stdout_text.strip() == "0", f"残留进程：{listing.stdout_text!r}"
+
+
+def test_connection_drop_raises(transport):
+    """连接中途断开必须抛错，不能伪装成 exit_code=-1 的正常结果。"""
+
+    if not isinstance(transport, SshTransport):
+        pytest.skip("仅 SSH 目标")
+
+    outcome: dict[str, str] = {}
+
+    def run() -> None:
+        try:
+            transport.exec(["sleep", "10"], timeout=30)
+            outcome["kind"] = "returned"
+        except TransportError:
+            outcome["kind"] = "raised"
+
+    worker = threading.Thread(target=run)
+    worker.start()
+    time.sleep(0.8)
+    transport.close()
+    worker.join(timeout=15)
+
+    assert outcome.get("kind") == "raised", outcome
+
+
+# -- 输出上限与路径 ---------------------------------------------------
+
+
+def test_output_is_capped(transport, target_os, ps_shell):
+    cap = 4096
+    if target_os == "windows":
+        result = transport.exec(
+            [ps_shell, "-NoProfile", "-Command", "[Console]::Out.Write('y' * 200000)"],
+            max_output_bytes=cap,
+            timeout=60,
+        )
+    else:
+        result = transport.exec(
+            ["sh", "-c", "yes y | head -c 200000"], max_output_bytes=cap, timeout=60
+        )
+
+    assert result.exit_code == 0
+    assert len(result.stdout) <= cap
+    assert result.truncated is True
+
+
+def test_paths_with_spaces_and_unicode(transport, workdir, tmp_path):
+    payload = b"\x00\x01binary\xff"
+    source = tmp_path / "in.bin"
+    source.write_bytes(payload)
+
+    target_dir = f"{workdir}/目录 with space"
+    transport.put(source, f"{target_dir}/in.bin")
+
+    restored = tmp_path / "out.bin"
+    transport.get(f"{target_dir}/in.bin", restored)
+
+    assert restored.read_bytes() == payload

@@ -145,6 +145,9 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D44 | 支持 LDAP/AD 组 → 角色映射（`group_dn → role`），未匹配则给最小权限 | 中大型公司上百人，手工分配角色不现实 |
 | D45 | "本地模拟可信"由 **transport 契约测试**定义：同一套断言必须在 local 与真实 SSH 上同时通过 | 否则本地只是会撒谎的 mock；该套测试首次跑 SSH 就抓到了 env 传递缺陷 |
 | D46 | 真机放行只认 spike 清单（远程执行/大文件/超时清理/中文路径/断线重连/无 Python 运行时） | 本地通过 ≠ 真机通过 |
+| D47 | **超时必须真的结束执行**：本地杀进程树（`killpg` / `taskkill /T`），远端用 `timeout -k 5`；只"停止读取"不算数 | 实测本地 1.5s 超时被孙进程拖到 29.3s；SSH 超时后远端进程仍在跑 |
+| D48 | **连接中断必须抛 `ConnectError`**，禁止用 `exit_code=-1` 表示 | 断连曾被伪装成"正常结束"，上游分不清事故与失败用例 |
+| D49 | **输出必须封顶**：每路 8 MiB，超出截断并置 `truncated` | 全量缓冲进内存，一段失控日志就能打挂平台 |
 
 **部署**：离线 docker compose（镜像 `save`/`load`），客户内网单机。
 
@@ -154,3 +157,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 技术选型：方案 A 落档（D31–D39），补充 Q12 / Q13。
 - 2026-10-29 认证调整：D36 改为策略模式，新增 D40–D44（AUTH_MODE、LDAPS、OIDC、cookie session、AD 组映射）。
 - 2026-10-29 执行层落地：transport 契约 + 一致性测试（local 14 项 / SSH 13 项全绿），新增 D45–D46 与 `docs/transport-contract.md`。
+- 2026-10-29 执行层修复：超时杀进程树、断连抛错、输出封顶（D47–D49），契约测试扩到 34 passed / 3 skipped。

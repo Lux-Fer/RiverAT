@@ -7,9 +7,14 @@
 契约规则
 --------
 * 非零退出码是**数据**，不是异常：exec() 返回它。
-* 超时同样是数据：``ExecResult.timed_out=True``、``exit_code=-1``。
+* 超时是数据，但**必须真的结束执行**：``ExecResult.timed_out=True``、
+  ``exit_code=-1``；实现负责杀掉整个进程树 / 让远端进程退出。
+* 连接中断（未收到退出码）**必须**抛 ``ConnectError``，绝不伪装成
+  ``exit_code=-1``。
 * 只有连接 / 认证 / 传输失败才抛 ``TransportError``。
 * stdout/stderr 保持 bytes，要不要解码由调用方决定。
+* 输出有上限（默认 8 MiB/路）：超出部分丢弃并置 ``truncated=True``，
+  免得被测程序打几句日志就把平台内存打满。
 * ``put()`` 负责在目标机上创建缺失的父目录。
 
 调用方异步上下文里请用 ``asyncio.to_thread(transport.exec, ...)``：
@@ -24,13 +29,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
+DEFAULT_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+
 
 class TransportError(RuntimeError):
     """Transport 层失败基类。"""
 
 
 class ConnectError(TransportError):
-    """连不上目标机（网络、端口、协议握手失败）。"""
+    """连不上目标机，或连接在命令结束前中断。"""
 
 
 class AuthError(TransportError):
@@ -59,6 +66,7 @@ class ExecResult:
     stderr: bytes
     duration_ms: int
     timed_out: bool = False
+    truncated: bool = False
 
     @property
     def ok(self) -> bool:
@@ -89,11 +97,12 @@ class Transport(Protocol):
         env: Mapping[str, str] | None = None,
         stdin: bytes | None = None,
         timeout: float = 60.0,
+        max_output_bytes: int | None = None,
     ) -> ExecResult:
-        """执行一条命令（argv 形式，不经过 shell 拼接）。
+        """执行一条命令（argv 形式，不经过调用方 shell 拼接）。
 
-        非零退出码与超时都通过返回值表达，不抛异常；
-        连接 / 认证失败抛对应 ``TransportError`` 子类。
+        非零退出码与超时都通过返回值表达；超时实现必须结束整个进程树。
+        连接 / 认证失败、或连接在命令结束前中断，抛对应 ``TransportError`` 子类。
         """
 
     def put(self, local: Path, remote: str) -> None:
@@ -102,6 +111,23 @@ class Transport(Protocol):
     def get(self, remote: str, local: Path) -> None:
         """下载文件，自动创建本地父目录。"""
 
+    def close(self) -> None:
+        """释放连接 / 句柄；重复调用必须安全。"""
+
 
 def elapsed_ms(start: float) -> int:
     return max(0, int((time.monotonic() - start) * 1000))
+
+
+def append_capped(buffer: bytearray, chunk: bytes, limit: int) -> bool:
+    """把 chunk 追加进 buffer，超出 limit 的部分丢弃。
+
+    返回 True 表示这一块触发了截断。调用方仍然要把输入流读干净，
+    否则子进程会阻塞在写管道上。
+    """
+
+    if len(buffer) >= limit:
+        return True
+    take = chunk[: limit - len(buffer)]
+    buffer.extend(take)
+    return len(take) < len(chunk)

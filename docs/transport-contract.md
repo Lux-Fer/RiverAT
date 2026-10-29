@@ -15,9 +15,9 @@
 
 ## 2. 当前状态
 
-- `LocalTransport`：14 项契约全部通过（本机 Windows）。
-- `SshTransport`：13 项契约全部通过 —— 对手是真实 sshd（`docker-compose.test.yml`，走真实 SSH 协议、真实 SCP/SFTP、真实 shell）。
-- 同一套断言、两个实现、同一份结果。
+- `LocalTransport`：17 项断言通过（本机 Windows）；面向对方的 3 项用例自动跳过。
+- `SshTransport`：同一套断言通过 —— 对手是真实 sshd（`docker-compose.test.yml`，真实 SSH 协议、SFTP、shell）。
+- 同一套断言、两个实现、同一份结果：**34 passed / 3 skipped**。
 
 ```powershell
 # 仅本地
@@ -36,12 +36,26 @@ uv run pytest tests/transport -q
 | 行为 | 验证方式 |
 |---|---|
 | 退出码（含非零、含命令不存在→127） | `test_nonzero_exit_*` / `test_missing_command_*` |
-| 超时被杀并立即返回（不进程自己结束） | `test_timeout_is_reported_not_raised` |
+| 超时立刻返回，且**杀掉整个进程树**（孙进程拖不住） | `test_timeout_is_reported_not_raised` / `test_timeout_kills_child_processes` |
+| 远端超时后不留进程 | `test_ssh_timeout_leaves_no_remote_process` |
+| 连接中断抛错，而不是伪装成 `exit_code=-1` | `test_connection_drop_raises` |
+| 输出超过上限被截断并标记 | `test_output_is_capped` |
+| 中文 + 空格的路径可写可读 | `test_paths_with_spaces_and_unicode` |
 | stdout / stderr 分离 | `test_stderr_is_separate_from_stdout` |
 | cwd、环境变量、stdin | `test_cwd_*` / `test_env_*` / `test_stdin_*` |
 | 中文 + 重音 + 符号的编码往返 | `test_unicode_survives_roundtrip` |
 | 200 KB 输出不阻塞（管道缓冲区） | `test_large_output_does_not_deadlock` |
 | 二进制文件上传/下载与父目录创建 | `test_file_roundtrip_creates_parents` |
+
+### 3.1 三条硬语义（2026-10-29 补，全部有实测证据）
+
+| 语义 | 修之前 | 现在 |
+|---|---|---|
+| **超时必须结束执行** | 本地 `timeout=1.5s` 被孙进程拖到 **29.3 秒**；SSH 超时后容器里 `sleep 30` 仍在跑 | 本地 `killpg` / `taskkill /T` 杀进程树；SSH 用 `timeout -k 5` 包一层，退出码 124/137 判为超时 |
+| **断连必须抛错** | 连接中断返回 `exit_code=-1, timed_out=False`，看起来像"命令正常结束" | 未收到退出码即抛 `ConnectError` |
+| **输出必须封顶** | 全量进内存（paramiko 自身缓冲 + 整体 `read()`） | 每路 8 MiB，超出截断并置 `truncated` |
+
+另外更正一条我之前写错的结论：SSH 下"先读完 stdout 再读 stderr"**不会**死锁（实测 1 MB stderr 14 ms 读完），真实风险是内存没有上限。
 
 顺带说明：这套测试在第一次跑 SSH 时就抓到一个真实缺陷 —— `env` 前缀被 `&&` 拆成了两条命令，导致环境变量根本没传进去。这就是契约测试的价值，本地"看起来能跑"是抓不到它的。
 
@@ -75,7 +89,10 @@ uv run pytest tests/transport -q
 
 | 限制 | 影响 | 处理 |
 |---|---|---|
-| SSH 实现先读 stdout 再读 stderr | 两路同时输出 >64 KB 时理论阻塞 | runner 约定单流输出；后续换线程/select |
+| 目标机没有 `timeout` 命令 | 超时只能关通道，远端进程可能残留 | 探测后降级，并在目标机能力里标记"弱超时保证" |
+| `timeout` 的 137 也按超时处理 | 被外部 KILL 的命令会被判超时 | 原始退出码仍写进证据，可复查 |
+| SSH 未做断线重连 | 连接断了任务直接失败 | v1.1 加重连与重试 |
+| 输出上限 8 MiB/路 | 超大日志被截断 | 需要全量日志时落文件、走产物通道 |
 | `strict_host_key=False` 用 AutoAddPolicy | 只适合首次接入 | 生产打开严格校验并预置 known_hosts |
 | SSH 到 Windows 未支持 | Windows 走 WinRM 或 OpenSSH 另行实现 | 等真机 |
 | WinRM 实现未写 | 无 Windows 传输 | 真机到位后补 `WinRmTransport`，跑同一套契约 |

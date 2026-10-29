@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+  <p>
+    <strong>{{ detail.product.code }}</strong> {{ detail.product.name }}
+    <span class="badge queued">v{{ detail.version.version }}</span>
+  </p>
+
+  {% if detail.components %}
+  <table>
+    <thead>
+      <tr><th>子产品</th><th>锁定版本</th></tr>
+    </thead>
+    <tbody>
+      {% for item in detail.components %}
+      <tr>
+        <td><strong>{{ item.product.code }}</strong> {{ item.product.name }}</td>
+        <td>{{ item.version.version }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">这个版本还没有锁定任何子产品。</p>
+  {% endif %}
+{% endblock %}

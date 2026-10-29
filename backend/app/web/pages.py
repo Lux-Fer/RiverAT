@@ -15,10 +15,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import BASE_DIR
 from app.db.session import get_session
+from app.services.catalog import tree_with_versions, version_detail
 from app.services.runs import get_run, list_runs, list_steps
 
 router = APIRouter(tags=["pages"])
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+
+
+@router.get("/products", response_class=HTMLResponse)
+async def products_page(
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    tree = await tree_with_versions(session)
+    return templates.TemplateResponse(
+        request=request, name="products.html", context={"tree": tree}
+    )
+
+
+@router.get("/versions/{version_id}", response_class=HTMLResponse)
+async def version_page(
+    version_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    detail = await version_detail(session, version_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="版本不存在")
+    return templates.TemplateResponse(
+        request=request, name="version_detail.html", context={"detail": detail}
+    )
 
 
 @router.get("/", response_class=HTMLResponse)

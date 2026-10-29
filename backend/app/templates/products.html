@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% macro render(nodes, depth) %}
+  {% for node in nodes %}
+    <div style="margin-left: {{ depth * 22 }}px; padding: .35rem 0; border-bottom: 1px solid #f1f3f5;">
+      <strong>{{ node.product.code }}</strong>
+      <span>{{ node.product.name }}</span>
+      {% if node.versions %}
+        <span class="muted">版本：</span>
+        {% for v in node.versions %}
+          <a href="/versions/{{ v.id }}">{{ v.version }}</a>{% if not loop.last %} · {% endif %}
+        {% endfor %}
+      {% else %}
+        <span class="muted">（还没有版本）</span>
+      {% endif %}
+    </div>
+    {{ render(node.children, depth + 1) }}
+  {% endfor %}
+{% endmacro %}
+
+{% block content %}
+  {% if tree %}
+    <div class="card">{{ render(tree, 0) }}</div>
+  {% else %}
+    <p class="muted">还没有产品。用 <code>POST /api/v1/products</code> 建一个。</p>
+  {% endif %}
+{% endblock %}

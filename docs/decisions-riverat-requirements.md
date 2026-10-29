@@ -44,6 +44,8 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D10 | 只借 DSH 的**契约层**（配置 schema、依赖注入、声明式组合、启停、隔离），不借运行时（同进程）与 UI slot | 契约层可一比一迁移；同进程运行时无法承载崩溃与依赖冲突 |
 | D11 | 插件 = 一个产品/一项能力的适配器，**独立进程**运行，协议语言无关 | 客户产品栈有 C#/C++/硬件；进程边界同时解决崩溃隔离与依赖冲突 |
 | D12 | 插件生命周期四段：`prepare / execute / collect / cleanup` | 与声明式计划的节点语义对齐，也便于超时与清理 |
+| D50 | 插件包 = **tar.gz + `plugin.json`**（`entrypoints` 按目标系统声明）；运行时唯一参数是 `job.json` 路径 | tar 在 Linux/macOS/Windows 10+ 都有，不要求目标机装解压工具；参数走文件避免跨平台引号地狱 |
+| D51 | 结果协议 = **退出码** + 可选 `plugin_result.json`（`status`/`reason`）+ 可选 `artifacts/`（顶层文件）；平台只采信与搬运 | 平台不裁判，但必须能拿到可复盘的事实；详见 `docs/plugin-contract.md` |
 
 ### 3.4 判定、完整性与证据
 
@@ -158,3 +160,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 认证调整：D36 改为策略模式，新增 D40–D44（AUTH_MODE、LDAPS、OIDC、cookie session、AD 组映射）。
 - 2026-10-29 执行层落地：transport 契约 + 一致性测试（local 14 项 / SSH 13 项全绿），新增 D45–D46 与 `docs/transport-contract.md`。
 - 2026-10-29 执行层修复：超时杀进程树、断连抛错、输出封顶（D47–D49），契约测试扩到 34 passed / 3 skipped。
+- 2026-10-29 插件执行闭环：runner（打包 → 上传 → 执行 → 回收 → 清理）+ 插件契约 v0（D50–D51），全套 46 passed / 3 skipped。

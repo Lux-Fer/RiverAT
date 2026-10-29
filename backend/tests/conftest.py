@@ -1,8 +1,7 @@
-"""Transport 一致性测试的夹具。
+"""所有 transport 一致性测试与 runner 测试共用的夹具。
 
-参数化规则：``local`` 永远参与；设置了 ``RIVERAT_TEST_SSH=host:port:user:password``
-时再加上真实的 SSH 目标（用 docker-compose.test.yml 里的 sshd 即可）。
-同一套断言必须在两者上都通过 —— 这是"本地模拟可信"的定义。
+``local`` 永远参与；设置 ``RIVERAT_TEST_SSH=host:port:user:password`` 时
+再加上真实 SSH 目标。同一套断言必须在两者上都通过。
 """
 
 from __future__ import annotations

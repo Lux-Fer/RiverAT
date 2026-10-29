@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models import Plan, Run, RunStep
 from app.runner.executor import StepOutcome, run_step
+from app.services.plans import PlanError, expand_nodes
 from app.transport.base import TransportError
 from app.transport.local import LocalTransport
 
@@ -47,9 +48,14 @@ async def execute_plan(
     if plan is None:
         raise RunError(f"计划不存在: {plan_id}")
 
-    nodes = (plan.definition or {}).get("nodes") or []
-    if not isinstance(nodes, list):
-        raise RunError("plan.definition.nodes 必须是数组")
+    definition = plan.definition or {}
+    try:
+        nodes = await expand_nodes(
+            session, definition, parent_version_id=plan.product_version_id
+        )
+    except PlanError as exc:
+        raise RunError(str(exc)) from exc
+    nodes = order_nodes(nodes)
 
     run = Run(
         plan_id=plan.id,

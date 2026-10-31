@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+  <p>
+    <strong>{{ plan.name }}</strong>
+    <span class="muted">快照节点数：{{ snapshot_count }} · revision {{ plan.revision }}</span>
+  </p>
+
+  <div class="card" style="margin-bottom:1rem;">
+    <form method="post" action="/plans/{{ plan.id }}/run"
+          style="display:flex; gap:.5rem; align-items:center;">
+      <select name="host_id" style="padding:.35rem .5rem;">
+        <option value="">本机（local）</option>
+        {% for host in hosts %}
+        <option value="{{ host.id }}">{{ host.name }} · {{ host.hostname }}（{{ host.status }}）</option>
+        {% endfor %}
+      </select>
+      <button type="submit" style="padding:.4rem .9rem; cursor:pointer;">运行</button>
+      <span class="muted">同步执行，跑完才返回</span>
+    </form>
+  </div>
+
+  <h2 style="font-size:1rem;">定义</h2>
+  <pre style="background:#fff; padding:.8rem; border-radius:6px;">{{ definition_text }}</pre>
+{% endblock %}

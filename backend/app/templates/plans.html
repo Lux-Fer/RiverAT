@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+  {% if error %}<p style="color:#e03131;">{{ error }}</p>{% endif %}
+
+  <div class="card" style="margin-bottom:1rem;">
+    <form method="post" action="/plans">
+      <p style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+        <select name="product_version_id" required style="padding:.35rem .5rem;">
+          {% for item in versions %}
+          <option value="{{ item.version.id }}">
+            {{ item.product.code }} — {{ item.version.version }}
+          </option>
+          {% endfor %}
+        </select>
+        <input name="name" placeholder="计划名称" required
+               style="padding:.35rem .5rem; width:16rem;">
+      </p>
+      <p>
+        <textarea name="definition" rows="8" required
+                  style="width:100%; box-sizing:border-box; font-family:Consolas,monospace; font-size:13px;"
+                  placeholder="nodes:
+  - key: login
+    plugin: /abs/path/to/plugin
+    timeout: 30"></textarea>
+      </p>
+      <button type="submit" style="padding:.4rem .9rem; cursor:pointer;">创建计划</button>
+    </form>
+  </div>
+
+  {% if plans %}
+  <table>
+    <thead><tr><th>计划</th><th>创建时间</th></tr></thead>
+    <tbody>
+      {% for p in plans %}
+      <tr>
+        <td><a href="/plans/{{ p.id }}">{{ p.name }}</a></td>
+        <td class="muted">{{ p.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">还没有计划。</p>
+  {% endif %}
+{% endblock %}

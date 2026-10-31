@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
 from app.web.pages import router as pages_router
+from app.web.plans_pages import router as plans_pages_router
 
 
 @asynccontextmanager
@@ -74,6 +75,7 @@ def create_app() -> FastAPI:
 
     app.include_router(api_router, prefix="/api/v1")
     app.include_router(pages_router)
+    app.include_router(plans_pages_router)
     return app
 
 

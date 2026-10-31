@@ -20,7 +20,16 @@ from app.db.session import get_session
 from app.models import User
 from app.services.auth import AuthError
 from app.services.auth import login as auth_login
-from app.services.catalog import tree_with_versions, version_detail
+from app.services.catalog import (
+    CatalogError,
+    add_component,
+    all_versions_with_products,
+    create_product,
+    create_version,
+    list_versions,
+    tree_with_versions,
+    version_detail,
+)
 from app.services.runs import get_run, list_runs, list_steps
 
 router = APIRouter(tags=["pages"])
@@ -109,7 +118,12 @@ async def version_page(
     return templates.TemplateResponse(
         request=request,
         name="version_detail.html",
-        context={"detail": detail, "user": user},
+        context={
+            "detail": detail,
+            "user": user,
+            "versions": await all_versions_with_products(session),
+            "error": None,
+        },
     )
 
 
@@ -140,4 +154,123 @@ async def run_detail(
         request=request,
         name="run_detail.html",
         context={"run": run, "steps": steps, "user": user},
+    )
+
+
+# -- 表单操作：建产品 / 版本 / 版本组成 ---------------------------------
+
+
+@router.post("/products")
+async def create_product_form(
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    code: Annotated[str, Form()],
+    name: Annotated[str, Form()],
+    parent_id: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    try:
+        await create_product(
+            session,
+            code=code.strip(),
+            name=name.strip(),
+            parent_id=UUID(parent_id) if parent_id else None,
+        )
+    except (CatalogError, ValueError) as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="products.html",
+            context={
+                "tree": await tree_with_versions(session),
+                "user": user,
+                "error": str(exc),
+            },
+            status_code=422,
+        )
+
+    await session.commit()
+    return RedirectResponse("/products", status_code=303)
+
+
+@router.post("/products/{product_id}/versions")
+async def create_version_form(
+    product_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    version: Annotated[str, Form()],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    try:
+        await create_version(session, product_id=product_id, version=version.strip())
+    except CatalogError as exc:
+        return templates.TemplateResponse(
+            request=request,
+            name="products.html",
+            context={
+                "tree": await tree_with_versions(session),
+                "user": user,
+                "error": str(exc),
+            },
+            status_code=422,
+        )
+
+    await session.commit()
+    return RedirectResponse("/products", status_code=303)
+
+
+@router.post("/versions/{version_id}/components")
+async def add_component_form(
+    version_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    child_version_id: Annotated[str, Form()],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    from app.models import ProductVersion
+
+    child = await session.get(ProductVersion, UUID(child_version_id))
+    try:
+        if child is None:
+            raise CatalogError("子版本不存在")
+        await add_component(
+            session,
+            parent_version_id=version_id,
+            child_product_id=child.product_id,
+            child_version_id=child.id,
+        )
+    except CatalogError as exc:
+        detail = await version_detail(session, version_id)
+        return templates.TemplateResponse(
+            request=request,
+            name="version_detail.html",
+            context={
+                "detail": detail,
+                "user": user,
+                "versions": await all_versions_with_products(session),
+                "error": str(exc),
+            },
+            status_code=422,
+        )
+
+    await session.commit()
+    return RedirectResponse(f"/versions/{version_id}", status_code=303)
+
+
+@router.get("/products/{product_id}", response_class=HTMLResponse)
+async def product_versions_page(
+    product_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    from app.models import Product
+
+    product = await session.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    versions = await list_versions(session, product_id)
+    return templates.TemplateResponse(
+        request=request,
+        name="product_detail.html",
+        context={"product": product, "versions": versions, "user": user},
     )

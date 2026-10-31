@@ -72,6 +72,19 @@ async def list_versions(session: AsyncSession, product_id: UUID) -> list[Product
     return list(result.scalars().all())
 
 
+async def all_versions_with_products(session: AsyncSession) -> list[dict]:
+    """页面下拉框用：所有版本，附带所属产品。"""
+
+    rows = (
+        await session.execute(
+            select(ProductVersion, Product)
+            .join(Product, Product.id == ProductVersion.product_id)
+            .order_by(Product.code, ProductVersion.version)
+        )
+    ).all()
+    return [{"product": product, "version": version} for version, product in rows]
+
+
 async def create_version(
     session: AsyncSession, *, product_id: UUID, version: str
 ) -> ProductVersion:

@@ -100,6 +100,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D60 | v1 登录 = 本地账号（argon2）+ **服务端会话**：cookie 只带 token（HttpOnly / SameSite=Lax），会话数据在 Redis（测试用内存）；API 未登录 401，页面 303 跳 `/login`；首个管理员由 `ADMIN_PASSWORD` 引导 | 落地 D43；LDAP/SSO 只需换 Provider（D36/D40），`user.auth_source` 已留位 |
 | D62 | 角色三级：`viewer`（只读）/ `engineer`（建产品、计划、跑测试）/ `admin`（再管测试机）；`role_at_least` 统一判定，写接口挂 `require_engineer` / `require_admin`；页面按角色隐藏表单，403 渲染友好页面 | 登录之后必须能区分"领导看"和"测试执行"；权限只定义一处，接口与页面表现一致 |
 | D61 | 页面提供**表单操作**：建产品/版本/组成、建计划（YAML 文本框）、选测试机运行；表单与 API 走**同一套服务层校验**，错误以 422 页面回显 | 从"只能 curl"变成能自己用；校验只写一处，页面和接口不会各自漂移 |
+| D63 | 用户管理：admin 通过 `GET/POST/PATCH /users` 建账号、改角色、停用；页面 `/users` 仅 admin 可见；**不能停用或降级自己** | 角色系统需要"发钥匙"的地方；自锁保护比事后改数据库便宜 |
 
 ## 4. 待定
 
@@ -183,3 +184,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 登录与会话：本地账号 + Redis 会话 + 接口/页面保护（D60），全套 81 passed / 3 skipped。
 - 2026-10-29 表单页面：产品/版本/组成/计划/运行都能在网页上操作（D61），全套 84 passed / 3 skipped。
 - 2026-10-31 角色授权：viewer/engineer/admin 三级（D62），全套 89 passed / 3 skipped。
+- 2026-11-01 用户管理：admin 建用户/改角色/停用 + `/users` 页面（D63），全套 97 passed / 3 skipped。

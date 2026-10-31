@@ -22,11 +22,33 @@ from app.web.users_pages import router as users_pages_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await _bootstrap_admin()
+    await _setup_dispatcher(app)
     yield
     store = getattr(app.state, "session_store", None)
     if store is not None:
         await store.close()
+    pool = getattr(app.state, "arq_pool", None)
+    if pool is not None:
+        await pool.aclose()
     await dispose_engine()
+
+
+async def _setup_dispatcher(app: FastAPI) -> None:
+    """有 Redis 就投递到 arq 队列；没有就退回就地执行。"""
+
+    from arq import create_pool
+    from arq.connections import RedisSettings
+
+    from app.worker.dispatch import ArqDispatcher
+
+    settings = get_settings()
+    try:
+        pool = await create_pool(RedisSettings.from_dsn(settings.redis_url))
+    except Exception:  # noqa: BLE001 - 队列不可用时不能挡住服务启动
+        return
+
+    app.state.arq_pool = pool
+    app.state.dispatcher = ArqDispatcher(pool)
 
 
 async def _bootstrap_admin() -> None:

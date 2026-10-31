@@ -21,6 +21,8 @@ argon2-cffi==25.1.0
     # via backend
 argon2-cffi-bindings==26.1.0
     # via argon2-cffi
+arq==0.25.0
+    # via backend
 asyncpg==0.32.0
     # via backend
 bcrypt==5.0.0
@@ -40,6 +42,7 @@ charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via
+    #   arq
     #   rich-toolkit
     #   uvicorn
 colorama==0.4.6 ; sys_platform == 'win32'
@@ -72,6 +75,8 @@ h11==0.16.0
     # via
     #   httpcore
     #   uvicorn
+hiredis==3.5.0
+    # via redis
 httpcore==1.0.9
     # via httpx
 httptools==0.9.0
@@ -165,7 +170,9 @@ pyyaml==6.0.3
     #   backend
     #   uvicorn
 redis==8.1.0
-    # via backend
+    # via
+    #   arq
+    #   backend
 requests==2.34.2
     # via
     #   opentelemetry-exporter-http-transport
@@ -200,6 +207,7 @@ typing-extensions==4.16.0
     # via
     #   alembic
     #   anyio
+    #   arq
     #   fastapi
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-http

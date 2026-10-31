@@ -12,7 +12,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_engineer
 from app.db.session import get_session
 from app.services.hosts import get_host
-from app.services.runs import RunError, execute_plan, get_run, list_runs, list_steps
+from app.services.runs import (
+    RunError,
+    get_run,
+    list_runs,
+    list_steps,
+)
+from app.services.runs import (
+    create_run as create_run_record,
+)
+from app.worker.dispatch import RunDispatcher, get_dispatcher
 
 router = APIRouter(prefix="/runs", tags=["runs"])
 
@@ -77,6 +86,7 @@ async def _to_run_out(session: AsyncSession, run) -> RunOut:
 async def create_run(
     payload: RunCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
+    dispatcher: Annotated[RunDispatcher, Depends(get_dispatcher)],
 ) -> RunOut:
     host = None
     if payload.host_id is not None:
@@ -85,12 +95,16 @@ async def create_run(
             raise HTTPException(status_code=404, detail="测试机不存在")
 
     try:
-        run = await execute_plan(
+        run = await create_run_record(
             session, payload.plan_id, trigger=payload.trigger, host=host
         )
     except RunError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # 先提交，worker（另一个会话/进程）才看得到这条记录
     await session.commit()
+    await dispatcher.dispatch(run.id, session)
+    await session.refresh(run)
     return await _to_run_out(session, run)
 
 

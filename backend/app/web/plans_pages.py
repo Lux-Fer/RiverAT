@@ -18,7 +18,8 @@ from app.models import User
 from app.services.catalog import all_versions_with_products
 from app.services.hosts import get_host, list_hosts
 from app.services.plans import PlanError, create_plan, list_plans
-from app.services.runs import RunError, execute_plan
+from app.services.runs import RunError, create_run
+from app.worker.dispatch import RunDispatcher, get_dispatcher
 
 router = APIRouter(tags=["plan-pages"])
 templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
@@ -108,6 +109,7 @@ async def run_plan_form(
     plan_id: UUID,
     user: Annotated[User, Depends(require_engineer)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    dispatcher: Annotated[RunDispatcher, Depends(get_dispatcher)],
     host_id: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     host = None
@@ -117,9 +119,10 @@ async def run_plan_form(
             raise HTTPException(status_code=404, detail="测试机不存在")
 
     try:
-        run = await execute_plan(session, plan_id, host=host)
+        run = await create_run(session, plan_id, host=host)
     except RunError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     await session.commit()
+    await dispatcher.dispatch(run.id, session)
     return RedirectResponse(f"/runs/{run.id}", status_code=303)

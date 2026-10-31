@@ -102,6 +102,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D61 | 页面提供**表单操作**：建产品/版本/组成、建计划（YAML 文本框）、选测试机运行；表单与 API 走**同一套服务层校验**，错误以 422 页面回显 | 从"只能 curl"变成能自己用；校验只写一处，页面和接口不会各自漂移 |
 | D63 | 用户管理：admin 通过 `GET/POST/PATCH /users` 建账号、改角色、停用；页面 `/users` 仅 admin 可见；**不能停用或降级自己** | 角色系统需要"发钥匙"的地方；自锁保护比事后改数据库便宜 |
 | D64 | 部署 = 单机 **docker compose**（backend + postgres + redis）；镜像基于 `python:3.11-slim` + `requirements.txt`（由 `uv.lock` 导出，容器内不用 uv）；入口先 `alembic upgrade head` 再起 uvicorn；离线靠 `docker save/load` + `up --no-build` | 私有化交付必须有安装形态；ghcr 基础镜像在客户网络不可靠，Docker Hub 的 python 镜像更通用 |
+| D65 | 执行走 **arq 队列**：`POST /runs` 只建 `queued` 记录并投递，worker 消费后执行；无 Redis 时回退**就地执行**（同一 `Dispatcher` 协议）；run 详情页在 queued/running 时自动刷新 | 同步执行会撞 HTTP 超时；队列把"点一下就跑"变成可轮询的状态机，且接口形状不变 |
 
 ## 4. 待定
 
@@ -187,3 +188,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-31 角色授权：viewer/engineer/admin 三级（D62），全套 89 passed / 3 skipped。
 - 2026-11-01 用户管理：admin 建用户/改角色/停用 + `/users` 页面（D63），全套 97 passed / 3 skipped。
 - 2026-11-01 部署形态：backend 镜像 + compose 服务 + 离线说明（D64），容器内实测健康检查与登录通过。
+- 2026-11-01 队列化：arq 异步执行 + worker 服务（D65），实测 POST 返回 queued、1s 内变为 passed；全套 98 passed / 3 skipped。

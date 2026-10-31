@@ -39,42 +39,60 @@ def aggregate_status(statuses: list[str]) -> str:
     return max(statuses, key=lambda s: _STATUS_SEVERITY.get(s, 4))
 
 
-async def execute_plan(
+async def create_run(
     session: AsyncSession,
     plan_id: UUID,
     *,
     trigger: str = "manual",
     host: Host | None = None,
 ) -> Run:
+    """只建执行记录（queued），真正执行交给 worker 或 dispatcher。"""
+
     plan = await session.get(Plan, plan_id)
     if plan is None:
         raise RunError(f"计划不存在: {plan_id}")
-
-    snapshot_nodes = (plan.snapshot or {}).get("nodes")
-    if snapshot_nodes:
-        # 计划创建时冻结的展开结果；子计划之后怎么改都不影响这次执行（D59）
-        nodes = order_nodes([dict(node) for node in snapshot_nodes])
-    else:
-        definition = plan.definition or {}
-        try:
-            nodes = await expand_nodes(
-                session, definition, parent_version_id=plan.product_version_id
-            )
-        except PlanError as exc:
-            raise RunError(str(exc)) from exc
-        nodes = order_nodes(nodes)
 
     run = Run(
         plan_id=plan.id,
         host_id=host.id if host is not None else None,
         product_version_id=plan.product_version_id,
         trigger=trigger,
-        status="running",
+        status="queued",
         plan_sha256=plan.snapshot_sha256 or None,
-        started_at=datetime.now(UTC),
     )
     session.add(run)
     await session.flush()
+    return run
+
+
+async def _resolve_nodes(session: AsyncSession, plan: Plan) -> list[dict]:
+    snapshot_nodes = (plan.snapshot or {}).get("nodes")
+    if snapshot_nodes:
+        # 计划创建时冻结的展开结果；子计划之后怎么改都不影响这次执行（D59）
+        return order_nodes([dict(node) for node in snapshot_nodes])
+
+    definition = plan.definition or {}
+    try:
+        expanded = await expand_nodes(
+            session, definition, parent_version_id=plan.product_version_id
+        )
+    except PlanError as exc:
+        raise RunError(str(exc)) from exc
+    return order_nodes(expanded)
+
+
+async def execute_run(session: AsyncSession, run: Run) -> Run:
+    """执行一条已存在的 run（worker / 页面同步执行共用）。"""
+
+    plan = await session.get(Plan, run.plan_id)
+    if plan is None:
+        raise RunError(f"计划不存在: {run.plan_id}")
+
+    nodes = await _resolve_nodes(session, plan)
+    host = await session.get(Host, run.host_id) if run.host_id else None
+
+    run.status = "running"
+    run.started_at = datetime.now(UTC)
 
     if host is None:
         transport: Transport = LocalTransport()
@@ -139,6 +157,32 @@ async def execute_plan(
         await session.flush()
 
     return run
+
+
+async def execute_plan(
+    session: AsyncSession,
+    plan_id: UUID,
+    *,
+    trigger: str = "manual",
+    host: Host | None = None,
+) -> Run:
+    """同步执行（页面/测试用）：建记录 + 立刻跑完。"""
+
+    run = await create_run(session, plan_id, trigger=trigger, host=host)
+    return await execute_run(session, run)
+
+
+async def execute_run_by_id(run_id: UUID) -> None:
+    """worker 用：自己开会话、跑完提交。"""
+
+    from app.db.session import get_sessionmaker
+
+    async with get_sessionmaker()() as session:
+        run = await session.get(Run, run_id)
+        if run is None or run.status not in ("queued", "running"):
+            return
+        await execute_run(session, run)
+        await session.commit()
 
 
 def order_nodes(nodes: list[dict]) -> list[dict]:

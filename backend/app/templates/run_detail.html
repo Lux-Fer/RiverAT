@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% block head %}
+  {% if run.status in ["queued", "running"] %}
+  <meta http-equiv="refresh" content="2">
+  {% endif %}
+{% endblock %}
 {% block content %}
   <p>
     Run <code>{{ run.id }}</code>

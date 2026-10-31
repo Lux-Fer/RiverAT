@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
 from app.web.pages import router as pages_router
+from app.web.pages import templates
 from app.web.plans_pages import router as plans_pages_router
 
 
@@ -64,6 +65,14 @@ def create_app() -> FastAPI:
         if exc.status_code == 401 and not request.url.path.startswith("/api"):
             return RedirectResponse(
                 f"/login?next={request.url.path}", status_code=303
+            )
+        # 页面无权限 → 一个能看懂的 403 页面
+        if exc.status_code == 403 and not request.url.path.startswith("/api"):
+            return templates.TemplateResponse(
+                request=request,
+                name="forbidden.html",
+                context={"detail": exc.detail},
+                status_code=403,
             )
         return JSONResponse(
             {"detail": exc.detail}, status_code=exc.status_code, headers=exc.headers

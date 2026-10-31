@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_engineer
 from app.db.session import get_session
 from app.services.catalog import (
     CatalogError,
@@ -94,7 +95,10 @@ def _to_nodes(nodes: list[dict]) -> list[ProductNode]:
 
 
 @router.post(
-    "/products", response_model=ProductOut, status_code=status.HTTP_201_CREATED
+    "/products",
+    response_model=ProductOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_engineer)],
 )
 async def create_product_endpoint(
     payload: ProductCreate,
@@ -130,6 +134,7 @@ async def list_products(
     "/products/{product_id}/versions",
     response_model=VersionOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_engineer)],
 )
 async def create_version_endpoint(
     product_id: UUID,
@@ -158,6 +163,7 @@ async def list_versions_endpoint(
     "/versions/{version_id}/components",
     response_model=ComponentOut,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_engineer)],
 )
 async def add_component_endpoint(
     version_id: UUID,

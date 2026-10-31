@@ -4,6 +4,7 @@
     <a href="/products"><strong>{{ product.code }}</strong></a> {{ product.name }}
   </p>
 
+  {% if user and user.role != "viewer" %}
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/products/{{ product.id }}/versions"
           style="display:flex; gap:.5rem; align-items:center;">
@@ -12,6 +13,7 @@
       <button type="submit" style="padding:.35rem .8rem; cursor:pointer;">新建版本</button>
     </form>
   </div>
+  {% endif %}
 
   {% if versions %}
   <table>

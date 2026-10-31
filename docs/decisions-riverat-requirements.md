@@ -98,6 +98,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D58 | 测试机存在 `host` 表；密码用 **Fernet（密钥由 `SECRET_KEY` 派生）加密**入库，接口只回显非敏感字段；`run.host_id` 记录执行目标；远端工作目录 `/tmp/riverat-runs/<run_id>`，跑完删除 | 推送模型（D22）落地；凭据既不能明文入库，也不能通过 API 回显 |
 | D59 | 计划**创建时冻结展开快照**（`plan.snapshot` + `snapshot_sha256`），执行只读快照；`run.plan_sha256` 记录本次用的是哪一版 | 回答 Q14：子计划之后被编辑，不会改变既有计划的行为，历史结果可复现 |
 | D60 | v1 登录 = 本地账号（argon2）+ **服务端会话**：cookie 只带 token（HttpOnly / SameSite=Lax），会话数据在 Redis（测试用内存）；API 未登录 401，页面 303 跳 `/login`；首个管理员由 `ADMIN_PASSWORD` 引导 | 落地 D43；LDAP/SSO 只需换 Provider（D36/D40），`user.auth_source` 已留位 |
+| D62 | 角色三级：`viewer`（只读）/ `engineer`（建产品、计划、跑测试）/ `admin`（再管测试机）；`role_at_least` 统一判定，写接口挂 `require_engineer` / `require_admin`；页面按角色隐藏表单，403 渲染友好页面 | 登录之后必须能区分"领导看"和"测试执行"；权限只定义一处，接口与页面表现一致 |
 | D61 | 页面提供**表单操作**：建产品/版本/组成、建计划（YAML 文本框）、选测试机运行；表单与 API 走**同一套服务层校验**，错误以 422 页面回显 | 从"只能 curl"变成能自己用；校验只写一处，页面和接口不会各自漂移 |
 
 ## 4. 待定
@@ -181,3 +182,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-10-29 计划快照：创建时冻结展开结果 + run.plan_sha256（D59，Q14 关闭），全套 75 passed / 3 skipped。
 - 2026-10-29 登录与会话：本地账号 + Redis 会话 + 接口/页面保护（D60），全套 81 passed / 3 skipped。
 - 2026-10-29 表单页面：产品/版本/组成/计划/运行都能在网页上操作（D61），全套 84 passed / 3 skipped。
+- 2026-10-31 角色授权：viewer/engineer/admin 三级（D62），全套 89 passed / 3 skipped。

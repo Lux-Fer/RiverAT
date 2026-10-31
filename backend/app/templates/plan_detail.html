@@ -5,6 +5,7 @@
     <span class="muted">快照节点数：{{ snapshot_count }} · revision {{ plan.revision }}</span>
   </p>
 
+  {% if user and user.role != "viewer" %}
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/plans/{{ plan.id }}/run"
           style="display:flex; gap:.5rem; align-items:center;">
@@ -18,6 +19,7 @@
       <span class="muted">同步执行，跑完才返回</span>
     </form>
   </div>
+  {% endif %}
 
   <h2 style="font-size:1rem;">定义</h2>
   <pre style="background:#fff; padding:.8rem; border-radius:6px;">{{ definition_text }}</pre>

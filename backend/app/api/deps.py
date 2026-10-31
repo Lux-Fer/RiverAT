@@ -15,6 +15,13 @@ from app.models import User
 
 COOKIE_NAME = "riverat_session"
 
+# 角色等级：admin > engineer > viewer（D62）
+ROLE_LEVEL = {"viewer": 1, "engineer": 2, "admin": 3}
+
+
+def role_at_least(user: User, minimum: str) -> bool:
+    return ROLE_LEVEL.get(user.role, 0) >= ROLE_LEVEL.get(minimum, 99)
+
 
 def get_session_store(request: Request) -> SessionStore:
     store = getattr(request.app.state, "session_store", None)
@@ -55,6 +62,27 @@ async def require_user(
     if user is None or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="账号不可用"
+        )
+    return user
+
+
+async def require_engineer(
+    user: Annotated[User, Depends(require_user)],
+) -> User:
+    if not role_at_least(user, "engineer"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要 engineer 及以上角色",
+        )
+    return user
+
+
+async def require_admin(
+    user: Annotated[User, Depends(require_user)],
+) -> User:
+    if not role_at_least(user, "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="需要管理员权限"
         )
     return user
 

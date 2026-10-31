@@ -2,6 +2,7 @@
 {% block content %}
   {% if error %}<p style="color:#e03131;">{{ error }}</p>{% endif %}
 
+  {% if user and user.role != "viewer" %}
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/plans">
       <p style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
@@ -26,6 +27,7 @@
       <button type="submit" style="padding:.4rem .9rem; cursor:pointer;">创建计划</button>
     </form>
   </div>
+  {% endif %}
 
   {% if plans %}
   <table>

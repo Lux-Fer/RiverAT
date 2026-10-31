@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_engineer
 from app.db.session import get_session
 from app.services.hosts import get_host
 from app.services.runs import RunError, execute_plan, get_run, list_runs, list_steps
@@ -67,7 +68,12 @@ async def _to_run_out(session: AsyncSession, run) -> RunOut:
     )
 
 
-@router.post("", response_model=RunOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=RunOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_engineer)],
+)
 async def create_run(
     payload: RunCreate,
     session: Annotated[AsyncSession, Depends(get_session)],

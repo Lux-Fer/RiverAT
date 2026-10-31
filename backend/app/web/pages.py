@@ -13,7 +13,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import COOKIE_NAME, get_session_store, require_user
+from app.api.deps import COOKIE_NAME, get_session_store, require_engineer, require_user
 from app.core.config import BASE_DIR, get_settings
 from app.core.sessions import SessionStore
 from app.db.session import get_session
@@ -163,7 +163,7 @@ async def run_detail(
 @router.post("/products")
 async def create_product_form(
     request: Request,
-    user: Annotated[User, Depends(require_user)],
+    user: Annotated[User, Depends(require_engineer)],
     session: Annotated[AsyncSession, Depends(get_session)],
     code: Annotated[str, Form()],
     name: Annotated[str, Form()],
@@ -196,7 +196,7 @@ async def create_product_form(
 async def create_version_form(
     product_id: UUID,
     request: Request,
-    user: Annotated[User, Depends(require_user)],
+    user: Annotated[User, Depends(require_engineer)],
     version: Annotated[str, Form()],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> HTMLResponse:
@@ -222,7 +222,7 @@ async def create_version_form(
 async def add_component_form(
     version_id: UUID,
     request: Request,
-    user: Annotated[User, Depends(require_user)],
+    user: Annotated[User, Depends(require_engineer)],
     child_version_id: Annotated[str, Form()],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> HTMLResponse:

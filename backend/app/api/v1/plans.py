@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_engineer
 from app.db.session import get_session
 from app.services.plans import PlanError, create_plan, list_plans
 
@@ -40,7 +41,12 @@ def _to_out(plan) -> PlanOut:
     )
 
 
-@router.post("", response_model=PlanOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=PlanOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_engineer)],
+)
 async def create(
     payload: PlanCreate,
     session: Annotated[AsyncSession, Depends(get_session)],

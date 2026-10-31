@@ -26,6 +26,7 @@
   <p class="muted">这个版本还没有锁定任何子产品。</p>
   {% endif %}
 
+  {% if user and user.role != "viewer" %}
   <div class="card">
     <form method="post" action="/versions/{{ detail.version.id }}/components"
           style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
@@ -42,4 +43,5 @@
       <button type="submit" style="padding:.35rem .8rem; cursor:pointer;">添加</button>
     </form>
   </div>
+  {% endif %}
 {% endblock %}

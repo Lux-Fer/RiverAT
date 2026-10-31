@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_user
+from app.api.deps import require_engineer, require_user
 from app.core.config import BASE_DIR
 from app.db.session import get_session
 from app.models import User
@@ -55,7 +55,7 @@ async def plans_page(
 @router.post("/plans")
 async def create_plan_form(
     request: Request,
-    user: Annotated[User, Depends(require_user)],
+    user: Annotated[User, Depends(require_engineer)],
     name: Annotated[str, Form()],
     product_version_id: Annotated[str, Form()],
     definition: Annotated[str, Form()],
@@ -106,6 +106,7 @@ async def plan_detail_page(
 @router.post("/plans/{plan_id}/run")
 async def run_plan_form(
     plan_id: UUID,
+    user: Annotated[User, Depends(require_engineer)],
     session: Annotated[AsyncSession, Depends(get_session)],
     host_id: Annotated[str, Form()] = "",
 ) -> HTMLResponse:

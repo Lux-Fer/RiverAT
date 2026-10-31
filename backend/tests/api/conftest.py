@@ -37,6 +37,22 @@ def app(session):
 
 
 @pytest.fixture
+def login_as(app):
+    """把当前用户换成指定角色（覆盖 require_user）。"""
+
+    def _set(role: str, username: str = "tester") -> None:
+        user = SimpleNamespace(
+            id=uuid.uuid4(),
+            username=username,
+            display_name=username,
+            role=role,
+        )
+        app.dependency_overrides[require_user] = lambda: user
+
+    return _set
+
+
+@pytest.fixture
 async def client(app):
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as http:

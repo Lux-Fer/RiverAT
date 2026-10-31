@@ -18,6 +18,9 @@ venv/
 *.db
 *.sqlite3
 
+# ---------- 运行时目录（插件包、产物）----------
+backend/var/
+
 # ---------- 工具缓存 ----------
 .pytest_cache/
 .ruff_cache/

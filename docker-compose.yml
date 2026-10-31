@@ -35,6 +35,42 @@ services:
       timeout: 3s
       retries: 5
 
+  backend:
+    build: ./backend
+    image: riverat-backend:0.1.0
+    container_name: riverat-backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      DEBUG: "false"
+      # 生产必须换：SECRET_KEY 同时用于会话与测试机凭据加密
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      DATABASE_URL: postgresql+asyncpg://riverat:123456@db:5432/riverat
+      REDIS_URL: redis://redis:6379/0
+      # 首次启动、库里没有用户时建管理员
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      CORS_ORIGINS: '["http://localhost:8000"]'
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend/var:/app/var
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
 volumes:
   pgdata:
   redisdata:

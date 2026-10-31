@@ -155,6 +155,11 @@ async def execute_run(session: AsyncSession, run: Run) -> Run:
         run.finished_at = datetime.now(UTC)
         run.status = aggregate_status(statuses)
         await session.flush()
+        if run.status in ("failed", "error"):
+            # 失败执行入知识库，供后续相似失败检索（D25）
+            from app.services.knowledge import index_run
+
+            await index_run(session, run)
 
     return run
 

@@ -39,4 +39,24 @@
       {% endfor %}
     </tbody>
   </table>
+
+  {% if run.status in ["failed", "error"] %}
+  <h2 style="font-size:1rem; margin-top:1.5rem;">相似历史失败</h2>
+  {% if similar %}
+  <table>
+    <thead><tr><th>相似度</th><th>历史执行</th><th>摘要</th></tr></thead>
+    <tbody>
+      {% for item in similar %}
+      <tr>
+        <td>{{ "%.2f" | format(item.score) }}</td>
+        <td><a href="/runs/{{ item.run_id }}">{{ item.title }}</a></td>
+        <td class="muted"><pre style="margin:0;">{{ item.content[:200] }}</pre></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">知识库里还没有相似的历史失败。</p>
+  {% endif %}
+  {% endif %}
 {% endblock %}

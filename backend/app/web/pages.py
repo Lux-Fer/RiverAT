@@ -30,6 +30,7 @@ from app.services.catalog import (
     tree_with_versions,
     version_detail,
 )
+from app.services.knowledge import similar_to_run
 from app.services.runs import get_run, list_runs, list_steps
 
 router = APIRouter(tags=["pages"])
@@ -150,10 +151,15 @@ async def run_detail(
     if run is None:
         raise HTTPException(status_code=404, detail="run 不存在")
     steps = await list_steps(session, run.id)
+    similar = (
+        await similar_to_run(session, run.id)
+        if run.status in ("failed", "error")
+        else []
+    )
     return templates.TemplateResponse(
         request=request,
         name="run_detail.html",
-        context={"run": run, "steps": steps, "user": user},
+        context={"run": run, "steps": steps, "user": user, "similar": similar},
     )
 
 

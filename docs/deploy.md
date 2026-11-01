@@ -47,7 +47,7 @@ curl http://127.0.0.1:8000/health     # {"status":"ok","env":"prod"}
 |---|---|
 | 数据库 | Docker 卷 `pgdata` |
 | Redis（会话，可丢） | Docker 卷 `redisdata` |
-| 插件包 / 运行时文件 | 宿主机 `backend/var/`（挂载进容器 `/app/var`） |
+| 插件包 / 运行时文件 | 宿主机 `backend/var/`（挂载进容器 `/app/backend/var`） |
 
 ```bash
 # 备份

@@ -6,17 +6,15 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_user
-from app.core.config import BASE_DIR
 from app.db.session import get_session
 from app.models import User
 from app.services.dashboard import summary
 
 router = APIRouter(tags=["dashboard-pages"])
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+from app.web.templates import templates
 
 
 @router.get("/dashboard", response_class=HTMLResponse)

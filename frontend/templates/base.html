@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RiverAT</title>
+  <link rel="stylesheet" href="/static/app.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div style="display:flex; justify-content:space-between; align-items:baseline;">
+    <h1><a href="/">RiverAT</a></h1>
+    {% if user %}
+    <form method="post" action="/logout" style="margin:0;">
+      <span class="muted">{{ user.display_name }}（{{ user.role }}）</span>
+      <button type="submit"
+              style="margin-left:.5rem; padding:.2rem .6rem; cursor:pointer;">退出</button>
+    </form>
+    {% endif %}
+  </div>
+  <p class="muted" style="margin-top:-.4rem">
+    <a href="/">执行记录</a> · <a href="/dashboard">看板</a>
+    · <a href="/products">产品树</a> · <a href="/plans">计划</a>
+    {% if user and user.role == "admin" %} · <a href="/users">用户</a>{% endif %}
+    · 产品组合自动化测试平台 v0
+  </p>
+  {% block content %}{% endblock %}
+</body>
+</html>

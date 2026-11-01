@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
@@ -15,8 +16,8 @@ from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
 from app.web.dashboard_pages import router as dashboard_pages_router
 from app.web.pages import router as pages_router
-from app.web.pages import templates
 from app.web.plans_pages import router as plans_pages_router
+from app.web.templates import STATIC_DIR, templates
 from app.web.users_pages import router as users_pages_router
 
 
@@ -107,6 +108,8 @@ def create_app() -> FastAPI:
         return {"status": "ok", "env": settings.app_env}
 
     app.include_router(api_router, prefix="/api/v1")
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
     app.include_router(pages_router)
     app.include_router(plans_pages_router)
     app.include_router(users_pages_router)

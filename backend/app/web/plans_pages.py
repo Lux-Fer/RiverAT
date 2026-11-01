@@ -8,11 +8,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer, require_user
-from app.core.config import BASE_DIR
 from app.db.session import get_session
 from app.models import User
 from app.services.catalog import all_versions_with_products
@@ -22,7 +20,7 @@ from app.services.runs import RunError, create_run
 from app.worker.dispatch import RunDispatcher, get_dispatcher
 
 router = APIRouter(tags=["plan-pages"])
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
+from app.web.templates import templates
 
 
 async def _render_list(

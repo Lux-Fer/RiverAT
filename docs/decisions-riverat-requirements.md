@@ -105,6 +105,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D65 | 执行走 **arq 队列**：`POST /runs` 只建 `queued` 记录并投递，worker 消费后执行；无 Redis 时回退**就地执行**（同一 `Dispatcher` 协议）；run 详情页在 queued/running 时自动刷新 | 同步执行会撞 HTTP 超时；队列把"点一下就跑"变成可轮询的状态机，且接口形状不变 |
 | D66 | 领导页 `/dashboard`（viewer 及以上）：放行结论分布、通过率、**执行完整性**（步骤数 ≥ 计划节点数）、从未成功执行的产品版本数、端到端耗时 P50/P90；口径写在服务层并随字段返回 | D29 的 5 个数字落地；先给"能算且能解释"的口径，flaky 剔除等有足够数据再加 |
 | D67 | 知识库 v1 只吃执行历史：失败/异常执行在收尾时写入 `knowledge_source/doc/chunk`（幂等）；检索用 **pg_trgm 相似度**（中文按字符三元组），不依赖 embedding 模型；以后接 Jira/文档只是新增 source 类型 | D25 的最小可用形态：离线可用、零外部依赖；等有真实归因需求再上向量 |
+| D68 | 前端代码集中在仓库根 **`frontend/`**（`templates/` + `static/`）；后端通过 `app/web/templates.py` 单例引用并挂载 `/static`，`backend/app` 里不再放 HTML/CSS；Docker 构建上下文改为仓库根，镜像内 `/app/backend` 与 `/app/frontend` 平级 | 前端要有自己的目录；构建上下文跟着改，镜像内路径才和开发时一致 |
 
 ## 4. 待定
 
@@ -193,3 +194,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-01 队列化：arq 异步执行 + worker 服务（D65），实测 POST 返回 queued、1s 内变为 passed；全套 98 passed / 3 skipped。
 - 2026-11-01 领导页：`/dashboard` 五个数字 + `/api/v1/dashboard`（D66），全套 101 passed / 3 skipped。
 - 2026-11-01 失败归因 v1：失败执行入知识库 + pg_trgm 相似检索（D67），全套 104 passed / 3 skipped。
+- 2026-11-01 前端独立目录：模板迁到 `frontend/templates`、CSS 抽到 `frontend/static`（D68），全套 105 passed / 3 skipped。

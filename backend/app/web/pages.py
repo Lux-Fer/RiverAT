@@ -10,11 +10,10 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import COOKIE_NAME, get_session_store, require_engineer, require_user
-from app.core.config import BASE_DIR, get_settings
+from app.core.config import get_settings
 from app.core.sessions import SessionStore
 from app.db.session import get_session
 from app.models import User
@@ -32,9 +31,9 @@ from app.services.catalog import (
 )
 from app.services.knowledge import similar_to_run
 from app.services.runs import get_run, list_runs, list_steps
+from app.web.templates import templates
 
 router = APIRouter(tags=["pages"])
-templates = Jinja2Templates(directory=str(BASE_DIR / "app" / "templates"))
 
 
 @router.get("/login", response_class=HTMLResponse)

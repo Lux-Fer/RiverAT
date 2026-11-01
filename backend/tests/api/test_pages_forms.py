@@ -8,6 +8,14 @@ from app.models import Product, ProductVersion
 from tests.plugins import make_plugin
 
 
+async def test_static_css_is_served(client):
+    response = await client.get("/static/app.css")
+
+    assert response.status_code == 200
+    assert "text/css" in response.headers["content-type"]
+    assert "badge" in response.text
+
+
 async def _create_product(client, code: str, name: str) -> None:
     response = await client.post(
         "/products", data={"code": code, "name": name}, follow_redirects=False

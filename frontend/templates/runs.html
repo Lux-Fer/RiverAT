@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
+  {% if status %}
+  <p class="muted">
+    筛选：<strong>{{ "失败/异常" if status == "bad" else ("已结束（通过/失败/异常）" if status == "finished" else status_label(status)) }}</strong>
+    · <a href="/">清除筛选</a>
+  </p>
+  {% endif %}
+
   {% if runs %}
   <table>
     <thead>
@@ -9,7 +16,7 @@
       {% for run in runs %}
       <tr>
         <td><a href="/runs/{{ run.id }}">{{ run.id }}</a></td>
-        <td><span class="badge {{ run.status }}">{{ run.status }}</span></td>
+        <td><span class="badge {{ run.status }}">{{ status_label(run.status) }}</span></td>
         <td>{{ run.trigger }}</td>
         <td class="muted">{{ run.created_at }}</td>
       </tr>
@@ -17,6 +24,8 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted">还没有执行记录。用 <code>POST /api/v1/runs</code> 触发一次。</p>
+  <p class="muted">
+    {% if status %}这个筛选下没有执行记录。<a href="/">看全部</a>{% else %}还没有执行记录。用 <code>POST /api/v1/runs</code> 触发一次。{% endif %}
+  </p>
   {% endif %}
 {% endblock %}

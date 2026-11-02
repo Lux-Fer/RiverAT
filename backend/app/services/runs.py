@@ -261,8 +261,17 @@ def _to_run_step(
     )
 
 
-async def list_runs(session: AsyncSession, limit: int = 50) -> list[Run]:
-    result = await session.execute(select(Run).order_by(Run.created_at.desc()).limit(limit))
+async def list_runs(
+    session: AsyncSession, *, status: str | None = None, limit: int = 50
+) -> list[Run]:
+    stmt = select(Run).order_by(Run.created_at.desc())
+    if status == "finished":
+        stmt = stmt.where(Run.status.in_(("passed", "failed", "error")))
+    elif status == "bad":
+        stmt = stmt.where(Run.status.in_(("failed", "error")))
+    elif status:
+        stmt = stmt.where(Run.status == status)
+    result = await session.execute(stmt.limit(limit))
     return list(result.scalars().all())
 
 

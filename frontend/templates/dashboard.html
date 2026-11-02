@@ -5,13 +5,13 @@
     <div class="card">
       <div class="muted">执行结果（全部）</div>
       <div style="font-size:1.6rem; margin:.2rem 0;">
-        <span style="color:#1e7e34;">{{ data.release.green }}</span>
+        <a href="/?status=passed" style="color:#1e7e34;">{{ data.release.green }}</a>
         <span class="muted" style="font-size:1rem;">通过</span>
         ·
-        <span style="color:#b02a2a;">{{ data.release.red }}</span>
+        <a href="/?status=bad" style="color:#b02a2a;" title="含失败与异常">{{ data.release.red }}</a>
         <span class="muted" style="font-size:1rem;">失败</span>
         ·
-        <span style="color:#b45309;">{{ data.release.yellow }}</span>
+        <a href="/?status=blocked" style="color:#b45309;">{{ data.release.yellow }}</a>
         <span class="muted" style="font-size:1rem;">阻塞</span>
       </div>
       <div class="muted">进行中：{{ data.release.in_flight }}</div>
@@ -19,7 +19,7 @@
 
     <div class="card">
       <div class="muted">通过率（剔除 flaky 尚未实现）</div>
-      <div style="font-size:1.6rem;">{{ (data.pass_rate * 100) | round(1) if data.pass_rate is not none else "—" }}%</div>
+      <div style="font-size:1.6rem;"><a href="/?status=finished" style="color:inherit;">{{ (data.pass_rate * 100) | round(1) if data.pass_rate is not none else "—" }}%</a></div>
       <div class="muted">已结束 {{ data.by_status.get("passed", 0) + data.by_status.get("failed", 0) + data.by_status.get("error", 0) }} 次</div>
     </div>
 
@@ -33,16 +33,30 @@
     <div class="card">
       <div class="muted">风险敞口：从未成功执行的产品版本</div>
       <div style="font-size:1.6rem; color:#b02a2a;">{{ data.risk_versions }}</div>
+      {% if data.risk_versions_detail %}
+      <details>
+        <summary class="muted">查看是哪些版本</summary>
+        <ul style="margin:.3rem 0 0 1rem; padding:0;">
+          {% for v in data.risk_versions_detail %}
+          <li class="muted">{{ v.product_code }} — {{ v.version }}</li>
+          {% endfor %}
+        </ul>
+        {% if data.risk_versions > data.risk_versions_detail | length %}
+        <div class="muted">仅显示前 {{ data.risk_versions_detail | length }} 个</div>
+        {% endif %}
+      </details>
+      {% else %}
       <div class="muted">含新建但没跑过的版本</div>
+      {% endif %}
     </div>
 
     <div class="card">
       <div class="muted">端到端耗时（秒）</div>
       <div style="font-size:1.6rem;">
-        {{ data.duration.p50 if data.duration.p50 is not none else "—" }}
+        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p50 if data.duration.p50 is not none else "—" }}</a>
         <span class="muted" style="font-size:.9rem;">P50</span>
         ·
-        {{ data.duration.p90 if data.duration.p90 is not none else "—" }}
+        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p90 if data.duration.p90 is not none else "—" }}</a>
         <span class="muted" style="font-size:.9rem;">P90</span>
       </div>
       <div class="muted">样本 {{ data.duration.samples }} 次</div>

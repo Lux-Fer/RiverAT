@@ -115,6 +115,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D75 | **CSRF 双提交 Cookie**：中间件种 `riverat_csrf`（非 HttpOnly、SameSite=Lax），13 个页面表单带隐藏 `csrf_token`，12 个页面 POST 路由挂 `require_csrf`，不一致 403；也接受 `X-CSRF-Token` 头；JSON API 不加校验（跨站 JSON 会触发 CORS 预检） | 之前表单 POST 只靠 SameSite=Lax 兜底；显式 token 才是可解释、可测试的防线 |
 | D76 | 看板加固（`/impeccable harden`）：`releases.quality` 的「最近一次」与计数**共用同一时间窗**（建单后），0 次显示"未执行"；状态枚举统一走中文 `status_label()`；对比度整体调深（链接/绿/橙/跳过/运行中，检测器归零）；新增 `:focus-visible` 焦点环与 `<nav>/<main>` 地标 | critique 发现"共 0 次 + 绿色通过"的自相矛盾、中文界面裸奔英文枚举、键盘用户看不到焦点 —— 这三条都会直接伤信任 |
 | D77 | 看板文案澄清（`/impeccable clarify`）："放行结论（全部执行）"→**执行结果（全部）**；"执行完整性"→**步骤落库率（数据完整性）**并注明不是覆盖率；"建单后执行"→**本发布执行**（看板/发布列表/发布详情统一）；`.impeccable/` 加入 `.gitignore` 不入库 | 文案不能替平台下判断；"完整性"会被任何领导读成覆盖率 |
+| D78 | 看板数字可下钻（`/impeccable shape`）：执行结果/通过率/耗时链到带 `status` 筛选的执行列表（`passed` / `bad`=失败+异常 / `blocked` / `finished`）；风险敞口原地展开版本清单（前 8 个）；执行列表中文徽章 + 空态可清除筛选 | 五个数字原本是死路，Operate 任务（"能不能发"）无法在页内完成 |
 
 ## 4. 待定
 
@@ -214,3 +215,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-03 安全：表单 CSRF 双提交 Cookie（D75），全套 127 passed / 3 skipped。
 - 2026-11-03 看板加固：最近状态同窗 + 中文状态 + 对比度/焦点/地标（D76），全套 128 passed / 3 skipped。
 - 2026-11-03 看板文案：执行结果 / 步骤落库率，不再冒充放行结论（D77）。
+- 2026-11-03 看板下钻：数字连到筛选列表、风险敞口可展开（D78），全套 130 passed / 3 skipped。

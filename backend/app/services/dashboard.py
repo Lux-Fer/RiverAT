@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Plan, ProductVersion, Run, RunStep
+from app.models import Plan, Product, ProductVersion, Run, RunStep
 from app.services.releases import upcoming
 
 
@@ -114,6 +114,17 @@ async def summary(session: AsyncSession) -> dict:
         )
     ).scalar_one()
 
+    # 让"1"能展开看到是谁（D78）
+    risk_detail = (
+        await session.execute(
+            select(Product.code, Product.name, ProductVersion.version)
+            .join(ProductVersion, ProductVersion.product_id == Product.id)
+            .where(ProductVersion.id.not_in(select(passed_versions.c.product_version_id)))
+            .order_by(Product.code, ProductVersion.version)
+            .limit(8)
+        )
+    ).all()
+
     return {
         "total_runs": sum(statuses.values()),
         "by_status": statuses,
@@ -130,6 +141,10 @@ async def summary(session: AsyncSession) -> dict:
             "ratio": round(complete / len(coverage_rows), 3) if coverage_rows else None,
         },
         "risk_versions": risk_rows,
+        "risk_versions_detail": [
+            {"product_code": code, "product_name": name, "version": version}
+            for code, name, version in risk_detail
+        ],
         "trend": await _daily_trend(session),
         "upcoming": await upcoming(session),
         "duration": {

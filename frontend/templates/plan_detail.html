@@ -33,6 +33,7 @@
   <h2 style="font-size:1rem; margin-top:1.5rem;">编辑</h2>
   <div class="card">
     <form method="post" action="/plans/{{ plan.id }}/edit">
+      <input type="hidden" name="expected_revision" value="{{ plan.revision }}">
       <p><input name="name" value="{{ plan.name }}" required
                 style="padding:.35rem .5rem; width:18rem;"></p>
       <p>

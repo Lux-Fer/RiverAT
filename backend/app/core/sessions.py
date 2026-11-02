@@ -20,6 +20,10 @@ class SessionStore(Protocol):
 
     async def delete(self, token: str) -> None: ...
 
+    async def revoke_user(self, user_id: UUID) -> int:
+        """踢掉某个用户的全部会话（改密码后调用），返回失效数量。"""
+        ...
+
     async def close(self) -> None: ...
 
 
@@ -51,6 +55,12 @@ class InMemorySessionStore:
     async def delete(self, token: str) -> None:
         self._sessions.pop(token, None)
 
+    async def revoke_user(self, user_id: UUID) -> int:
+        tokens = [token for token, (uid, _) in self._sessions.items() if uid == user_id]
+        for token in tokens:
+            self._sessions.pop(token, None)
+        return len(tokens)
+
     async def close(self) -> None:
         self._sessions.clear()
 
@@ -59,6 +69,7 @@ class RedisSessionStore:
     """生产用：会话可跨进程共享，也能强制下线。"""
 
     KEY_PREFIX = "riverat:session:"
+    USER_PREFIX = "riverat:user-sessions:"
 
     def __init__(self, url: str) -> None:
         self._redis = Redis.from_url(url, decode_responses=True)
@@ -66,6 +77,9 @@ class RedisSessionStore:
     async def create(self, user_id: UUID, ttl_seconds: int) -> str:
         token = _new_token()
         await self._redis.setex(f"{self.KEY_PREFIX}{token}", ttl_seconds, str(user_id))
+        index = f"{self.USER_PREFIX}{user_id}"
+        await self._redis.sadd(index, token)
+        await self._redis.expire(index, ttl_seconds)
         return token
 
     async def get(self, token: str) -> UUID | None:
@@ -78,7 +92,20 @@ class RedisSessionStore:
             return None
 
     async def delete(self, token: str) -> None:
+        raw = await self._redis.get(f"{self.KEY_PREFIX}{token}")
         await self._redis.delete(f"{self.KEY_PREFIX}{token}")
+        if raw is not None:
+            await self._redis.srem(f"{self.USER_PREFIX}{raw}", token)
+
+    async def revoke_user(self, user_id: UUID) -> int:
+        index = f"{self.USER_PREFIX}{user_id}"
+        tokens = await self._redis.smembers(index)
+        if tokens:
+            await self._redis.delete(
+                *[f"{self.KEY_PREFIX}{token}" for token in tokens]
+            )
+        await self._redis.delete(index)
+        return len(tokens)
 
     async def close(self) -> None:
         await self._redis.aclose()

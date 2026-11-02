@@ -15,7 +15,13 @@ from app.db.session import get_session
 from app.models import User
 from app.services.catalog import all_versions_with_products
 from app.services.hosts import get_host, list_hosts
-from app.services.plans import PlanError, create_plan, list_plans, update_plan
+from app.services.plans import (
+    PlanConflict,
+    PlanError,
+    create_plan,
+    list_plans,
+    update_plan,
+)
 from app.services.runs import RunError, create_run
 from app.worker.dispatch import RunDispatcher, get_dispatcher
 
@@ -90,6 +96,7 @@ async def _render_detail(
     plan_id: UUID,
     user: User,
     error: str | None = None,
+    status_code: int = 422,
 ) -> HTMLResponse:
     from app.models import Plan
 
@@ -110,7 +117,7 @@ async def _render_detail(
             "user": user,
             "error": error,
         },
-        status_code=422 if error else 200,
+        status_code=status_code if error else 200,
     )
 
 
@@ -122,6 +129,7 @@ async def edit_plan_form(
     session: Annotated[AsyncSession, Depends(get_session)],
     name: Annotated[str, Form()] = "",
     definition: Annotated[str, Form()] = "",
+    expected_revision: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     try:
         await update_plan(
@@ -129,6 +137,11 @@ async def edit_plan_form(
             plan_id,
             name=name or None,
             definition=definition or None,
+            expected_revision=int(expected_revision) if expected_revision else None,
+        )
+    except PlanConflict as exc:
+        return await _render_detail(
+            request, session, plan_id, user, error=str(exc), status_code=409
         )
     except PlanError as exc:
         return await _render_detail(request, session, plan_id, user, error=str(exc))

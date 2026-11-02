@@ -10,7 +10,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_admin
+from app.api.deps import get_session_store, require_admin
+from app.core.sessions import SessionStore
 from app.db.session import get_session
 from app.models import User
 from app.services.users import (
@@ -93,6 +94,7 @@ async def patch(
     payload: UserPatch,
     session: Annotated[AsyncSession, Depends(get_session)],
     admin: Annotated[User, Depends(require_admin)],
+    store: Annotated[SessionStore, Depends(get_session_store)],
 ) -> UserOut:
     user = await get_user(session, user_id)
     if user is None:
@@ -112,4 +114,7 @@ async def patch(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     await session.commit()
+    if payload.password:
+        # 改密码即下线：把该用户所有已登录会话踢掉（D74）
+        await store.revoke_user(user.id)
     return _to_out(user)

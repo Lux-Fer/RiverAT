@@ -22,6 +22,10 @@ class PlanError(ValueError):
     """计划内容或引用不合法。"""
 
 
+class PlanConflict(PlanError):
+    """乐观锁冲突：别人已经改过这条计划（D74）。"""
+
+
 def parse_definition(raw: object) -> dict:
     """解析 definition：对象直接用；文本先试 JSON，失败再按 YAML 解析。
 
@@ -179,8 +183,11 @@ async def update_plan(
     *,
     name: str | None = None,
     definition: object | None = None,
+    expected_revision: int | None = None,
 ) -> Plan:
     """编辑计划（D70）。
+
+    带 ``expected_revision`` 时做乐观锁（D74）：不一致就拒绝，由调用方回 409。
 
     * 只改名字 → 不动 revision（不影响执行内容）；
     * 改 definition → **revision + 1**，重新展开并冻结新快照；
@@ -190,6 +197,11 @@ async def update_plan(
     plan = await session.get(Plan, plan_id)
     if plan is None:
         raise PlanError(f"计划不存在: {plan_id}")
+
+    if expected_revision is not None and plan.revision != expected_revision:
+        raise PlanConflict(
+            f"计划已被修改：当前 revision {plan.revision}，你基于 {expected_revision}"
+        )
 
     if name is not None:
         cleaned = name.strip()

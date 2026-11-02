@@ -11,7 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer
 from app.db.session import get_session
-from app.services.plans import PlanError, create_plan, list_plans, update_plan
+from app.services.plans import (
+    PlanConflict,
+    PlanError,
+    create_plan,
+    list_plans,
+    update_plan,
+)
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
@@ -26,6 +32,8 @@ class PlanCreate(BaseModel):
 class PlanUpdate(BaseModel):
     name: str | None = None
     definition: dict | str | None = None
+    # 乐观锁：提交时基于哪个 revision，不一致返回 409（D74）
+    expected_revision: int | None = None
 
 
 class PlanOut(BaseModel):
@@ -88,7 +96,10 @@ async def patch(
             plan_id,
             name=payload.name,
             definition=payload.definition,
+            expected_revision=payload.expected_revision,
         )
+    except PlanConflict as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except PlanError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

@@ -9,7 +9,8 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_admin
+from app.api.deps import get_session_store, require_admin
+from app.core.sessions import SessionStore
 from app.db.session import get_session
 from app.models import User
 from app.services.users import (
@@ -78,6 +79,7 @@ async def update_user_form(
     request: Request,
     user: Annotated[User, Depends(require_admin)],
     session: Annotated[AsyncSession, Depends(get_session)],
+    store: Annotated[SessionStore, Depends(get_session_store)],
     role: Annotated[str, Form()],
     is_active: Annotated[str, Form()] = "true",
     display_name: Annotated[str, Form()] = "",
@@ -101,4 +103,9 @@ async def update_user_form(
         return await _render(request, session, user, error=str(exc))
 
     await session.commit()
+    if password:
+        # 改密码即下线；如果改的是自己，浏览器里的会话也一起失效（D74）
+        await store.revoke_user(target.id)
+        if target.id == user.id:
+            return RedirectResponse("/login", status_code=303)
     return RedirectResponse("/users", status_code=303)

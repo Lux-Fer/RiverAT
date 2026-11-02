@@ -107,6 +107,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D67 | 知识库 v1 只吃执行历史：失败/异常执行在收尾时写入 `knowledge_source/doc/chunk`（幂等）；检索用 **pg_trgm 相似度**（中文按字符三元组），不依赖 embedding 模型；以后接 Jira/文档只是新增 source 类型 | D25 的最小可用形态：离线可用、零外部依赖；等有真实归因需求再上向量 |
 | D68 | 前端代码集中在仓库根 **`frontend/`**（`templates/` + `static/`）；后端通过 `app/web/templates.py` 单例引用并挂载 `/static`，`backend/app` 里不再放 HTML/CSS；Docker 构建上下文改为仓库根，镜像内 `/app/backend` 与 `/app/frontend` 平级 | 前端要有自己的目录；构建上下文跟着改，镜像内路径才和开发时一致 |
 | D69 | D32 前端库落地：`frontend/static/vendor/` 内置 **HTMX 2.0.4** 与 **Chart.js 4.4.7**；run 详情改为片段轮询（`GET /runs/{id}/panel`，2s，结束后自动停），看板加近 14 天趋势折线图；删除整页 `meta refresh`；Alpine.js 仍无使用场景，暂不引入 | 局部刷新不打断已展开的日志；趋势图让数字可读；不 vendor 没人用的库 |
+| D70 | 计划可编辑：`PATCH /plans/{id}`（engineer）+ 详情页编辑表单；改 `definition` → **revision + 1**、重新展开并冻结新快照，只改名不动 revision；`run.plan_revision` 记录执行时用的版本，旧 run 的 `plan_sha256` 不变；`definition` 解析改为**先 JSON 后 YAML**，解析错误统一 422 | 计划只能建不能改是语义缺口；用 revision 而不是覆盖，历史仍可复现（D59 的延伸） |
 
 ## 4. 待定
 
@@ -198,3 +199,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-01 前端独立目录：模板迁到 `frontend/templates`、CSS 抽到 `frontend/static`（D68），全套 105 passed / 3 skipped。
 - 2026-11-02 镜像重建：构建改用可配置 PyPI 源（默认清华，`--build-arg PIP_INDEX_URL` 可换）；容器内验证 D68 布局、静态资源 200、队列跑通。
 - 2026-11-02 HTMX + Chart.js 落地：run 详情片段轮询、看板 14 天趋势图（D69），全套 107 passed / 3 skipped。
+- 2026-11-03 计划编辑：改 definition 生成新 revision、旧执行不变（D70），全套 111 passed / 3 skipped。

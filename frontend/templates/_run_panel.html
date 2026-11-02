@@ -8,6 +8,9 @@
     Run <code>{{ run.id }}</code>
     <span class="badge {{ run.status }}">{{ run.status }}</span>
     <span class="muted">触发：{{ run.trigger }}</span>
+    {% if run.plan_revision %}
+    <span class="muted">· 计划 r{{ run.plan_revision }}</span>
+    {% endif %}
     {% if run.status in ["queued", "running"] %}
     <span class="muted">· 每 2 秒自动刷新（HTMX）</span>
     {% endif %}

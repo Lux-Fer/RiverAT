@@ -23,7 +23,24 @@ class PlanError(ValueError):
 
 
 def parse_definition(raw: object) -> dict:
-    data = yaml.safe_load(raw) if isinstance(raw, str) else raw
+    """解析 definition：对象直接用；文本先试 JSON，失败再按 YAML 解析。
+
+    先 JSON 是为了 Windows 路径这类反斜杠内容 —— YAML 双引号会把 ``\\U`` 当
+    转义序列，JSON 则不会。
+    """
+
+    if isinstance(raw, str):
+        text = raw.strip()
+        try:
+            data = json.loads(text)
+        except json.JSONDecodeError:
+            try:
+                data = yaml.safe_load(text)
+            except yaml.YAMLError as exc:
+                raise PlanError(f"definition 解析失败: {exc}") from exc
+    else:
+        data = raw
+
     if not isinstance(data, dict):
         raise PlanError("definition 必须是对象或 YAML 映射")
 
@@ -111,6 +128,24 @@ async def _product_code(session: AsyncSession, version_id: UUID) -> str:
     return version_id.hex[:8]
 
 
+async def _expand_and_order(
+    session: AsyncSession, definition_data: dict, product_version_id: UUID
+) -> list[dict]:
+    expanded = await expand_nodes(
+        session, definition_data, parent_version_id=product_version_id
+    )
+
+    # 展开后再校验整体 DAG：跨计划的依赖、重名、成环都在写入时暴露
+    from app.services.runs import RunError, order_nodes
+
+    try:
+        order_nodes(expanded)
+    except RunError as exc:
+        raise PlanError(str(exc)) from exc
+
+    return expanded
+
+
 async def create_plan(
     session: AsyncSession,
     *,
@@ -123,17 +158,7 @@ async def create_plan(
         raise PlanError(f"产品版本不存在: {product_version_id}")
 
     definition_data = parse_definition(definition)
-    expanded = await expand_nodes(
-        session, definition_data, parent_version_id=product_version_id
-    )
-
-    # 展开后再校验整体 DAG：跨计划的依赖、重名、成环都在创建时暴露
-    from app.services.runs import RunError, order_nodes
-
-    try:
-        order_nodes(expanded)
-    except RunError as exc:
-        raise PlanError(str(exc)) from exc
+    expanded = await _expand_and_order(session, definition_data, product_version_id)
 
     plan = Plan(
         product_version_id=product_version_id,
@@ -141,8 +166,47 @@ async def create_plan(
         definition=definition_data,
         snapshot={"nodes": expanded},
         snapshot_sha256=_digest({"nodes": expanded}),
+        revision=1,
     )
     session.add(plan)
+    await session.flush()
+    return plan
+
+
+async def update_plan(
+    session: AsyncSession,
+    plan_id: UUID,
+    *,
+    name: str | None = None,
+    definition: object | None = None,
+) -> Plan:
+    """编辑计划（D70）。
+
+    * 只改名字 → 不动 revision（不影响执行内容）；
+    * 改 definition → **revision + 1**，重新展开并冻结新快照；
+    * 已经跑过的 run 仍带着旧的 ``plan_sha256`` / ``plan_revision``，历史不受影响。
+    """
+
+    plan = await session.get(Plan, plan_id)
+    if plan is None:
+        raise PlanError(f"计划不存在: {plan_id}")
+
+    if name is not None:
+        cleaned = name.strip()
+        if not cleaned:
+            raise PlanError("计划名称不能为空")
+        plan.name = cleaned
+
+    if definition is not None:
+        definition_data = parse_definition(definition)
+        expanded = await _expand_and_order(
+            session, definition_data, plan.product_version_id
+        )
+        plan.definition = definition_data
+        plan.snapshot = {"nodes": expanded}
+        plan.snapshot_sha256 = _digest({"nodes": expanded})
+        plan.revision = (plan.revision or 1) + 1
+
     await session.flush()
     return plan
 

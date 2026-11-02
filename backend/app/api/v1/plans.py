@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer
 from app.db.session import get_session
-from app.services.plans import PlanError, create_plan, list_plans
+from app.services.plans import PlanError, create_plan, list_plans, update_plan
 
 router = APIRouter(prefix="/plans", tags=["plans"])
 
@@ -21,6 +21,11 @@ class PlanCreate(BaseModel):
     name: str
     # 对象（JSON）或字符串（YAML）都接受
     definition: dict | str
+
+
+class PlanUpdate(BaseModel):
+    name: str | None = None
+    definition: dict | str | None = None
 
 
 class PlanOut(BaseModel):
@@ -55,6 +60,32 @@ async def create(
         plan = await create_plan(
             session,
             product_version_id=payload.product_version_id,
+            name=payload.name,
+            definition=payload.definition,
+        )
+    except PlanError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    await session.commit()
+    return _to_out(plan)
+
+
+@router.patch(
+    "/{plan_id}",
+    response_model=PlanOut,
+    dependencies=[Depends(require_engineer)],
+)
+async def patch(
+    plan_id: UUID,
+    payload: PlanUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> PlanOut:
+    """编辑计划：改 definition 会生成新 revision（D70）。"""
+
+    try:
+        plan = await update_plan(
+            session,
+            plan_id,
             name=payload.name,
             definition=payload.definition,
         )

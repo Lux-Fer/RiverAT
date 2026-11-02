@@ -188,6 +188,7 @@ class Run(Base):
     priority: Mapped[int] = mapped_column(Integer, default=3)
     # 这次执行用的是哪一版计划快照（审计用）
     plan_sha256: Mapped[str | None] = mapped_column(String(64))
+    plan_revision: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

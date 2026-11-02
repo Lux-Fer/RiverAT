@@ -59,6 +59,7 @@ async def create_run(
         trigger=trigger,
         status="queued",
         plan_sha256=plan.snapshot_sha256 or None,
+        plan_revision=plan.revision,
     )
     session.add(run)
     await session.flush()

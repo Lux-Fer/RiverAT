@@ -26,6 +26,7 @@ from app.services.runs import RunError, create_run
 from app.worker.dispatch import RunDispatcher, get_dispatcher
 
 router = APIRouter(tags=["plan-pages"])
+from app.web.csrf import require_csrf
 from app.web.templates import templates
 
 
@@ -57,7 +58,7 @@ async def plans_page(
     return await _render_list(request, session, user)
 
 
-@router.post("/plans")
+@router.post("/plans", dependencies=[Depends(require_csrf)])
 async def create_plan_form(
     request: Request,
     user: Annotated[User, Depends(require_engineer)],
@@ -121,7 +122,7 @@ async def _render_detail(
     )
 
 
-@router.post("/plans/{plan_id}/edit")
+@router.post("/plans/{plan_id}/edit", dependencies=[Depends(require_csrf)])
 async def edit_plan_form(
     plan_id: UUID,
     request: Request,
@@ -150,7 +151,7 @@ async def edit_plan_form(
     return RedirectResponse(f"/plans/{plan_id}", status_code=303)
 
 
-@router.post("/plans/{plan_id}/run")
+@router.post("/plans/{plan_id}/run", dependencies=[Depends(require_csrf)])
 async def run_plan_form(
     plan_id: UUID,
     user: Annotated[User, Depends(require_engineer)],

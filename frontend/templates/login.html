@@ -4,6 +4,7 @@
     <h2 style="font-size:1rem; margin:.2rem 0 .9rem;">登录</h2>
     {% if error %}<p style="color:#e03131; font-size:13px;">{{ error }}</p>{% endif %}
     <form method="post" action="/login">
+{% include "_csrf_input.html" %}
       <p><input name="username" placeholder="用户名" value="{{ username or '' }}" required
                 style="width:100%; padding:.45rem .6rem; box-sizing:border-box;"></p>
       <p><input name="password" type="password" placeholder="密码" required

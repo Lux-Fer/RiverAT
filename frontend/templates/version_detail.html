@@ -30,6 +30,7 @@
   <div class="card">
     <form method="post" action="/versions/{{ detail.version.id }}/components"
           style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+{% include "_csrf_input.html" %}
       <span class="muted">锁定子版本：</span>
       <select name="child_version_id" required style="padding:.35rem .5rem;">
         {% for item in versions %}

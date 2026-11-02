@@ -57,6 +57,7 @@
 
   {% if user and user.role != "viewer" and release.status == "planned" %}
   <form method="post" action="/releases/{{ release.id }}/status" style="margin-top:1rem;">
+{% include "_csrf_input.html" %}
     <input type="hidden" name="status" value="released">
     <button type="submit" style="padding:.4rem .9rem; cursor:pointer;">标记已发布</button>
   </form>

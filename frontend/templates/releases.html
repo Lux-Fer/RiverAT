@@ -6,6 +6,7 @@
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/releases"
           style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+{% include "_csrf_input.html" %}
       <select name="product_version_id" required style="padding:.35rem .5rem;">
         {% for item in versions %}
         <option value="{{ item.version.id }}">{{ item.product.code }} — {{ item.version.version }}</option>
@@ -43,6 +44,7 @@
         <td>
           {% if user and user.role != "viewer" and r.status == "planned" %}
           <form method="post" action="/releases/{{ r.id }}/status" style="margin:0;">
+{% include "_csrf_input.html" %}
             <input type="hidden" name="status" value="released">
             <button type="submit" style="padding:.2rem .6rem; cursor:pointer;">标记已发布</button>
           </form>

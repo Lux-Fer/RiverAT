@@ -13,6 +13,7 @@
     <h1><a href="/">RiverAT</a></h1>
     {% if user %}
     <form method="post" action="/logout" style="margin:0;">
+{% include "_csrf_input.html" %}
       <span class="muted">{{ user.display_name }}（{{ user.role }}）</span>
       <button type="submit"
               style="margin-left:.5rem; padding:.2rem .6rem; cursor:pointer;">退出</button>

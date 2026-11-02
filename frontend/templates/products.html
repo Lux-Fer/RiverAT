@@ -25,6 +25,7 @@
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/products"
           style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+{% include "_csrf_input.html" %}
       <input name="code" placeholder="编码，如 C" required
              style="padding:.35rem .5rem; width:9rem;">
       <input name="name" placeholder="产品名称" required

@@ -8,6 +8,7 @@
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/products/{{ product.id }}/versions"
           style="display:flex; gap:.5rem; align-items:center;">
+{% include "_csrf_input.html" %}
       <input name="version" placeholder="版本号，如 1.0.0" required
              style="padding:.35rem .5rem; width:12rem;">
       <button type="submit" style="padding:.35rem .8rem; cursor:pointer;">新建版本</button>

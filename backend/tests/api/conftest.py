@@ -14,6 +14,7 @@ import pytest
 from app.api.deps import require_user
 from app.db.session import get_session
 from app.main import create_app
+from app.web.csrf import require_csrf
 
 STUB_USER = SimpleNamespace(
     id=uuid.uuid4(),
@@ -32,6 +33,8 @@ def app(session):
 
     application.dependency_overrides[get_session] = _override
     application.dependency_overrides[require_user] = lambda: STUB_USER
+    # 大多数用例不关心 CSRF；专门的 test_csrf 会把这个覆盖去掉
+    application.dependency_overrides[require_csrf] = lambda: None
     yield application
     application.dependency_overrides.clear()
 

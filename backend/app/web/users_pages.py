@@ -22,6 +22,7 @@ from app.services.users import (
 )
 
 router = APIRouter(tags=["user-pages"])
+from app.web.csrf import require_csrf
 from app.web.templates import templates
 
 
@@ -48,7 +49,7 @@ async def users_page(
     return await _render(request, session, user)
 
 
-@router.post("/users")
+@router.post("/users", dependencies=[Depends(require_csrf)])
 async def create_user_form(
     request: Request,
     user: Annotated[User, Depends(require_admin)],
@@ -73,7 +74,7 @@ async def create_user_form(
     return RedirectResponse("/users", status_code=303)
 
 
-@router.post("/users/{user_id}")
+@router.post("/users/{user_id}", dependencies=[Depends(require_csrf)])
 async def update_user_form(
     user_id: UUID,
     request: Request,

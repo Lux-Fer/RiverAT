@@ -14,6 +14,7 @@
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/plans/{{ plan.id }}/run"
           style="display:flex; gap:.5rem; align-items:center;">
+{% include "_csrf_input.html" %}
       <select name="host_id" style="padding:.35rem .5rem;">
         <option value="">本机（local）</option>
         {% for host in hosts %}
@@ -33,6 +34,7 @@
   <h2 style="font-size:1rem; margin-top:1.5rem;">编辑</h2>
   <div class="card">
     <form method="post" action="/plans/{{ plan.id }}/edit">
+{% include "_csrf_input.html" %}
       <input type="hidden" name="expected_revision" value="{{ plan.revision }}">
       <p><input name="name" value="{{ plan.name }}" required
                 style="padding:.35rem .5rem; width:18rem;"></p>

@@ -112,6 +112,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D72 | 发布单 `release`：待发版本 + `target_date` + 状态（planned/released/cancelled）；**质量口径 = 建单之后该版本的所有执行**（不拿旧结果充数）；看板新增"未来 7 天待发"表；`/releases` 页面建单与标记已发布 | 让 D29 的"本周待发版本"落地；按建单时间切质量，语义清楚、不会把历史通过率算进来 |
 | D73 | 发布详情页 `/releases/{id}`：四张质量卡（建单后执行/通过/失败·异常/最近一次）+ **属于这次发布的执行列表**（同版本且建单后创建，链到执行详情）+ 直接标记已发布 | 发布单从"列表一行数字"变成可下钻的验证记录；口径与 D72 完全一致 |
 | D74 | 计划编辑**乐观锁**：`PATCH /plans/{id}` 接受 `expected_revision`（编辑表单隐藏字段自动带上），不一致返回 **409**；**改密码即下线**：会话存储新增 `revoke_user`（Redis 用 `user-sessions` 集合索引），重置密码后踢掉该用户全部会话，改自己密码则回登录页 | 两人同时改计划会静默互相覆盖；密码泄露后必须能强制下线 —— 这两条是多人可用的底线 |
+| D75 | **CSRF 双提交 Cookie**：中间件种 `riverat_csrf`（非 HttpOnly、SameSite=Lax），13 个页面表单带隐藏 `csrf_token`，12 个页面 POST 路由挂 `require_csrf`，不一致 403；也接受 `X-CSRF-Token` 头；JSON API 不加校验（跨站 JSON 会触发 CORS 预检） | 之前表单 POST 只靠 SameSite=Lax 兜底；显式 token 才是可解释、可测试的防线 |
 
 ## 4. 待定
 
@@ -208,3 +209,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-03 发布单：计划发布日期 + 建单后质量 + 看板"未来 7 天待发"（D72），全套 118 passed / 3 skipped。
 - 2026-11-03 发布详情页：质量卡片 + 该发布包含的执行列表（D73），全套 119 passed / 3 skipped。
 - 2026-11-03 可靠性：计划编辑乐观锁 409 + 改密码即下线（D74），全套 123 passed / 3 skipped。
+- 2026-11-03 安全：表单 CSRF 双提交 Cookie（D75），全套 127 passed / 3 skipped。

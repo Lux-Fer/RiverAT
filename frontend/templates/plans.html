@@ -5,6 +5,7 @@
   {% if user and user.role != "viewer" %}
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/plans">
+{% include "_csrf_input.html" %}
       <p style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
         <select name="product_version_id" required style="padding:.35rem .5rem;">
           {% for item in versions %}

@@ -5,6 +5,7 @@
   <div class="card" style="margin-bottom:1rem;">
     <form method="post" action="/users"
           style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+{% include "_csrf_input.html" %}
       <input name="username" placeholder="用户名" required
              style="padding:.35rem .5rem; width:10rem;">
       <input name="password" type="password" placeholder="初始密码" required
@@ -38,6 +39,7 @@
         <td>
           <form method="post" action="/users/{{ u.id }}"
                 style="display:flex; gap:.4rem; align-items:center;">
+{% include "_csrf_input.html" %}
             <select name="role" style="padding:.2rem .4rem;">
               {% for r in ["viewer", "engineer", "admin"] %}
               <option value="{{ r }}" {% if r == u.role %}selected{% endif %}>{{ r }}</option>

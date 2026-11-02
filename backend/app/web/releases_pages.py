@@ -23,6 +23,7 @@ from app.services.releases import (
     runs_for_release,
     update_release,
 )
+from app.web.csrf import require_csrf
 from app.web.templates import templates
 
 router = APIRouter(tags=["release-pages"])
@@ -78,7 +79,7 @@ async def release_detail_page(
     )
 
 
-@router.post("/releases")
+@router.post("/releases", dependencies=[Depends(require_csrf)])
 async def create_release_form(
     request: Request,
     user: Annotated[User, Depends(require_engineer)],
@@ -103,7 +104,7 @@ async def create_release_form(
     return RedirectResponse("/releases", status_code=303)
 
 
-@router.post("/releases/{release_id}/status")
+@router.post("/releases/{release_id}/status", dependencies=[Depends(require_csrf)])
 async def update_release_form(
     release_id: UUID,
     request: Request,

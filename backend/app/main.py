@@ -14,6 +14,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
+from app.web.csrf import csrf_cookie_middleware
 from app.web.dashboard_pages import router as dashboard_pages_router
 from app.web.pages import router as pages_router
 from app.web.plans_pages import router as plans_pages_router
@@ -74,6 +75,8 @@ async def _bootstrap_admin() -> None:
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+
+    app.middleware("http")(csrf_cookie_middleware)
 
     app.add_middleware(
         CORSMiddleware,

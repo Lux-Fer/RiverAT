@@ -31,6 +31,7 @@ from app.services.catalog import (
 )
 from app.services.knowledge import similar_to_run
 from app.services.runs import get_run, list_runs, list_steps
+from app.web.csrf import require_csrf
 from app.web.templates import templates
 
 router = APIRouter(tags=["pages"])
@@ -43,7 +44,7 @@ async def login_page(request: Request) -> HTMLResponse:
     )
 
 
-@router.post("/login", response_class=HTMLResponse)
+@router.post("/login", response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 async def login_submit(
     request: Request,
     username: Annotated[str, Form()],
@@ -80,7 +81,7 @@ async def login_submit(
     return response
 
 
-@router.post("/logout")
+@router.post("/logout", dependencies=[Depends(require_csrf)])
 async def logout_submit(
     request: Request,
     store: Annotated[SessionStore, Depends(get_session_store)],
@@ -190,7 +191,7 @@ async def run_panel(
 # -- 表单操作：建产品 / 版本 / 版本组成 ---------------------------------
 
 
-@router.post("/products")
+@router.post("/products", dependencies=[Depends(require_csrf)])
 async def create_product_form(
     request: Request,
     user: Annotated[User, Depends(require_engineer)],
@@ -222,7 +223,7 @@ async def create_product_form(
     return RedirectResponse("/products", status_code=303)
 
 
-@router.post("/products/{product_id}/versions")
+@router.post("/products/{product_id}/versions", dependencies=[Depends(require_csrf)])
 async def create_version_form(
     product_id: UUID,
     request: Request,
@@ -248,7 +249,7 @@ async def create_version_form(
     return RedirectResponse("/products", status_code=303)
 
 
-@router.post("/versions/{version_id}/components")
+@router.post("/versions/{version_id}/components", dependencies=[Depends(require_csrf)])
 async def add_component_form(
     version_id: UUID,
     request: Request,

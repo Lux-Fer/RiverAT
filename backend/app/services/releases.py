@@ -81,20 +81,23 @@ async def list_releases(session: AsyncSession, limit: int = 50) -> list[Release]
 
 
 async def quality(session: AsyncSession, release: Release) -> dict:
-    """这次发布之后该版本执行的质量。"""
+    """这次发布之后该版本执行的质量。
+
+    「最近一次」必须和计数用同一个时间窗（D76）—— 否则会出现
+    0 次执行旁边挂着绿色 passed 的自相矛盾。
+    """
 
     stmt = select(Run.status, func.count()).where(
         Run.product_version_id == release.product_version_id
     )
+    last_stmt = select(Run).where(Run.product_version_id == release.product_version_id)
     if release.created_at is not None:
         stmt = stmt.where(Run.created_at >= release.created_at)
-    counts = dict((await session.execute(stmt.group_by(Run.status))).all())
+        last_stmt = last_stmt.where(Run.created_at >= release.created_at)
 
-    last_status = await session.scalar(
-        select(Run.status)
-        .where(Run.product_version_id == release.product_version_id)
-        .order_by(Run.created_at.desc())
-        .limit(1)
+    counts = dict((await session.execute(stmt.group_by(Run.status))).all())
+    last_run = await session.scalar(
+        last_stmt.order_by(Run.created_at.desc()).limit(1)
     )
 
     return {
@@ -103,8 +106,17 @@ async def quality(session: AsyncSession, release: Release) -> dict:
         "failed": counts.get("failed", 0),
         "error": counts.get("error", 0),
         "in_flight": counts.get("queued", 0) + counts.get("running", 0),
-        "last_status": last_status,
+        "last_status": last_run.status if last_run else None,
+        "last_run_id": str(last_run.id) if last_run else None,
+        "last_run_when": _when(last_run) if last_run else None,
     }
+
+
+def _when(run: Run | None) -> str | None:
+    if run is None:
+        return None
+    moment = run.finished_at or run.started_at or run.created_at
+    return moment.strftime("%m-%d %H:%M") if moment else None
 
 
 async def decorate(session: AsyncSession, release: Release) -> dict:

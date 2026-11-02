@@ -5,13 +5,13 @@
     <div class="card">
       <div class="muted">放行结论（全部执行）</div>
       <div style="font-size:1.6rem; margin:.2rem 0;">
-        <span style="color:#2f9e44;">{{ data.release.green }}</span>
+        <span style="color:#1e7e34;">{{ data.release.green }}</span>
         <span class="muted" style="font-size:1rem;">通过</span>
         ·
-        <span style="color:#e03131;">{{ data.release.red }}</span>
+        <span style="color:#b02a2a;">{{ data.release.red }}</span>
         <span class="muted" style="font-size:1rem;">失败</span>
         ·
-        <span style="color:#f08c00;">{{ data.release.yellow }}</span>
+        <span style="color:#b45309;">{{ data.release.yellow }}</span>
         <span class="muted" style="font-size:1rem;">阻塞</span>
       </div>
       <div class="muted">进行中：{{ data.release.in_flight }}</div>
@@ -31,7 +31,7 @@
 
     <div class="card">
       <div class="muted">风险敞口：从未成功执行的产品版本</div>
-      <div style="font-size:1.6rem; color:#e03131;">{{ data.risk_versions }}</div>
+      <div style="font-size:1.6rem; color:#b02a2a;">{{ data.risk_versions }}</div>
       <div class="muted">含新建但没跑过的版本</div>
     </div>
 
@@ -62,12 +62,13 @@
         <td>{{ r.target_date }}</td>
         <td>
           共 {{ r.quality.runs }} 次
-          · <span style="color:#2f9e44;">通过 {{ r.quality.passed }}</span>
-          · <span style="color:#e03131;">失败 {{ r.quality.failed + r.quality.error }}</span>
+          · <span style="color:#1e7e34;">通过 {{ r.quality.passed }}</span>
+          · <span style="color:#b02a2a;">失败 {{ r.quality.failed + r.quality.error }}</span>
         </td>
         <td>
           {% if r.quality.last_status %}
-          <span class="badge {{ r.quality.last_status }}">{{ r.quality.last_status }}</span>
+          <a href="/runs/{{ r.quality.last_run_id }}">{{ status_label(r.quality.last_status) }}</a>
+          <span class="muted">{{ r.quality.last_run_when }}</span>
           {% else %}
           <span class="muted">未执行</span>
           {% endif %}
@@ -91,7 +92,7 @@
     <tbody>
       {% for status, count in data.by_status.items() %}
       <tr>
-        <td><span class="badge {{ status }}">{{ status }}</span></td>
+        <td><span class="badge {{ status }}">{{ status_label(status) }}</span></td>
         <td>{{ count }}</td>
       </tr>
       {% else %}

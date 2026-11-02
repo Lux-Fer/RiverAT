@@ -9,9 +9,12 @@ from __future__ import annotations
 from fastapi.templating import Jinja2Templates
 
 from app.core.config import BASE_DIR
+from app.services.labels import status_label
 
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 TEMPLATES_DIR = FRONTEND_DIR / "templates"
 STATIC_DIR = FRONTEND_DIR / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+# 模板里直接用 {{ status_label("passed") }} → 通过（D76）
+templates.env.globals["status_label"] = status_label

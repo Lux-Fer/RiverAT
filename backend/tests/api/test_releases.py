@@ -127,3 +127,34 @@ async def test_release_detail_page_lists_its_runs(session, client, tmp_path):
 
     missing = await client.get(f"/releases/{uuid.uuid4()}")
     assert missing.status_code == 404
+
+async def test_last_status_respects_release_window(session, client, tmp_path):
+    """建单前的执行不能冒充「最近一次」—— 否则会出现 0 次 + 绿色通过（D76）。"""
+
+    version_id, plan_id = await _version(client, tmp_path)
+    before = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
+    assert before["status"] == "passed"
+
+    target = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
+    release = (
+        await client.post(
+            "/api/v1/releases",
+            json={"product_version_id": version_id, "target_date": target},
+        )
+    ).json()
+    assert release["quality"]["runs"] == 0
+    assert release["quality"]["last_status"] is None
+
+    listed = (await client.get("/api/v1/releases")).json()[0]
+    assert listed["quality"]["runs"] == 0
+    assert listed["quality"]["last_status"] is None
+    assert listed["quality"]["last_run_id"] is None
+
+    # 建单后再跑一次，才应该出现在「最近」
+    after = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
+    assert after["status"] == "passed"
+
+    listed = (await client.get("/api/v1/releases")).json()[0]
+    assert listed["quality"]["runs"] == 1
+    assert listed["quality"]["last_status"] == "passed"
+    assert listed["quality"]["last_run_id"] == after["id"]

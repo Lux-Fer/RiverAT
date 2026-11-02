@@ -10,17 +10,20 @@ table { border-collapse: collapse; width: 100%; background: #fff;
 th, td { padding: .55rem .75rem; border-bottom: 1px solid #e4e7eb;
          text-align: left; font-size: 14px; vertical-align: top; }
 tr:last-child td { border-bottom: none; }
-a { color: #1c7ed6; text-decoration: none; }
+a { color: #1667b8; text-decoration: none; }
 .badge { display: inline-block; padding: .12rem .5rem; border-radius: 999px;
          font-size: 12px; color: #fff; }
-.passed { background: #2f9e44; }
+.passed { background: #1e7e34; }
 .failed { background: #e03131; }
 .error { background: #c2255c; }
-.skipped { background: #868e96; }
-.blocked { background: #f08c00; }
-.running, .queued { background: #1c7ed6; }
+.skipped { background: #6b7280; }
+.blocked { background: #b45309; }
+.running, .queued { background: #1667b8; }
 details { margin-top: .35rem; }
 .card { background: #fff; padding: .5rem .9rem; border-radius: 6px;
         box-shadow: 0 1px 2px rgba(0,0,0,.06); }
 pre { background: #f1f3f5; padding: .5rem .75rem; border-radius: 4px;
       white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+
+/* 键盘焦点必须可见（D76）：浏览器默认环在深色按钮上几乎不可见 */
+:focus-visible { outline: 2px solid #1667b8; outline-offset: 2px; }

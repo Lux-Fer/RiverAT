@@ -48,6 +48,38 @@
     </div>
   </div>
 
+  <h2 style="font-size:1rem; margin-top:1.5rem;">未来 7 天待发</h2>
+  {% if data.upcoming %}
+  <table>
+    <thead>
+      <tr><th>发布</th><th>版本</th><th>计划日期</th><th>建单后执行</th><th>最近</th></tr>
+    </thead>
+    <tbody>
+      {% for r in data.upcoming %}
+      <tr>
+        <td>{{ r.name or r.product_code }}</td>
+        <td>{{ r.product_code }} — {{ r.version }}</td>
+        <td>{{ r.target_date }}</td>
+        <td>
+          共 {{ r.quality.runs }} 次
+          · <span style="color:#2f9e44;">通过 {{ r.quality.passed }}</span>
+          · <span style="color:#e03131;">失败 {{ r.quality.failed + r.quality.error }}</span>
+        </td>
+        <td>
+          {% if r.quality.last_status %}
+          <span class="badge {{ r.quality.last_status }}">{{ r.quality.last_status }}</span>
+          {% else %}
+          <span class="muted">未执行</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">未来 7 天没有计划发布。<a href="/releases">去建发布单</a></p>
+  {% endif %}
+
   <h2 style="font-size:1rem; margin-top:1.5rem;">近 14 天执行趋势</h2>
   <div class="card" style="padding:1rem;">
     <canvas id="trend" height="90"></canvas>

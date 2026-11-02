@@ -14,9 +14,10 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
+    Date,
     DateTime,
     ForeignKey,
     Integer,
@@ -267,3 +268,24 @@ class KnowledgeChunk(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class Release(Base):
+    """发布单（D72）：一个待发版本 + 计划发布日期。"""
+
+    __tablename__ = "release"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    product_version_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("product_version.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(200), default="")
+    target_date: Mapped[date] = mapped_column(Date, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="planned", index=True)
+    note: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

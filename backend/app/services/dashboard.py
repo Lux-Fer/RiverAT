@@ -11,6 +11,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Plan, ProductVersion, Run, RunStep
+from app.services.releases import upcoming
 
 
 async def _daily_trend(session: AsyncSession, *, days: int = 14) -> list[dict]:
@@ -130,6 +131,7 @@ async def summary(session: AsyncSession) -> dict:
         },
         "risk_versions": risk_rows,
         "trend": await _daily_trend(session),
+        "upcoming": await upcoming(session),
         "duration": {
             "p50": round(_percentile(durations, 0.5), 1) if durations else None,
             "p90": round(_percentile(durations, 0.9), 1) if durations else None,

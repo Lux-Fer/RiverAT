@@ -17,6 +17,7 @@ from app.services.auth import ensure_bootstrap_admin
 from app.web.dashboard_pages import router as dashboard_pages_router
 from app.web.pages import router as pages_router
 from app.web.plans_pages import router as plans_pages_router
+from app.web.releases_pages import router as releases_pages_router
 from app.web.templates import STATIC_DIR, templates
 from app.web.users_pages import router as users_pages_router
 
@@ -112,6 +113,7 @@ def create_app() -> FastAPI:
 
     app.include_router(pages_router)
     app.include_router(plans_pages_router)
+    app.include_router(releases_pages_router)
     app.include_router(users_pages_router)
     app.include_router(dashboard_pages_router)
     return app

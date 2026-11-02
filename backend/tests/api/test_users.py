@@ -32,7 +32,7 @@ async def test_admin_creates_user(session, client):
 
 
 async def test_duplicate_username_is_rejected(session, client):
-    payload = {"username": "bob", "password": "x", "role": "viewer"}
+    payload = {"username": "bob", "password": "dup-pass-1", "role": "viewer"}
     assert (await client.post("/api/v1/users", json=payload)).status_code == 201
 
     duplicate = await client.post("/api/v1/users", json=payload)
@@ -52,7 +52,7 @@ async def test_admin_changes_role(session, client):
     created = (
         await client.post(
             "/api/v1/users",
-            json={"username": "carol", "password": "x", "role": "viewer"},
+            json={"username": "carol", "password": "carol-pass-1", "role": "viewer"},
         )
     ).json()
 

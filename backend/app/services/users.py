@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ROLE_LEVEL
 from app.models import User
-from app.services.auth import AuthError, create_user
+from app.services.auth import AuthError, create_user, set_password
 
 
 class UserError(ValueError):
@@ -64,6 +64,7 @@ async def update_user_admin(
     role: str | None = None,
     is_active: bool | None = None,
     display_name: str | None = None,
+    password: str | None = None,
 ) -> User:
     if user.id == actor.id:
         if is_active is False:
@@ -78,6 +79,12 @@ async def update_user_admin(
         user.is_active = is_active
     if display_name is not None:
         user.display_name = display_name
+    if password:
+        # 管理员重置密码（D71）；改完用户下次用新密码登录
+        try:
+            set_password(user, password)
+        except AuthError as exc:
+            raise UserError(str(exc)) from exc
 
     await session.flush()
     return user

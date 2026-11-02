@@ -52,9 +52,12 @@ class RunOut(BaseModel):
 
 class RunSummary(BaseModel):
     id: UUID
+    plan_id: UUID
     status: str
     trigger: str
     host_id: UUID | None = None
+    plan_revision: int | None = None
+    plan_sha256: str | None = None
 
 
 async def _to_run_out(session: AsyncSession, run) -> RunOut:
@@ -116,7 +119,13 @@ async def read_runs(
 ) -> list[RunSummary]:
     return [
         RunSummary(
-            id=run.id, status=run.status, trigger=run.trigger, host_id=run.host_id
+            id=run.id,
+            plan_id=run.plan_id,
+            status=run.status,
+            trigger=run.trigger,
+            host_id=run.host_id,
+            plan_revision=run.plan_revision,
+            plan_sha256=run.plan_sha256,
         )
         for run in await list_runs(session)
     ]

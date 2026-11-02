@@ -12,13 +12,25 @@ from app.models import User
 
 _hasher = PasswordHasher()
 
+MIN_PASSWORD_LENGTH = 6
+
 
 class AuthError(ValueError):
     """登录失败 / 账号冲突。"""
 
 
+def check_password_policy(password: str) -> None:
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise AuthError(f"密码至少 {MIN_PASSWORD_LENGTH} 位")
+
+
 def hash_password(password: str) -> str:
     return _hasher.hash(password)
+
+
+def set_password(user: User, password: str) -> None:
+    check_password_policy(password)
+    user.password_hash = hash_password(password)
 
 
 def verify_password(password_hash: str, password: str) -> bool:
@@ -40,6 +52,7 @@ async def create_user(
     if existing is not None:
         raise AuthError(f"用户名已存在: {username}")
 
+    check_password_policy(password)
     user = User(
         username=username,
         display_name=display_name or username,

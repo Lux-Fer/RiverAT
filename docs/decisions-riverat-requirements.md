@@ -108,6 +108,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D68 | 前端代码集中在仓库根 **`frontend/`**（`templates/` + `static/`）；后端通过 `app/web/templates.py` 单例引用并挂载 `/static`，`backend/app` 里不再放 HTML/CSS；Docker 构建上下文改为仓库根，镜像内 `/app/backend` 与 `/app/frontend` 平级 | 前端要有自己的目录；构建上下文跟着改，镜像内路径才和开发时一致 |
 | D69 | D32 前端库落地：`frontend/static/vendor/` 内置 **HTMX 2.0.4** 与 **Chart.js 4.4.7**；run 详情改为片段轮询（`GET /runs/{id}/panel`，2s，结束后自动停），看板加近 14 天趋势折线图；删除整页 `meta refresh`；Alpine.js 仍无使用场景，暂不引入 | 局部刷新不打断已展开的日志；趋势图让数字可读；不 vendor 没人用的库 |
 | D70 | 计划可编辑：`PATCH /plans/{id}`（engineer）+ 详情页编辑表单；改 `definition` → **revision + 1**、重新展开并冻结新快照，只改名不动 revision；`run.plan_revision` 记录执行时用的版本，旧 run 的 `plan_sha256` 不变；`definition` 解析改为**先 JSON 后 YAML**，解析错误统一 422 | 计划只能建不能改是语义缺口；用 revision 而不是覆盖，历史仍可复现（D59 的延伸） |
+| D71 | 用户密码：创建与重置统一校验 **≥ 6 位**；admin 通过 `PATCH /users/{id} {password}` 或 `/users` 行内输入框重置他人密码，旧密码立即失效；v1 **不提供自助改密**；重置**不踢掉已登录会话**（会话按 token 存 Redis，未按用户索引） | 角色系统需要"换锁"能力；自助改密需要旧密码校验与额外页面，等真实需求再加；会话失效留到有审计需求时做 |
 
 ## 4. 待定
 
@@ -200,3 +201,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-02 镜像重建：构建改用可配置 PyPI 源（默认清华，`--build-arg PIP_INDEX_URL` 可换）；容器内验证 D68 布局、静态资源 200、队列跑通。
 - 2026-11-02 HTMX + Chart.js 落地：run 详情片段轮询、看板 14 天趋势图（D69），全套 107 passed / 3 skipped。
 - 2026-11-03 计划编辑：改 definition 生成新 revision、旧执行不变（D70），全套 111 passed / 3 skipped。
+- 2026-11-03 密码重置：admin 重置密码 + 最小长度 6 位（D71），runs 列表补 plan_revision；全套 115 passed / 3 skipped。

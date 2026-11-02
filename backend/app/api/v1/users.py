@@ -44,6 +44,8 @@ class UserPatch(BaseModel):
     role: str | None = None
     is_active: bool | None = None
     display_name: str | None = None
+    # 管理员重置密码（D71）；不填就不动
+    password: str | None = None
 
 
 def _to_out(user: User) -> UserOut:
@@ -104,6 +106,7 @@ async def patch(
             role=payload.role,
             is_active=payload.is_active,
             display_name=payload.display_name,
+            password=payload.password,
         )
     except UserError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

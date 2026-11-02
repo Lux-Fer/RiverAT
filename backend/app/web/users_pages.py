@@ -81,6 +81,7 @@ async def update_user_form(
     role: Annotated[str, Form()],
     is_active: Annotated[str, Form()] = "true",
     display_name: Annotated[str, Form()] = "",
+    password: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     target = await get_user(session, user_id)
     if target is None:
@@ -94,6 +95,7 @@ async def update_user_form(
             role=role,
             is_active=is_active.lower() == "true",
             display_name=display_name or None,
+            password=password or None,
         )
     except UserError as exc:
         return await _render(request, session, user, error=str(exc))

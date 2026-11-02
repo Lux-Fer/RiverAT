@@ -5,10 +5,47 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Plan, ProductVersion, Run, RunStep
+
+
+async def _daily_trend(session: AsyncSession, *, days: int = 14) -> list[dict]:
+    """最近 N 天每天的成功/失败次数（按 finished_at 的 UTC 日期归组）。"""
+
+    today = datetime.now(UTC).date()
+    start = today - timedelta(days=days - 1)
+    since = datetime(start.year, start.month, start.day, tzinfo=UTC)
+
+    rows = (
+        await session.execute(
+            select(func.date(Run.finished_at).label("day"), Run.status, func.count())
+            .where(Run.finished_at.is_not(None), Run.finished_at >= since)
+            .group_by("day", Run.status)
+        )
+    ).all()
+
+    counts: dict[str, dict[str, int]] = {}
+    for day, status, count in rows:
+        key = day.isoformat() if hasattr(day, "isoformat") else str(day)
+        counts.setdefault(key, {})[status] = count
+
+    trend: list[dict] = []
+    for offset in range(days):
+        key = (start + timedelta(days=offset)).isoformat()
+        bucket = counts.get(key, {})
+        trend.append(
+            {
+                "date": key,
+                "passed": bucket.get("passed", 0),
+                "failed": bucket.get("failed", 0),
+                "error": bucket.get("error", 0),
+            }
+        )
+    return trend
 
 
 def _percentile(values: list[float], ratio: float) -> float | None:
@@ -92,6 +129,7 @@ async def summary(session: AsyncSession) -> dict:
             "ratio": round(complete / len(coverage_rows), 3) if coverage_rows else None,
         },
         "risk_versions": risk_rows,
+        "trend": await _daily_trend(session),
         "duration": {
             "p50": round(_percentile(durations, 0.5), 1) if durations else None,
             "p90": round(_percentile(durations, 0.9), 1) if durations else None,

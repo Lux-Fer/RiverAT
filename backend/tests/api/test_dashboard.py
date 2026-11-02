@@ -73,6 +73,11 @@ async def test_dashboard_api_numbers(session, client):
     assert data["risk_versions"] == 1  # v2 从未成功
     assert data["duration"]["p50"] == 15.0
     assert data["duration"]["p90"] == 19.0
+    # 近 14 天趋势固定 14 个点，今天的桶里 1 通过 1 失败
+    assert len(data["trend"]) == 14
+    today = data["trend"][-1]
+    assert today["passed"] == 1
+    assert today["failed"] == 1
 
 
 async def test_dashboard_page_renders(session, client):

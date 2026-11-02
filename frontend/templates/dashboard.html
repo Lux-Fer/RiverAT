@@ -48,6 +48,11 @@
     </div>
   </div>
 
+  <h2 style="font-size:1rem; margin-top:1.5rem;">近 14 天执行趋势</h2>
+  <div class="card" style="padding:1rem;">
+    <canvas id="trend" height="90"></canvas>
+  </div>
+
   <h2 style="font-size:1rem; margin-top:1.5rem;">各状态次数</h2>
   <table>
     <thead><tr><th>状态</th><th>次数</th></tr></thead>
@@ -62,4 +67,28 @@
       {% endfor %}
     </tbody>
   </table>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/vendor/chart.umd.min.js"></script>
+<script>
+  const trend = {{ data.trend | tojson }};
+  new Chart(document.getElementById('trend'), {
+    type: 'line',
+    data: {
+      labels: trend.map(d => d.date.slice(5)),
+      datasets: [
+        { label: '通过', data: trend.map(d => d.passed),
+          borderColor: '#2f9e44', backgroundColor: 'rgba(47,158,68,.12)', tension: .3 },
+        { label: '失败/异常', data: trend.map(d => d.failed + d.error),
+          borderColor: '#e03131', backgroundColor: 'rgba(224,49,49,.12)', tension: .3 },
+      ],
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+    },
+  });
+</script>
 {% endblock %}

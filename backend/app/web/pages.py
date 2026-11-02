@@ -139,6 +139,16 @@ async def index(
     )
 
 
+async def _run_context(session: AsyncSession, run) -> dict:
+    steps = await list_steps(session, run.id)
+    similar = (
+        await similar_to_run(session, run.id)
+        if run.status in ("failed", "error")
+        else []
+    )
+    return {"run": run, "steps": steps, "similar": similar}
+
+
 @router.get("/runs/{run_id}", response_class=HTMLResponse)
 async def run_detail(
     run_id: UUID,
@@ -149,16 +159,31 @@ async def run_detail(
     run = await get_run(session, run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="run 不存在")
-    steps = await list_steps(session, run.id)
-    similar = (
-        await similar_to_run(session, run.id)
-        if run.status in ("failed", "error")
-        else []
-    )
+    context = await _run_context(session, run)
     return templates.TemplateResponse(
         request=request,
         name="run_detail.html",
-        context={"run": run, "steps": steps, "user": user, "similar": similar},
+        context={**context, "user": user},
+    )
+
+
+@router.get("/runs/{run_id}/panel", response_class=HTMLResponse)
+async def run_panel(
+    run_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    """HTMX 轮询片段：只换面板，不刷整页。"""
+
+    run = await get_run(session, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run 不存在")
+    context = await _run_context(session, run)
+    return templates.TemplateResponse(
+        request=request,
+        name="_run_panel.html",
+        context={**context, "user": user},
     )
 
 

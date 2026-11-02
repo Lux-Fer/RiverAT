@@ -195,3 +195,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-01 领导页：`/dashboard` 五个数字 + `/api/v1/dashboard`（D66），全套 101 passed / 3 skipped。
 - 2026-11-01 失败归因 v1：失败执行入知识库 + pg_trgm 相似检索（D67），全套 104 passed / 3 skipped。
 - 2026-11-01 前端独立目录：模板迁到 `frontend/templates`、CSS 抽到 `frontend/static`（D68），全套 105 passed / 3 skipped。
+- 2026-11-02 镜像重建：构建改用可配置 PyPI 源（默认清华，`--build-arg PIP_INDEX_URL` 可换）；容器内验证 D68 布局、静态资源 200、队列跑通。

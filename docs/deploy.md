@@ -24,6 +24,16 @@ uv export --frozen --no-dev --format requirements-txt --no-hashes \
   --output-file requirements.txt
 ```
 
+### 构建时的 pip 源
+
+镜像构建默认走清华镜像（国内访问 `files.pythonhosted.org` 容易读超时）：
+
+```bash
+docker compose build backend
+# 海外网络可切回官方源
+docker compose build backend --build-arg PIP_INDEX_URL=https://pypi.org/simple
+```
+
 ## 2. 首次启动
 
 ```bash

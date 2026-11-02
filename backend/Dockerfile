@@ -8,8 +8,12 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # 依赖先装，利用层缓存；requirements.txt 由 uv.lock 导出（见 docs/deploy.md）
+# 默认走清华镜像（国内网络对 files.pythonhosted.org 容易读超时）；
+# 海外部署可用 --build-arg PIP_INDEX_URL=https://pypi.org/simple 覆盖。
+ARG PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple
 COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --timeout 120 --retries 10 \
+        --index-url "${PIP_INDEX_URL}" -r requirements.txt
 
 COPY backend/alembic.ini ./
 COPY backend/migrations ./migrations

@@ -3,7 +3,7 @@
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.8rem;">
 
     <div class="card">
-      <div class="muted">放行结论（全部执行）</div>
+      <div class="muted">执行结果（全部）</div>
       <div style="font-size:1.6rem; margin:.2rem 0;">
         <span style="color:#1e7e34;">{{ data.release.green }}</span>
         <span class="muted" style="font-size:1rem;">通过</span>
@@ -24,9 +24,10 @@
     </div>
 
     <div class="card">
-      <div class="muted">执行完整性（步骤数 ≥ 计划节点数）</div>
+      <div class="muted">步骤落库率（数据完整性）</div>
       <div style="font-size:1.6rem;">{{ (data.coverage.ratio * 100) | round(1) if data.coverage.ratio is not none else "—" }}%</div>
-      <div class="muted">{{ data.coverage.complete }} / {{ data.coverage.finished }} 次完整</div>
+      <div class="muted">{{ data.coverage.complete }} / {{ data.coverage.finished }} 次步骤齐全</div>
+      <div class="muted">衡量步骤是否落库，<strong>不是覆盖率</strong></div>
     </div>
 
     <div class="card">
@@ -52,7 +53,7 @@
   {% if data.upcoming %}
   <table>
     <thead>
-      <tr><th>发布</th><th>版本</th><th>计划日期</th><th>建单后执行</th><th>最近</th></tr>
+      <tr><th>发布</th><th>版本</th><th>计划日期</th><th>本发布执行</th><th>最近</th></tr>
     </thead>
     <tbody>
       {% for r in data.upcoming %}

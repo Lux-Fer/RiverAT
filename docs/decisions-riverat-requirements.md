@@ -110,6 +110,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D70 | 计划可编辑：`PATCH /plans/{id}`（engineer）+ 详情页编辑表单；改 `definition` → **revision + 1**、重新展开并冻结新快照，只改名不动 revision；`run.plan_revision` 记录执行时用的版本，旧 run 的 `plan_sha256` 不变；`definition` 解析改为**先 JSON 后 YAML**，解析错误统一 422 | 计划只能建不能改是语义缺口；用 revision 而不是覆盖，历史仍可复现（D59 的延伸） |
 | D71 | 用户密码：创建与重置统一校验 **≥ 6 位**；admin 通过 `PATCH /users/{id} {password}` 或 `/users` 行内输入框重置他人密码，旧密码立即失效；v1 **不提供自助改密**；重置**不踢掉已登录会话**（会话按 token 存 Redis，未按用户索引） | 角色系统需要"换锁"能力；自助改密需要旧密码校验与额外页面，等真实需求再加；会话失效留到有审计需求时做 |
 | D72 | 发布单 `release`：待发版本 + `target_date` + 状态（planned/released/cancelled）；**质量口径 = 建单之后该版本的所有执行**（不拿旧结果充数）；看板新增"未来 7 天待发"表；`/releases` 页面建单与标记已发布 | 让 D29 的"本周待发版本"落地；按建单时间切质量，语义清楚、不会把历史通过率算进来 |
+| D73 | 发布详情页 `/releases/{id}`：四张质量卡（建单后执行/通过/失败·异常/最近一次）+ **属于这次发布的执行列表**（同版本且建单后创建，链到执行详情）+ 直接标记已发布 | 发布单从"列表一行数字"变成可下钻的验证记录；口径与 D72 完全一致 |
 
 ## 4. 待定
 
@@ -204,3 +205,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-03 计划编辑：改 definition 生成新 revision、旧执行不变（D70），全套 111 passed / 3 skipped。
 - 2026-11-03 密码重置：admin 重置密码 + 最小长度 6 位（D71），runs 列表补 plan_revision；全套 115 passed / 3 skipped。
 - 2026-11-03 发布单：计划发布日期 + 建单后质量 + 看板"未来 7 天待发"（D72），全套 118 passed / 3 skipped。
+- 2026-11-03 发布详情页：质量卡片 + 该发布包含的执行列表（D73），全套 119 passed / 3 skipped。

@@ -143,3 +143,15 @@ async def upcoming(session: AsyncSession, *, days: int = 7) -> list[dict]:
 
 async def decorated_list(session: AsyncSession) -> list[dict]:
     return [await decorate(session, release) for release in await list_releases(session)]
+
+
+async def runs_for_release(
+    session: AsyncSession, release: Release, *, limit: int = 100
+) -> list[Run]:
+    """属于这次发布的执行：版本相同，且在建单之后创建。"""
+
+    stmt = select(Run).where(Run.product_version_id == release.product_version_id)
+    if release.created_at is not None:
+        stmt = stmt.where(Run.created_at >= release.created_at)
+    stmt = stmt.order_by(Run.created_at.desc()).limit(limit)
+    return list((await session.execute(stmt)).scalars().all())

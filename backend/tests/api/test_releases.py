@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, date, datetime, timedelta
 
 from tests.plugins import make_plugin
@@ -104,3 +105,25 @@ async def test_release_page_creates_and_marks_released(session, client, tmp_path
     )
     assert marked.status_code == 303
     assert (await client.get("/api/v1/releases")).json()[0]["status"] == "released"
+
+
+async def test_release_detail_page_lists_its_runs(session, client, tmp_path):
+    version_id, plan_id = await _version(client, tmp_path)
+    target = (datetime.now(UTC).date() + timedelta(days=3)).isoformat()
+    release = (
+        await client.post(
+            "/api/v1/releases",
+            json={"product_version_id": version_id, "target_date": target},
+        )
+    ).json()
+
+    run = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
+
+    page = await client.get(f"/releases/{release['id']}")
+    assert page.status_code == 200
+    assert "这次发布包含的执行" in page.text
+    assert run["id"][:8] in page.text
+    assert "通过" in page.text
+
+    missing = await client.get(f"/releases/{uuid.uuid4()}")
+    assert missing.status_code == 404

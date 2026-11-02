@@ -27,7 +27,7 @@
       {% for r in releases %}
       <tr>
         <td>
-          <strong>{{ r.name or (r.product_code ~ " " ~ r.version) }}</strong>
+          <strong><a href="/releases/{{ r.id }}">{{ r.name or (r.product_code ~ " " ~ r.version) }}</a></strong>
           <div class="muted">{{ r.product_code }} — {{ r.version }}</div>
         </td>
         <td>{{ r.target_date }}</td>

@@ -6,7 +6,7 @@ from datetime import date
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,8 +17,10 @@ from app.services.catalog import all_versions_with_products
 from app.services.releases import (
     ReleaseError,
     create_release,
+    decorate,
     decorated_list,
     get_release,
+    runs_for_release,
     update_release,
 )
 from app.web.templates import templates
@@ -52,6 +54,28 @@ async def releases_page(
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> HTMLResponse:
     return await _render(request, session, user)
+
+
+@router.get("/releases/{release_id}", response_class=HTMLResponse)
+async def release_detail_page(
+    release_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    release = await get_release(session, release_id)
+    if release is None:
+        raise HTTPException(status_code=404, detail="发布单不存在")
+
+    return templates.TemplateResponse(
+        request=request,
+        name="release_detail.html",
+        context={
+            "release": await decorate(session, release),
+            "runs": await runs_for_release(session, release),
+            "user": user,
+        },
+    )
 
 
 @router.post("/releases")

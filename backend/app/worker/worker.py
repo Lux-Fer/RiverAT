@@ -9,16 +9,21 @@ from arq.connections import RedisSettings
 
 from app.core.config import get_settings
 from app.services.runs import execute_run_by_id
+from app.services.tasks import execute_task_by_id
 
 
 async def execute_run_task(ctx, run_id: str) -> None:
     await execute_run_by_id(UUID(run_id))
 
 
+async def execute_task_task(ctx, task_id: str) -> None:
+    await execute_task_by_id(UUID(task_id))
+
+
 class WorkerSettings:
     """`python -m app.worker` 的入口配置。"""
 
-    functions: ClassVar[list] = [execute_run_task]
+    functions: ClassVar[list] = [execute_run_task, execute_task_task]
     redis_settings = RedisSettings.from_dsn(get_settings().redis_url)
     max_jobs = 4
     job_timeout = 3600

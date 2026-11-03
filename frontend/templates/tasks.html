@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1rem;">任务</h2>
+  <p class="muted">将进行 = 草案（等人确认）；进行中 = 已确认、正在执行；已完成 = 终态。</p>
+
+  {% if active %}
+  <h3 style="font-size:.95rem;">进行中（{{ active | length }}）</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>任务</th><th>状态</th><th>创建时间</th></tr></thead>
+      <tbody>
+        {% for t in active %}
+        <tr>
+          <td><a href="/tasks/{{ t.id }}">{{ t.title }}</a></td>
+          <td><span class="badge queued">{{ t.status }}</span></td>
+          <td class="muted">{{ t.created_at | localtime }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% if draft %}
+  <h3 style="font-size:.95rem; margin-top:1.2rem;">将进行（{{ draft | length }}）</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>任务</th><th>状态</th><th>创建时间</th></tr></thead>
+      <tbody>
+        {% for t in draft %}
+        <tr>
+          <td><a href="/tasks/{{ t.id }}">{{ t.title }}</a></td>
+          <td><span class="badge blocked">draft</span></td>
+          <td class="muted">{{ t.created_at | localtime }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h3 style="font-size:.95rem; margin-top:1.2rem;">已完成（{{ done | length }}）</h3>
+  {% if done %}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>任务</th><th>状态</th><th>完成时间</th></tr></thead>
+      <tbody>
+        {% for t in done %}
+        <tr>
+          <td><a href="/tasks/{{ t.id }}">{{ t.title }}</a></td>
+          <td><span class="badge {{ t.status if t.status in ('passed','failed','error','skipped') else 'queued' }}">{{ t.status }}</span></td>
+          <td class="muted">{{ t.finished_at | localtime }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">还没有完成的任务。</p>
+  {% endif %}
+
+  {% if not (draft or active or done) %}
+  <p class="muted" style="margin-top:1rem;">还没有任务。去 <a href="/assistant">助手</a> 说一句要测什么。</p>
+  {% endif %}
+{% endblock %}

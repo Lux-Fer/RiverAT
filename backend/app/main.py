@@ -20,6 +20,7 @@ from app.web.auth_pages import router as auth_pages_router
 from app.web.csrf import csrf_cookie_middleware
 from app.web.products_pages import router as products_pages_router
 from app.web.settings_pages import router as settings_pages_router
+from app.web.tasks_pages import router as tasks_pages_router
 from app.web.templates import STATIC_DIR, templates
 from app.web.tools_pages import router as tools_pages_router
 from app.web.users_pages import router as users_pages_router
@@ -46,6 +47,7 @@ async def _setup_dispatcher(app: FastAPI) -> None:
     from arq.connections import RedisSettings
 
     from app.worker.dispatch import ArqDispatcher
+    from app.worker.task_dispatch import ArqTaskDispatcher
 
     settings = get_settings()
     try:
@@ -55,6 +57,7 @@ async def _setup_dispatcher(app: FastAPI) -> None:
 
     app.state.arq_pool = pool
     app.state.dispatcher = ArqDispatcher(pool)
+    app.state.task_dispatcher = ArqTaskDispatcher(pool)
 
 
 async def _bootstrap_admin() -> None:
@@ -118,6 +121,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_pages_router)
     app.include_router(assistant_pages_router)
+    app.include_router(tasks_pages_router)
     app.include_router(products_pages_router)
     app.include_router(tools_pages_router)
     app.include_router(settings_pages_router)

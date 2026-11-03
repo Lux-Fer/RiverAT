@@ -8,11 +8,13 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
 
 from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
-from app.core.config import BASE_DIR
+from app.core.config import BASE_DIR, get_settings
 from app.services.labels import status_label
 
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
@@ -35,3 +37,18 @@ def soft_markdown(text: str) -> Markup:
 
 
 templates.env.filters["soft_markdown"] = soft_markdown
+
+
+def localtime(value: datetime | None) -> str:
+    """按 display_timezone 输出本地时间（D81 的时区口径）。"""
+
+    if value is None:
+        return "—"
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(ZoneInfo(get_settings().display_timezone)).strftime(
+        "%m-%d %H:%M"
+    )
+
+
+templates.env.filters["localtime"] = localtime

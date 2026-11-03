@@ -60,7 +60,7 @@ async def test_assistant_creates_draft(session, client, monkeypatch):
     assert page.status_code == 200
     assert "最新草案" in page.text
     assert "login_smoke" in page.text
-    assert "确认执行（M4 上线）" in page.text
+    assert "确认执行" in page.text
 
 
 async def test_assistant_flags_missing_arguments(session, client, monkeypatch):

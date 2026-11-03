@@ -63,7 +63,15 @@
     {% endif %}
 
     <p style="margin-top:.8rem;">
-      <button class="btn" disabled title="执行在 M4 上线">确认执行（M4 上线）</button>
+      {% if steps %}
+      <form method="post" action="/tasks/{{ draft.id }}/approve" style="display:inline;">
+{% include "_csrf_input.html" %}
+        <button type="submit" class="btn">确认执行</button>
+      </form>
+      <a class="btn" style="text-decoration:none;" href="/tasks/{{ draft.id }}">查看任务</a>
+      {% else %}
+      <button class="btn" disabled title="没有工具调用可以执行">确认执行</button>
+      {% endif %}
       <span class="muted">草案还需要人工确认；v1.1 不做自主执行。</span>
     </p>
   </div>

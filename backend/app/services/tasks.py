@@ -1,12 +1,12 @@
-"""v1.1 任务草案（M3，D95）：把一句话需求变成可确认的工具调用草案。
+"""v1.1 任务（M3/M4，D95）：对话出草案 → 人确认 → 执行 → 结果。
 
-平台只做三件事：把已审核工具转成 function schema、调用模型、校验参数。
-**不执行任何工具**（执行在 M4）。
+M3 只生成草案；M4 增加确认、执行与结果聚合。
 """
 
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -211,3 +211,124 @@ async def steps_for(session: AsyncSession, task_id: UUID) -> list[TaskStep]:
         select(TaskStep).where(TaskStep.task_id == task_id).order_by(TaskStep.seq)
     )
     return list(rows.scalars().all())
+
+
+# ---------------------------------------------------------------- M4：确认与执行
+
+
+def _aggregate(statuses: list[str]) -> str:
+    if any(status == "error" for status in statuses):
+        return "error"
+    if any(status == "failed" for status in statuses):
+        return "failed"
+    if statuses and all(status == "skipped" for status in statuses):
+        return "skipped"
+    return "passed"
+
+
+async def get_task(session: AsyncSession, task_id: UUID) -> Task | None:
+    return await session.get(Task, task_id)
+
+
+async def list_tasks(session: AsyncSession, *, limit: int = 100) -> list[Task]:
+    rows = await session.execute(
+        select(Task).order_by(Task.created_at.desc()).limit(limit)
+    )
+    return list(rows.scalars().all())
+
+
+async def approve_task(
+    session: AsyncSession, task: Task, *, actor: User | None
+) -> Task:
+    if task.status != "draft":
+        raise TaskError(f"只有草案可以确认，当前状态：{task.status}")
+    task.status = "queued"
+    task.approved_by = actor.id if actor else None
+    task.approved_at = datetime.now(UTC)
+    await session.flush()
+    return task
+
+
+async def cancel_task(session: AsyncSession, task: Task) -> Task:
+    if task.status not in ("draft", "queued"):
+        raise TaskError(f"只能取消未开始的任务，当前状态：{task.status}")
+    task.status = "cancelled"
+    task.finished_at = datetime.now(UTC)
+    await session.flush()
+    return task
+
+
+async def execute_task(session: AsyncSession, task: Task) -> Task:
+    """逐步执行任务；每步一个工具调用，失败不中断后续步骤。"""
+
+    from app.models import Tool
+    from app.services.tool_exec import run_tool
+
+    steps = await steps_for(session, task.id)
+    product = (
+        await session.get(WorkProduct, task.product_id) if task.product_id else None
+    )
+
+    task.status = "running"
+    await session.flush()
+
+    statuses: list[str] = []
+    for step in steps:
+        step.status = "running"
+        step.started_at = datetime.now(UTC)
+        await session.flush()
+
+        tool = await session.get(Tool, step.tool_id) if step.tool_id else None
+        if tool is None:
+            result = {
+                "status": "error",
+                "exit_code": None,
+                "output": {},
+                "stderr": "",
+                "error": "工具不存在或已被删除",
+            }
+        else:
+            try:
+                result = await run_tool(
+                    tool,
+                    args=step.args or {},
+                    product=product,
+                    task_id=str(task.id),
+                )
+            except Exception as exc:  # noqa: BLE001 - 单步异常不能让任务卡死
+                result = {
+                    "status": "error",
+                    "exit_code": None,
+                    "output": {},
+                    "stderr": "",
+                    "error": f"执行异常：{exc}",
+                }
+
+        step.status = result["status"]
+        step.exit_code = result.get("exit_code")
+        output = dict(result.get("output") or {})
+        if result.get("stderr"):
+            output["stderr"] = str(result["stderr"])[:2000]
+        step.output = output
+        step.error = (result.get("error") or "")[:500] or None
+        step.finished_at = datetime.now(UTC)
+        statuses.append(step.status)
+        await session.flush()
+
+    task.status = _aggregate(statuses)
+    task.finished_at = datetime.now(UTC)
+    await session.flush()
+    return task
+
+
+async def execute_task_by_id(task_id: UUID) -> None:
+    """worker 入口：自己开一个会话，执行完提交。"""
+
+    from app.db.session import get_sessionmaker
+
+    async with get_sessionmaker()() as session:
+        task = await get_task(session, task_id)
+        if task is None or task.status not in ("queued", "running"):
+            return
+        await execute_task(session, task)
+        await session.commit()

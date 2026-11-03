@@ -235,6 +235,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-03 **v1.1 转向**：AI 承接测试工作（D95–D100），设计见 `docs/design-v1.1.md`；PRODUCT.md 已重写。
 - 2026-11-03 v1.1 M1+M2：模型配置、产品注册、工具上传/审核（D101），旧页面删除，126 passed / 3 skipped。
 - 2026-11-03 v1.1 M3：对话 → 任务草案（D102），真模型返回 tool_calls，134 passed / 3 skipped。
+- 2026-11-04 v1.1 M4：确认 → arq 执行 → 用例级结果 → 工作流（D103），144 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -303,3 +304,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D100 | v1.1 范围锁死四件事：① 模型配置 ② 产品注册 ③ 工具安装/审核 ④ 对话 → 任务草案 → 确认 → 执行 → 结果。数据模型新增 `llm_config / work_product / tool / task / task_step / chat_message`；**旧表不删**，`plan / dashboard / release` 移出导航并冻结 | 范围再大就变成半年；旧资产保留可回滚 |
 | D101 | M1/M2 实现细节：compose 用 `env_file: ./backend/.env (required: false)` 注入 `RIVERAT_LLM_*`，`environment` 里的 DB/Redis 地址仍然优先；**旧页面模块与模板直接删除**（不是隐藏），登录后落 `/products`；工具列表只展示参数名与必填项、不展示原始 JSON；工具包存放 `backend/var/tools/<sha256>.tar.gz` | 用户要求"删了"；原始 JSON 对人不友好且暴露实现细节 |
 | D102 | M3 实现细节：`task / task_step / chat_message` 三表；`propose_task()` 把已审核工具（同名取最新）转成 function schema → `llm.chat(tools=...)` → 解析 `tool_calls` → **最小 schema 校验**（required + 顶层 type，不引入 jsonschema 依赖）；系统提示必须写明"tool_call 只是草案、不会执行"，否则模型只肯用文字描述（实测 deepseek-flash 会因此不返回 tool_calls）；助手回复用 `soft_markdown` 过滤器渲染（转义 HTML 后再放粗体/行内代码/换行） | 实测踩坑：提示里写"不要执行"会让模型回避 tool_calls；不转义直接渲染模型文本会有 XSS |
+| D103 | M4 实现细节：确认后 `queued` → arq `execute_task_task`（队列不可用退回**就地执行**，测试可复现）；执行 = 解压到临时目录 → 按 OS 选 entrypoint → stdin JSON → stdout 必须是 JSON 对象（否则 `error`）→ 非 0 退出码 `failed` → 超时杀进程；**单步失败不中断后续步骤**；任务终态按 `error > failed > skipped(全部) > passed` 聚合；页面时间统一走 `localtime` 过滤器（display_timezone），修掉 v1.1 页面显示 UTC 的问题 | 复用 v1.0 的派发模式；步骤互不影响才能一次看到全部结果；UTC 时间在本地面板是"看不出对不对"的坑 |

@@ -1,8 +1,27 @@
 {% extends "base.html" %}
 {% block content %}
   <h2 style="font-size:1rem;">审计日志</h2>
+
+  <form method="get" action="/audit"
+        style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:.6rem 0 1rem;">
+    <input name="username" value="{{ filters.username }}" placeholder="操作人用户名"
+           style="padding:.35rem .5rem; width:10rem;">
+    <select name="action" style="padding:.35rem .5rem;">
+      <option value="">全部动作</option>
+      {% for value, label in actions %}
+      <option value="{{ value }}" {% if value == filters.action %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn">筛选</button>
+    {% if filters.username or filters.action %}
+    <a href="/audit">清除筛选</a>
+    {% endif %}
+    <a class="btn" style="text-decoration:none;"
+       href="/api/v1/audit/export.csv?username={{ filters.username }}&action={{ filters.action }}">导出 CSV</a>
+  </form>
+
   <p class="muted">
-    最近 200 条操作记录。只记录管理层动作（计划、用户、发布单、测试机），不记录执行本身。
+    只记录管理层动作（计划、用户、发布单、测试机），不记录执行本身；最多显示最近 200 条，导出上限 5000 条。
   </p>
 
   {% if logs %}
@@ -33,6 +52,6 @@
     </table>
   </div>
   {% else %}
-  <p class="muted">还没有审计记录。</p>
+  <p class="muted">没有匹配的审计记录。</p>
   {% endif %}
 {% endblock %}

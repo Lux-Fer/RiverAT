@@ -50,8 +50,18 @@ async def record(
     return entry
 
 
-async def list_logs(session: AsyncSession, *, limit: int = 200) -> list[AuditLog]:
-    rows = await session.execute(
-        select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
-    )
+async def list_logs(
+    session: AsyncSession,
+    *,
+    username: str | None = None,
+    action: str | None = None,
+    limit: int = 200,
+) -> list[AuditLog]:
+    stmt = select(AuditLog)
+    if username:
+        stmt = stmt.where(AuditLog.username == username)
+    if action:
+        stmt = stmt.where(AuditLog.action == action)
+    stmt = stmt.order_by(AuditLog.created_at.desc()).limit(limit)
+    rows = await session.execute(stmt)
     return list(rows.scalars().all())

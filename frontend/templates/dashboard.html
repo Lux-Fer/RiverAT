@@ -59,6 +59,7 @@
   <div class="kpi-grid">
     <div class="card">
       <div class="muted">执行结果</div>
+      {% if data.total_runs %}
       <div style="font-size:1.6rem; margin:.2rem 0;">
         <a href="/?status=passed" style="color:#1e7e34;">{{ data.release.green }}</a>
         <span class="muted" style="font-size:1rem;">通过</span>
@@ -70,14 +71,28 @@
         <span class="muted" style="font-size:1rem;">阻塞</span>
       </div>
       <div class="muted">进行中：{{ data.release.in_flight }} · 跳过：{{ data.by_status.get("skipped", 0) }}</div>
+      {% else %}
+      <p style="margin:.4rem 0 0;">还没有执行记录。</p>
+      <p class="muted" style="margin:.2rem 0 0;"><a href="/plans">去跑第一次</a></p>
+      {% endif %}
     </div>
 
     <div class="card">
       <div class="muted">通过率</div>
       <div style="font-size:1.6rem;">
-        <a href="/?status=finished" style="color:inherit;">{{ (data.pass_rate * 100) | round(1) if data.pass_rate is not none else "—" }}%</a>
+        {% if data.pass_rate is not none %}
+        <a href="/?status=finished" style="color:inherit;">{{ (data.pass_rate * 100) | round(1) }}%</a>
+        {% else %}
+        <span class="muted">—</span>
+        {% endif %}
       </div>
-      <div class="muted">已结束 {{ data.by_status.get("passed", 0) + data.by_status.get("failed", 0) + data.by_status.get("error", 0) }} 次 · 剔除 flaky 尚未实现</div>
+      <div class="muted">
+        {% if data.pass_rate is not none %}
+        已结束 {{ data.by_status.get("passed", 0) + data.by_status.get("failed", 0) + data.by_status.get("error", 0) }} 次 · 剔除 flaky 尚未实现
+        {% else %}
+        还没有已结束的执行
+        {% endif %}
+      </div>
     </div>
 
     <div class="card">
@@ -96,19 +111,25 @@
         <div class="muted">仅显示前 {{ data.risk_versions_detail | length }} 个</div>
         {% endif %}
       </details>
+      {% elif not data.total_runs %}
+      <div class="muted">所有版本都还没跑过</div>
       {% endif %}
     </div>
 
     <div class="card">
       <div class="muted">端到端耗时</div>
+      {% if data.duration.samples %}
       <div style="font-size:1.6rem;">
-        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p50 if data.duration.p50 is not none else "—" }}{% if data.duration.p50 is not none %}s{% endif %}</a>
+        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p50 }}{% if data.duration.p50 is not none %}s{% endif %}</a>
         <span class="muted" style="font-size:.9rem;">P50</span>
         ·
-        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p90 if data.duration.p90 is not none else "—" }}{% if data.duration.p90 is not none %}s{% endif %}</a>
+        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p90 }}{% if data.duration.p90 is not none %}s{% endif %}</a>
         <span class="muted" style="font-size:.9rem;">P90</span>
       </div>
       <div class="muted">样本 {{ data.duration.samples }} 次</div>
+      {% else %}
+      <p class="muted" style="margin:.4rem 0 0;">还没有已结束的执行。</p>
+      {% endif %}
     </div>
   </div>
 
@@ -148,10 +169,13 @@
   </details>
 
   <p class="muted" style="margin-top:1.5rem;">
-    数据健康：步骤落库率
-    {{ (data.coverage.ratio * 100) | round(1) if data.coverage.ratio is not none else "—" }}%
+    {% if data.coverage.ratio is not none %}
+    数据健康：步骤落库率 {{ (data.coverage.ratio * 100) | round(1) }}%
     （{{ data.coverage.complete }} / {{ data.coverage.finished }} 次步骤齐全）。
     衡量步骤是否落库，<strong>不是覆盖率</strong>。
+    {% else %}
+    数据健康：还没有已结束的执行，暂时算不出步骤落库率。
+    {% endif %}
   </p>
 {% endblock %}
 

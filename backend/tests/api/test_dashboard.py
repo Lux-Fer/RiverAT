@@ -115,6 +115,18 @@ async def test_dashboard_empty_trend_state(session, client):
     assert "<canvas" not in page.text
 
 
+async def test_dashboard_first_run_empty_state(session, client):
+    page = await client.get("/dashboard")
+
+    assert page.status_code == 200
+    # 不再出现 "%:" 这类空值占位
+    assert "—%" not in page.text
+    assert "还没有执行记录" in page.text
+    assert "去跑第一次" in page.text
+    assert "还没有已结束的执行" in page.text
+    assert "暂时算不出步骤落库率" in page.text
+
+
 async def test_dashboard_empty_state(session, client):
     response = await client.get("/api/v1/dashboard")
 

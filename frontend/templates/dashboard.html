@@ -14,7 +14,7 @@
         <a href="/?status=blocked" style="color:#b45309;">{{ data.release.yellow }}</a>
         <span class="muted" style="font-size:1rem;">阻塞</span>
       </div>
-      <div class="muted">进行中：{{ data.release.in_flight }}</div>
+      <div class="muted">进行中：{{ data.release.in_flight }} · 跳过：{{ data.by_status.get("skipped", 0) }}</div>
     </div>
 
     <div class="card">
@@ -51,12 +51,12 @@
     </div>
 
     <div class="card">
-      <div class="muted">端到端耗时（秒）</div>
+      <div class="muted">端到端耗时</div>
       <div style="font-size:1.6rem;">
-        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p50 if data.duration.p50 is not none else "—" }}</a>
+        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p50 if data.duration.p50 is not none else "—" }}{% if data.duration.p50 is not none %}s{% endif %}</a>
         <span class="muted" style="font-size:.9rem;">P50</span>
         ·
-        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p90 if data.duration.p90 is not none else "—" }}</a>
+        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p90 if data.duration.p90 is not none else "—" }}{% if data.duration.p90 is not none %}s{% endif %}</a>
         <span class="muted" style="font-size:.9rem;">P90</span>
       </div>
       <div class="muted">样本 {{ data.duration.samples }} 次</div>
@@ -126,20 +126,6 @@
     </table>
   </details>
 
-  <h2 style="font-size:1rem; margin-top:1.5rem;">各状态次数</h2>
-  <table>
-    <thead><tr><th>状态</th><th>次数</th></tr></thead>
-    <tbody>
-      {% for status, count in data.by_status.items() %}
-      <tr>
-        <td><span class="badge {{ status }}">{{ status_label(status) }}</span></td>
-        <td>{{ count }}</td>
-      </tr>
-      {% else %}
-      <tr><td colspan="2" class="muted">还没有执行记录</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
 {% endblock %}
 
 {% block scripts %}

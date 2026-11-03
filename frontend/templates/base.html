@@ -9,26 +9,30 @@
   {% block head %}{% endblock %}
 </head>
 <body>
+  {% set path = request.url.path %}
   <div style="display:flex; justify-content:space-between; align-items:baseline;">
     <h1><a href="/">RiverAT</a></h1>
     {% if user %}
     <form method="post" action="/logout" style="margin:0;">
 {% include "_csrf_input.html" %}
       <span class="muted">{{ user.display_name }}（{{ user.role }}）</span>
-      <button type="submit"
-              style="margin-left:.5rem; padding:.2rem .6rem; cursor:pointer;">退出</button>
+      <button type="submit" class="btn" style="margin-left:.5rem;">退出</button>
     </form>
     {% endif %}
   </div>
   <nav class="muted" style="margin-top:-.4rem; margin-bottom:1rem;" aria-label="主导航">
-    <a href="/">执行记录</a> · <a href="/dashboard">看板</a>
-    · <a href="/releases">发布</a> · <a href="/products">产品树</a> · <a href="/plans">计划</a>
-    {% if user and user.role == "admin" %} · <a href="/users">用户</a>{% endif %}
-    · 产品组合自动化测试平台 v0
+    <a href="/" {% if path == "/" %}class="active" aria-current="page"{% endif %}>执行记录</a> ·
+    <a href="/dashboard" {% if path.startswith("/dashboard") %}class="active" aria-current="page"{% endif %}>看板</a> ·
+    <a href="/releases" {% if path.startswith("/releases") %}class="active" aria-current="page"{% endif %}>发布</a> ·
+    <a href="/products" {% if path.startswith("/products") or path.startswith("/versions") %}class="active" aria-current="page"{% endif %}>产品树</a> ·
+    <a href="/plans" {% if path.startswith("/plans") %}class="active" aria-current="page"{% endif %}>计划</a>
+    {% if user and user.role == "admin" %} ·
+    <a href="/users" {% if path.startswith("/users") %}class="active" aria-current="page"{% endif %}>用户</a>{% endif %}
   </nav>
   <main>
   {% block content %}{% endblock %}
   </main>
+  <footer class="muted">RiverAT · 产品组合自动化测试平台 v0</footer>
   {% block scripts %}{% endblock %}
 </body>
 </html>

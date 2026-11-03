@@ -1,9 +1,64 @@
 {% extends "base.html" %}
 {% block content %}
-  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:.8rem;">
+  <h2 style="font-size:1rem;">未来 7 天待发</h2>
+  {% if data.upcoming %}
+  <p class="muted" style="margin:.2rem 0 .5rem;">
+    共 {{ data.release_summary.total }} 个待发，其中
+    {% if data.release_summary.no_runs %}<strong style="color:#b02a2a;">{{ data.release_summary.no_runs }} 个还没有执行</strong>{% else %}全部已有执行{% endif %}。
+  </p>
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>发布</th><th>版本</th><th>计划日期</th>
+          <th>本发布执行</th><th>本发布通过率</th><th>最近</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in data.upcoming %}
+        <tr>
+          <td>
+            <a href="/releases/{{ r.id }}">{{ r.name or (r.product_code ~ " — " ~ r.version) }}</a>
+          </td>
+          <td class="muted">{{ r.product_code }} — {{ r.version }}</td>
+          <td>{{ r.target_date }}</td>
+          <td>
+            <a href="/releases/{{ r.id }}">
+              共 {{ r.quality.runs }} 次 · 通过 {{ r.quality.passed }} · 失败 {{ r.quality.failed + r.quality.error }}
+            </a>
+          </td>
+          <td>
+            {% if r.quality.pass_rate is not none %}
+            {{ (r.quality.pass_rate * 100) | round(1) }}%
+            {% else %}
+            <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if r.quality.last_status %}
+            <a href="/runs/{{ r.quality.last_run_id }}">{{ status_label(r.quality.last_status) }}</a>
+            <span class="muted">{{ r.quality.last_run_when }}</span>
+            {% else %}
+            <span class="muted">未执行</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">未来 7 天没有计划发布。<a href="/releases">去建发布单</a></p>
+  {% endif %}
 
+  <h2 style="font-size:1rem; margin-top:2rem;">
+    全平台累计
+    <span class="muted" style="font-size:.8rem; font-weight:400;">截至 {{ data.as_of }}</span>
+  </h2>
+  <p class="muted" style="margin:.2rem 0 .6rem;">全部产品与版本，自建立以来。</p>
+  <div class="kpi-grid">
     <div class="card">
-      <div class="muted">执行结果（全部）</div>
+      <div class="muted">执行结果</div>
       <div style="font-size:1.6rem; margin:.2rem 0;">
         <a href="/?status=passed" style="color:#1e7e34;">{{ data.release.green }}</a>
         <span class="muted" style="font-size:1rem;">通过</span>
@@ -18,21 +73,17 @@
     </div>
 
     <div class="card">
-      <div class="muted">通过率（剔除 flaky 尚未实现）</div>
-      <div style="font-size:1.6rem;"><a href="/?status=finished" style="color:inherit;">{{ (data.pass_rate * 100) | round(1) if data.pass_rate is not none else "—" }}%</a></div>
-      <div class="muted">已结束 {{ data.by_status.get("passed", 0) + data.by_status.get("failed", 0) + data.by_status.get("error", 0) }} 次</div>
+      <div class="muted">通过率</div>
+      <div style="font-size:1.6rem;">
+        <a href="/?status=finished" style="color:inherit;">{{ (data.pass_rate * 100) | round(1) if data.pass_rate is not none else "—" }}%</a>
+      </div>
+      <div class="muted">已结束 {{ data.by_status.get("passed", 0) + data.by_status.get("failed", 0) + data.by_status.get("error", 0) }} 次 · 剔除 flaky 尚未实现</div>
     </div>
 
     <div class="card">
-      <div class="muted">步骤落库率（数据完整性）</div>
-      <div style="font-size:1.6rem;">{{ (data.coverage.ratio * 100) | round(1) if data.coverage.ratio is not none else "—" }}%</div>
-      <div class="muted">{{ data.coverage.complete }} / {{ data.coverage.finished }} 次步骤齐全</div>
-      <div class="muted">衡量步骤是否落库，<strong>不是覆盖率</strong></div>
-    </div>
-
-    <div class="card">
-      <div class="muted">风险敞口：从未成功执行的产品版本</div>
+      <div class="muted">风险敞口</div>
       <div style="font-size:1.6rem; color:#b02a2a;">{{ data.risk_versions }}</div>
+      <div class="muted">从未成功执行的产品版本</div>
       {% if data.risk_versions_detail %}
       <details>
         <summary class="muted">查看是哪些版本</summary>
@@ -45,8 +96,6 @@
         <div class="muted">仅显示前 {{ data.risk_versions_detail | length }} 个</div>
         {% endif %}
       </details>
-      {% else %}
-      <div class="muted">含新建但没跑过的版本</div>
       {% endif %}
     </div>
 
@@ -63,45 +112,15 @@
     </div>
   </div>
 
-  <h2 style="font-size:1rem; margin-top:1.5rem;">未来 7 天待发</h2>
-  {% if data.upcoming %}
-  <table>
-    <thead>
-      <tr><th>发布</th><th>版本</th><th>计划日期</th><th>本发布执行</th><th>最近</th></tr>
-    </thead>
-    <tbody>
-      {% for r in data.upcoming %}
-      <tr>
-        <td>{{ r.name or r.product_code }}</td>
-        <td>{{ r.product_code }} — {{ r.version }}</td>
-        <td>{{ r.target_date }}</td>
-        <td>
-          共 {{ r.quality.runs }} 次
-          · <span style="color:#1e7e34;">通过 {{ r.quality.passed }}</span>
-          · <span style="color:#b02a2a;">失败 {{ r.quality.failed + r.quality.error }}</span>
-        </td>
-        <td>
-          {% if r.quality.last_status %}
-          <a href="/runs/{{ r.quality.last_run_id }}">{{ status_label(r.quality.last_status) }}</a>
-          <span class="muted">{{ r.quality.last_run_when }}</span>
-          {% else %}
-          <span class="muted">未执行</span>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="muted">未来 7 天没有计划发布。<a href="/releases">去建发布单</a></p>
-  {% endif %}
-
-  <h2 style="font-size:1rem; margin-top:1.5rem;">近 14 天执行趋势</h2>
+  <h2 style="font-size:1rem; margin-top:2rem;">
+    近 14 天执行趋势
+    <span class="muted" style="font-size:.8rem; font-weight:400;">按 {{ data.tz_label }} 日期</span>
+  </h2>
   {% if data.trend_total %}
   <p class="muted" style="margin:.2rem 0 .5rem;">
     共 {{ data.trend_total }} 次执行，其中失败/异常 {{ data.trend_bad }} 次。
   </p>
-  <div class="card" style="padding:1rem; height:300px; position:relative;">
+  <div class="card chart-box">
     <canvas id="trend" role="img" aria-label="近 14 天通过/失败次数柱状图，数据表在下方"></canvas>
   </div>
   {% else %}
@@ -112,20 +131,28 @@
 
   <details style="margin-top:.6rem;">
     <summary class="muted">查看数据表</summary>
-    <table style="margin-top:.5rem;">
-      <thead><tr><th>日期</th><th>通过</th><th>失败/异常</th></tr></thead>
-      <tbody>
-        {% for d in data.trend %}
-        <tr>
-          <td>{{ d.date }}</td>
-          <td>{{ d.passed }}</td>
-          <td>{{ d.failed + d.error }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-scroll">
+      <table style="margin-top:.5rem;">
+        <thead><tr><th>日期</th><th>通过</th><th>失败/异常</th></tr></thead>
+        <tbody>
+          {% for d in data.trend %}
+          <tr>
+            <td>{{ d.date }}</td>
+            <td>{{ d.passed }}</td>
+            <td>{{ d.failed + d.error }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </details>
 
+  <p class="muted" style="margin-top:1.5rem;">
+    数据健康：步骤落库率
+    {{ (data.coverage.ratio * 100) | round(1) if data.coverage.ratio is not none else "—" }}%
+    （{{ data.coverage.complete }} / {{ data.coverage.finished }} 次步骤齐全）。
+    衡量步骤是否落库，<strong>不是覆盖率</strong>。
+  </p>
 {% endblock %}
 
 {% block scripts %}
@@ -139,7 +166,13 @@
       labels: trend.map(d => d.date.slice(5)),
       datasets: [
         { label: '通过', data: trend.map(d => d.passed), backgroundColor: '#1e7e34' },
-        { label: '失败/异常', data: trend.map(d => d.failed + d.error), backgroundColor: '#b02a2a' },
+        {
+          label: '失败/异常',
+          data: trend.map(d => d.failed + d.error),
+          backgroundColor: 'rgba(176,42,42,.15)',
+          borderColor: '#b02a2a',
+          borderWidth: 2,
+        },
       ],
     },
     options: {

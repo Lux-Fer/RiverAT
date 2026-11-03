@@ -83,9 +83,12 @@ async def test_dashboard_api_numbers(session, client):
     assert today["failed"] == 1
     assert data["trend_total"] == 2
     assert data["trend_bad"] == 1
+    assert data["tz_label"] == "Asia/Shanghai"
+    assert data["as_of"]
+    assert data["release_summary"] == {"total": 0, "no_runs": 0}
 
 
-async def test_dashboard_page_renders(session, client):
+async def test_dashboard_page_is_release_first(session, client):
     await _seed(session)
 
     page = await client.get("/dashboard")
@@ -96,6 +99,12 @@ async def test_dashboard_page_renders(session, client):
     assert "风险敞口" in page.text
     assert "查看数据表" in page.text
     assert "共 2 次执行，其中失败/异常 1 次" in page.text
+    # 待发在前，全平台累计在后
+    assert page.text.index("未来 7 天待发") < page.text.index("全平台累计")
+    assert "截至" in page.text
+    # 步骤落库率降级为页脚的数据健康说明
+    assert "数据健康：步骤落库率" in page.text
+    assert "不是覆盖率" in page.text
 
 
 async def test_dashboard_empty_trend_state(session, client):

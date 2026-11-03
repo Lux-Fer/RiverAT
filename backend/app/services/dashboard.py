@@ -6,24 +6,32 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models import Plan, Product, ProductVersion, Run, RunStep
 from app.services.releases import upcoming
 
 
-async def _daily_trend(session: AsyncSession, *, days: int = 14) -> list[dict]:
-    """最近 N 天每天的成功/失败次数（按 finished_at 的 UTC 日期归组）。"""
+async def _daily_trend(
+    session: AsyncSession, *, days: int = 14, tz_name: str = "Asia/Shanghai"
+) -> list[dict]:
+    """最近 N 天每天的成功/失败次数（按**本地时区**日期归组，D81）。"""
 
-    today = datetime.now(UTC).date()
-    start = today - timedelta(days=days - 1)
-    since = datetime(start.year, start.month, start.day, tzinfo=UTC)
+    tz = ZoneInfo(tz_name)
+    now_local = datetime.now(tz)
+    start_local = (now_local - timedelta(days=days - 1)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+    since = start_local.astimezone(UTC)
 
+    local_day = func.date(func.timezone(tz_name, Run.finished_at)).label("day")
     rows = (
         await session.execute(
-            select(func.date(Run.finished_at).label("day"), Run.status, func.count())
+            select(local_day, Run.status, func.count())
             .where(Run.finished_at.is_not(None), Run.finished_at >= since)
             .group_by("day", Run.status)
         )
@@ -36,7 +44,7 @@ async def _daily_trend(session: AsyncSession, *, days: int = 14) -> list[dict]:
 
     trend: list[dict] = []
     for offset in range(days):
-        key = (start + timedelta(days=offset)).isoformat()
+        key = (start_local.date() + timedelta(days=offset)).isoformat()
         bucket = counts.get(key, {})
         trend.append(
             {
@@ -63,6 +71,10 @@ def _percentile(values: list[float], ratio: float) -> float | None:
 
 
 async def summary(session: AsyncSession) -> dict:
+    tz_name = get_settings().display_timezone
+    tz = ZoneInfo(tz_name)
+    now_local = datetime.now(tz)
+
     statuses = dict(
         (
             await session.execute(select(Run.status, func.count()).group_by(Run.status))
@@ -125,11 +137,14 @@ async def summary(session: AsyncSession) -> dict:
         )
     ).all()
 
-    trend = await _daily_trend(session)
+    trend = await _daily_trend(session, tz_name=tz_name)
+    upcoming_list = await upcoming(session)
 
     return {
         "total_runs": sum(statuses.values()),
         "by_status": statuses,
+        "as_of": now_local.strftime("%m-%d %H:%M"),
+        "tz_label": tz_name,
         "release": {
             "green": passed,
             "red": failed + error,
@@ -150,7 +165,13 @@ async def summary(session: AsyncSession) -> dict:
         "trend": trend,
         "trend_total": sum(d["passed"] + d["failed"] + d["error"] for d in trend),
         "trend_bad": sum(d["failed"] + d["error"] for d in trend),
-        "upcoming": await upcoming(session),
+        "upcoming": upcoming_list,
+        "release_summary": {
+            "total": len(upcoming_list),
+            "no_runs": sum(
+                1 for item in upcoming_list if item["quality"]["runs"] == 0
+            ),
+        },
         "duration": {
             "p50": round(_percentile(durations, 0.5), 1) if durations else None,
             "p90": round(_percentile(durations, 0.9), 1) if durations else None,

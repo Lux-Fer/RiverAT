@@ -35,3 +35,8 @@ nav a { color: #1667b8; }
 nav a.active { color: #1f2933; font-weight: 600; }
 footer { margin-top: 2.5rem; padding-top: .8rem; border-top: 1px solid #e4e7eb;
          font-size: 12px; }
+
+/* 看板布局（D81）：KPI 四列 / 表格横向滚动 / 图表固定高度 */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .8rem; }
+.table-scroll { overflow-x: auto; }
+.chart-box { padding: 1rem; height: 170px; position: relative; }

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me"
     database_url: str = "postgresql+asyncpg://riverat:123456@127.0.0.1:5433/riverat"
     redis_url: str = "redis://127.0.0.1:6379/0"
+    # 看板与发布显示用的本地时区（D81）；默认国内市场
+    display_timezone: str = "Asia/Shanghai"
     access_token_expire_minutes: int = 60
     log_level: str = "INFO"
     cors_origins: list[str] = ["http://localhost:5173"]

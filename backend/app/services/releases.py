@@ -100,12 +100,17 @@ async def quality(session: AsyncSession, release: Release) -> dict:
         last_stmt.order_by(Run.created_at.desc()).limit(1)
     )
 
+    finished = counts.get("passed", 0) + counts.get("failed", 0) + counts.get("error", 0)
+
     return {
         "runs": sum(counts.values()),
         "passed": counts.get("passed", 0),
         "failed": counts.get("failed", 0),
         "error": counts.get("error", 0),
         "in_flight": counts.get("queued", 0) + counts.get("running", 0),
+        "pass_rate": (
+            round(counts.get("passed", 0) / finished, 3) if finished else None
+        ),
         "last_status": last_run.status if last_run else None,
         "last_run_id": str(last_run.id) if last_run else None,
         "last_run_when": _when(last_run) if last_run else None,

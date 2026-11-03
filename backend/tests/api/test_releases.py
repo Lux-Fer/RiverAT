@@ -51,11 +51,31 @@ async def test_release_quality_and_dashboard_upcoming(session, client, tmp_path)
     listed = (await client.get("/api/v1/releases")).json()
     assert listed[0]["quality"]["runs"] == 1
     assert listed[0]["quality"]["passed"] == 1
+    assert listed[0]["quality"]["pass_rate"] == 1.0
     assert listed[0]["quality"]["last_status"] == "passed"
 
     dashboard = (await client.get("/api/v1/dashboard")).json()
     upcoming_ids = [item["id"] for item in dashboard["upcoming"]]
     assert release["id"] in upcoming_ids
+    assert dashboard["release_summary"] == {"total": 1, "no_runs": 0}
+
+
+async def test_dashboard_shows_release_first_with_link(session, client, tmp_path):
+    version_id, _ = await _version(client, tmp_path)
+    target = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
+    release = (
+        await client.post(
+            "/api/v1/releases",
+            json={"product_version_id": version_id, "target_date": target},
+        )
+    ).json()
+
+    page = await client.get("/dashboard")
+
+    assert page.status_code == 200
+    assert f'href="/releases/{release["id"]}"' in page.text
+    assert "个还没有执行" in page.text
+    assert page.text.index("未来 7 天待发") < page.text.index("全平台累计")
 
 
 async def test_released_release_leaves_upcoming(session, client, tmp_path):

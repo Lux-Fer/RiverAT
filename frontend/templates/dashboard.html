@@ -120,10 +120,10 @@
       <div class="muted">端到端耗时</div>
       {% if data.duration.samples %}
       <div style="font-size:1.6rem;">
-        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p50 }}{% if data.duration.p50 is not none %}s{% endif %}</a>
+        <a href="/?status=finished&amp;sort=duration" style="color:inherit;" title="按耗时排序">{{ data.duration.p50 }}{% if data.duration.p50 is not none %}s{% endif %}</a>
         <span class="muted" style="font-size:.9rem;">P50</span>
         ·
-        <a href="/?status=finished" style="color:inherit;">{{ data.duration.p90 }}{% if data.duration.p90 is not none %}s{% endif %}</a>
+        <a href="/?status=finished&amp;sort=duration" style="color:inherit;" title="按耗时排序">{{ data.duration.p90 }}{% if data.duration.p90 is not none %}s{% endif %}</a>
         <span class="muted" style="font-size:.9rem;">P90</span>
       </div>
       <div class="muted">样本 {{ data.duration.samples }} 次</div>
@@ -206,7 +206,16 @@
       interaction: { mode: 'index', intersect: false },
       scales: {
         x: {
-          ticks: { autoSkip: true, maxTicksLimit: 7, maxRotation: 0 },
+          ticks: {
+            maxRotation: 0,
+            // 每隔一天显示一个标签，但**保证最后一天**一定显示（D84）
+            callback(value, index) {
+              const labels = this.getLabels();
+              return index % 2 === 0 || index === labels.length - 1
+                ? labels[index]
+                : '';
+            },
+          },
           grid: { display: false },
         },
         y: {

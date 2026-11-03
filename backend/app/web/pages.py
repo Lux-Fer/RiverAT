@@ -134,12 +134,13 @@ async def index(
     user: Annotated[User, Depends(require_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
     status: str | None = None,
+    sort: str | None = None,
 ) -> HTMLResponse:
-    runs = await list_runs(session, status=status)
+    runs = await list_runs(session, status=status, sort=sort)
     return templates.TemplateResponse(
         request=request,
         name="runs.html",
-        context={"runs": runs, "user": user, "status": status},
+        context={"runs": runs, "user": user, "status": status, "sort": sort},
     )
 
 

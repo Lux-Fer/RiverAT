@@ -1,16 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
-  {% if status %}
+  {% if status or sort %}
   <p class="muted">
+    {% if status %}
     筛选：<strong>{{ "失败/异常" if status == "bad" else ("已结束（通过/失败/异常）" if status == "finished" else status_label(status)) }}</strong>
-    · <a href="/">清除筛选</a>
+    {% endif %}
+    {% if status and sort %} · {% endif %}
+    {% if sort == "duration" %}排序：<strong>最慢优先</strong>{% endif %}
+    · <a href="{% if sort and status %}/?status={{ status }}{% else %}/{% endif %}">{% if sort and status %}清除排序{% else %}清除筛选{% endif %}</a>
+    {% if status and sort %} · <a href="/">清除全部条件</a>{% endif %}
   </p>
   {% endif %}
 
   {% if runs %}
   <table>
     <thead>
-      <tr><th>Run</th><th>状态</th><th>触发方式</th><th>创建时间</th></tr>
+      <tr><th>Run</th><th>状态</th><th>触发方式</th><th>耗时</th><th>创建时间</th></tr>
     </thead>
     <tbody>
       {% for run in runs %}
@@ -18,6 +23,13 @@
         <td><a href="/runs/{{ run.id }}">{{ run.id }}</a></td>
         <td><span class="badge {{ run.status }}">{{ status_label(run.status) }}</span></td>
         <td>{{ run.trigger }}</td>
+        <td class="muted">
+          {% if run.started_at and run.finished_at %}
+          {{ ((run.finished_at - run.started_at).total_seconds()) | round(1) }}s
+          {% else %}
+          —
+          {% endif %}
+        </td>
         <td class="muted">{{ run.created_at }}</td>
       </tr>
       {% endfor %}

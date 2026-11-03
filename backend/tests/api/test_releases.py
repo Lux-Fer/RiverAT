@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
+from app.models import Run
 from tests.plugins import make_plugin
 
 
@@ -154,6 +155,11 @@ async def test_last_status_respects_release_window(session, client, tmp_path):
     version_id, plan_id = await _version(client, tmp_path)
     before = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
     assert before["status"] == "passed"
+
+    # 把这次执行挪到一小时前，避免 now() 精度导致「建单前/后」判定抖动
+    run_row = await session.get(Run, uuid.UUID(before["id"]))
+    run_row.created_at = datetime.now(UTC) - timedelta(hours=1)
+    await session.commit()
 
     target = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
     release = (

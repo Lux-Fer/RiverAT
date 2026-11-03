@@ -262,7 +262,11 @@ def _to_run_step(
 
 
 async def list_runs(
-    session: AsyncSession, *, status: str | None = None, limit: int = 50
+    session: AsyncSession,
+    *,
+    status: str | None = None,
+    sort: str | None = None,
+    limit: int = 50,
 ) -> list[Run]:
     stmt = select(Run).order_by(Run.created_at.desc())
     if status == "finished":
@@ -271,6 +275,14 @@ async def list_runs(
         stmt = stmt.where(Run.status.in_(("failed", "error")))
     elif status:
         stmt = stmt.where(Run.status == status)
+
+    if sort == "duration":
+        # 最慢的排前面（没有耗时的排最后），D84
+        stmt = stmt.order_by(
+            (Run.finished_at - Run.started_at).desc().nulls_last(),
+            Run.created_at.desc(),
+        )
+
     result = await session.execute(stmt.limit(limit))
     return list(result.scalars().all())
 

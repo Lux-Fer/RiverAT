@@ -15,7 +15,8 @@ import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Plan, Product, ProductVersion, VersionComponent
+from app.models import Plan, Product, ProductVersion, User, VersionComponent
+from app.services.audit import record
 
 
 class PlanError(ValueError):
@@ -156,6 +157,7 @@ async def create_plan(
     product_version_id: UUID,
     name: str,
     definition: object,
+    actor: User | None = None,
 ) -> Plan:
     version = await session.get(ProductVersion, product_version_id)
     if version is None:
@@ -174,6 +176,14 @@ async def create_plan(
     )
     session.add(plan)
     await session.flush()
+    await record(
+        session,
+        actor=actor,
+        action="plan.create",
+        target_type="plan",
+        target_id=plan.id,
+        detail={"name": plan.name, "revision": plan.revision},
+    )
     return plan
 
 
@@ -184,6 +194,7 @@ async def update_plan(
     name: str | None = None,
     definition: object | None = None,
     expected_revision: int | None = None,
+    actor: User | None = None,
 ) -> Plan:
     """编辑计划（D70）。
 
@@ -220,6 +231,18 @@ async def update_plan(
         plan.revision = (plan.revision or 1) + 1
 
     await session.flush()
+    await record(
+        session,
+        actor=actor,
+        action="plan.update",
+        target_type="plan",
+        target_id=plan.id,
+        detail={
+            "name": plan.name,
+            "revision": plan.revision,
+            "definition_changed": definition is not None,
+        },
+    )
     return plan
 
 

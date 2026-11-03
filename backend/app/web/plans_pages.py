@@ -73,6 +73,7 @@ async def create_plan_form(
             product_version_id=UUID(product_version_id),
             name=name,
             definition=definition,
+            actor=user,
         )
     except (PlanError, ValueError) as exc:
         return await _render_list(request, session, user, error=str(exc))
@@ -139,6 +140,7 @@ async def edit_plan_form(
             name=name or None,
             definition=definition or None,
             expected_revision=int(expected_revision) if expected_revision else None,
+            actor=user,
         )
     except PlanConflict as exc:
         return await _render_detail(

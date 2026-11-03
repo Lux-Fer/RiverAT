@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer
 from app.db.session import get_session
+from app.models import User
 from app.services.plans import (
     PlanConflict,
     PlanError,
@@ -63,6 +64,7 @@ def _to_out(plan) -> PlanOut:
 async def create(
     payload: PlanCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_engineer)],
 ) -> PlanOut:
     try:
         plan = await create_plan(
@@ -70,6 +72,7 @@ async def create(
             product_version_id=payload.product_version_id,
             name=payload.name,
             definition=payload.definition,
+            actor=user,
         )
     except PlanError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -87,6 +90,7 @@ async def patch(
     plan_id: UUID,
     payload: PlanUpdate,
     session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_engineer)],
 ) -> PlanOut:
     """编辑计划：改 definition 会生成新 revision（D70）。"""
 
@@ -97,6 +101,7 @@ async def patch(
             name=payload.name,
             definition=payload.definition,
             expected_revision=payload.expected_revision,
+            actor=user,
         )
     except PlanConflict as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc

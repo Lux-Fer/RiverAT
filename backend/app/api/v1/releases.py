@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer, require_user
 from app.db.session import get_session
+from app.models import User
 from app.services.releases import (
     ReleaseError,
     create_release,
@@ -57,7 +58,7 @@ async def index(
 async def create(
     payload: ReleaseCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _engineer: Annotated[object, Depends(require_engineer)],
+    engineer: Annotated[User, Depends(require_engineer)],
 ) -> dict:
     try:
         release = await create_release(
@@ -66,6 +67,7 @@ async def create(
             target_date=payload.target_date,
             name=payload.name,
             note=payload.note,
+            actor=engineer,
         )
     except ReleaseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -79,7 +81,7 @@ async def patch(
     release_id: UUID,
     payload: ReleasePatch,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _engineer: Annotated[object, Depends(require_engineer)],
+    engineer: Annotated[User, Depends(require_engineer)],
 ) -> dict:
     release = await get_release(session, release_id)
     if release is None:
@@ -93,6 +95,7 @@ async def patch(
             target_date=payload.target_date,
             name=payload.name,
             note=payload.note,
+            actor=engineer,
         )
     except ReleaseError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

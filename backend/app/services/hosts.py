@@ -14,7 +14,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import CryptoError, decrypt, encrypt
-from app.models import Host
+from app.models import Host, User
+from app.services.audit import record
 from app.transport.base import TransportError
 from app.transport.ssh import SshTransport
 
@@ -33,6 +34,7 @@ async def create_host(
     port: int = 22,
     auth_type: str = "password",
     os_name: str = "linux",
+    actor: User | None = None,
 ) -> Host:
     if auth_type != "password":
         raise HostError("v1 只支持密码认证（SSH key 后续再加）")
@@ -54,6 +56,14 @@ async def create_host(
     )
     session.add(host)
     await session.flush()
+    await record(
+        session,
+        actor=actor,
+        action="host.create",
+        target_type="host",
+        target_id=host.id,
+        detail={"hostname": hostname, "username": username},
+    )
     return host
 
 

@@ -72,7 +72,7 @@ async def index(
 async def create(
     payload: UserCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _admin: Annotated[User, Depends(require_admin)],
+    admin: Annotated[User, Depends(require_admin)],
 ) -> UserOut:
     try:
         user = await create_user_admin(
@@ -81,6 +81,7 @@ async def create(
             password=payload.password,
             role=payload.role,
             display_name=payload.display_name,
+            actor=admin,
         )
     except UserError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc

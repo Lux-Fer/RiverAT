@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import ROLE_LEVEL
 from app.models import User
+from app.services.audit import record
 from app.services.auth import AuthError, create_user, set_password
 
 
@@ -42,10 +43,11 @@ async def create_user_admin(
     password: str,
     role: str = "engineer",
     display_name: str = "",
+    actor: User | None = None,
 ) -> User:
     _check_role(role)
     try:
-        return await create_user(
+        user = await create_user(
             session,
             username=username,
             password=password,
@@ -54,6 +56,16 @@ async def create_user_admin(
         )
     except AuthError as exc:
         raise UserError(str(exc)) from exc
+
+    await record(
+        session,
+        actor=actor,
+        action="user.create",
+        target_type="user",
+        target_id=user.id,
+        detail={"username": user.username, "role": user.role},
+    )
+    return user
 
 
 async def update_user_admin(
@@ -87,4 +99,17 @@ async def update_user_admin(
             raise UserError(str(exc)) from exc
 
     await session.flush()
+    await record(
+        session,
+        actor=actor,
+        action="user.update",
+        target_type="user",
+        target_id=user.id,
+        detail={
+            "username": user.username,
+            "role": user.role,
+            "is_active": user.is_active,
+            "password_reset": bool(password),
+        },
+    )
     return user

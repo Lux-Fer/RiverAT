@@ -66,6 +66,7 @@ async def create_user_form(
             password=password,
             role=role,
             display_name=display_name.strip(),
+            actor=user,
         )
     except UserError as exc:
         return await _render(request, session, user, error=str(exc))

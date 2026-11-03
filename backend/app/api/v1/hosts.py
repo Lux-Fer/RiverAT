@@ -10,7 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.deps import require_admin
 from app.db.session import get_session
+from app.models import User
 from app.services.hosts import (
     HostError,
     create_host,
@@ -68,6 +70,7 @@ def _to_out(host) -> HostOut:
 async def create(
     payload: HostCreate,
     session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_admin)],
 ) -> HostOut:
     try:
         host = await create_host(
@@ -78,6 +81,7 @@ async def create(
             password=payload.password,
             port=payload.port,
             auth_type=payload.auth_type,
+            actor=admin,
             os_name=payload.os_name,
         )
     except HostError as exc:

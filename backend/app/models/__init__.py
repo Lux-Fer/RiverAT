@@ -289,3 +289,27 @@ class Release(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AuditLog(Base):
+    """审计日志（D82）：谁在什么时候改了什么。
+
+    ``username`` 冗余保存，用户被删除后历史仍可读；``detail`` 只放差异字段。
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), index=True
+    )
+    username: Mapped[str] = mapped_column(String(200), default="")
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    target_type: Mapped[str] = mapped_column(String(64), default="")
+    target_id: Mapped[str | None] = mapped_column(String(200))
+    detail: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

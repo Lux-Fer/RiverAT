@@ -12,7 +12,8 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Product, ProductVersion, Release, Run
+from app.models import Product, ProductVersion, Release, Run, User
+from app.services.audit import record
 
 RELEASE_STATUSES = ("planned", "released", "cancelled")
 
@@ -28,6 +29,7 @@ async def create_release(
     target_date: date,
     name: str = "",
     note: str = "",
+    actor: User | None = None,
 ) -> Release:
     version = await session.get(ProductVersion, product_version_id)
     if version is None:
@@ -41,6 +43,17 @@ async def create_release(
     )
     session.add(release)
     await session.flush()
+    await record(
+        session,
+        actor=actor,
+        action="release.create",
+        target_type="release",
+        target_id=release.id,
+        detail={
+            "product_version_id": str(product_version_id),
+            "target_date": target_date.isoformat(),
+        },
+    )
     return release
 
 
@@ -52,6 +65,7 @@ async def update_release(
     target_date: date | None = None,
     name: str | None = None,
     note: str | None = None,
+    actor: User | None = None,
 ) -> Release:
     if status is not None:
         if status not in RELEASE_STATUSES:
@@ -66,6 +80,14 @@ async def update_release(
         release.note = note.strip()
 
     await session.flush()
+    await record(
+        session,
+        actor=actor,
+        action="release.update",
+        target_type="release",
+        target_id=release.id,
+        detail={"status": release.status, "target_date": release.target_date.isoformat()},
+    )
     return release
 
 

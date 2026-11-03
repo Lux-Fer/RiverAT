@@ -14,6 +14,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
+from app.web.audit_pages import router as audit_pages_router
 from app.web.csrf import csrf_cookie_middleware
 from app.web.dashboard_pages import router as dashboard_pages_router
 from app.web.pages import router as pages_router
@@ -119,6 +120,7 @@ def create_app() -> FastAPI:
     app.include_router(releases_pages_router)
     app.include_router(users_pages_router)
     app.include_router(dashboard_pages_router)
+    app.include_router(audit_pages_router)
     return app
 
 

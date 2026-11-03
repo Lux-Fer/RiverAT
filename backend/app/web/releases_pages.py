@@ -96,6 +96,7 @@ async def create_release_form(
             target_date=date.fromisoformat(target_date),
             name=name,
             note=note,
+            actor=user,
         )
     except (ReleaseError, ValueError) as exc:
         return await _render(request, session, user, error=str(exc))
@@ -117,7 +118,7 @@ async def update_release_form(
         return await _render(request, session, user, error="发布单不存在")
 
     try:
-        await update_release(session, release, status=status)
+        await update_release(session, release, status=status, actor=user)
     except ReleaseError as exc:
         return await _render(request, session, user, error=str(exc))
 

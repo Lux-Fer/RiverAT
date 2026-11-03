@@ -27,7 +27,8 @@
     <a href="/products" {% if path.startswith("/products") or path.startswith("/versions") %}class="active" aria-current="page"{% endif %}>产品树</a> ·
     <a href="/plans" {% if path.startswith("/plans") %}class="active" aria-current="page"{% endif %}>计划</a>
     {% if user and user.role == "admin" %} ·
-    <a href="/users" {% if path.startswith("/users") %}class="active" aria-current="page"{% endif %}>用户</a>{% endif %}
+    <a href="/users" {% if path.startswith("/users") %}class="active" aria-current="page"{% endif %}>用户</a> ·
+    <a href="/audit" {% if path.startswith("/audit") %}class="active" aria-current="page"{% endif %}>审计</a>{% endif %}
   </nav>
   <main>
   {% block content %}{% endblock %}

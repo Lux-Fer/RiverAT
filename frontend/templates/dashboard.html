@@ -97,9 +97,34 @@
   {% endif %}
 
   <h2 style="font-size:1rem; margin-top:1.5rem;">近 14 天执行趋势</h2>
-  <div class="card" style="padding:1rem;">
-    <canvas id="trend" height="90"></canvas>
+  {% if data.trend_total %}
+  <p class="muted" style="margin:.2rem 0 .5rem;">
+    共 {{ data.trend_total }} 次执行，其中失败/异常 {{ data.trend_bad }} 次。
+  </p>
+  <div class="card" style="padding:1rem; height:300px; position:relative;">
+    <canvas id="trend" role="img" aria-label="近 14 天通过/失败次数柱状图，数据表在下方"></canvas>
   </div>
+  {% else %}
+  <div class="card" style="padding:1rem;">
+    <p class="muted" style="margin:0;">过去 14 天没有执行记录。</p>
+  </div>
+  {% endif %}
+
+  <details style="margin-top:.6rem;">
+    <summary class="muted">查看数据表</summary>
+    <table style="margin-top:.5rem;">
+      <thead><tr><th>日期</th><th>通过</th><th>失败/异常</th></tr></thead>
+      <tbody>
+        {% for d in data.trend %}
+        <tr>
+          <td>{{ d.date }}</td>
+          <td>{{ d.passed }}</td>
+          <td>{{ d.failed + d.error }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
 
   <h2 style="font-size:1rem; margin-top:1.5rem;">各状态次数</h2>
   <table>
@@ -120,23 +145,36 @@
 {% block scripts %}
 <script src="/static/vendor/chart.umd.min.js"></script>
 <script>
+  {% if data.trend_total %}
   const trend = {{ data.trend | tojson }};
   new Chart(document.getElementById('trend'), {
-    type: 'line',
+    type: 'bar',
     data: {
       labels: trend.map(d => d.date.slice(5)),
       datasets: [
-        { label: '通过', data: trend.map(d => d.passed),
-          borderColor: '#2f9e44', backgroundColor: 'rgba(47,158,68,.12)', tension: .3 },
-        { label: '失败/异常', data: trend.map(d => d.failed + d.error),
-          borderColor: '#e03131', backgroundColor: 'rgba(224,49,49,.12)', tension: .3 },
+        { label: '通过', data: trend.map(d => d.passed), backgroundColor: '#1e7e34' },
+        { label: '失败/异常', data: trend.map(d => d.failed + d.error), backgroundColor: '#b02a2a' },
       ],
     },
     options: {
       responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
       interaction: { mode: 'index', intersect: false },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      scales: {
+        x: {
+          ticks: { autoSkip: true, maxTicksLimit: 7, maxRotation: 0 },
+          grid: { display: false },
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0 },
+          title: { display: true, text: '次数' },
+        },
+      },
+      plugins: { legend: { position: 'bottom' } },
     },
   });
+  {% endif %}
 </script>
 {% endblock %}

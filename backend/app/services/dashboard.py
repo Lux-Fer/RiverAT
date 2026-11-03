@@ -125,6 +125,8 @@ async def summary(session: AsyncSession) -> dict:
         )
     ).all()
 
+    trend = await _daily_trend(session)
+
     return {
         "total_runs": sum(statuses.values()),
         "by_status": statuses,
@@ -145,7 +147,9 @@ async def summary(session: AsyncSession) -> dict:
             {"product_code": code, "product_name": name, "version": version}
             for code, name, version in risk_detail
         ],
-        "trend": await _daily_trend(session),
+        "trend": trend,
+        "trend_total": sum(d["passed"] + d["failed"] + d["error"] for d in trend),
+        "trend_bad": sum(d["failed"] + d["error"] for d in trend),
         "upcoming": await upcoming(session),
         "duration": {
             "p50": round(_percentile(durations, 0.5), 1) if durations else None,

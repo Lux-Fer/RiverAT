@@ -81,6 +81,8 @@ async def test_dashboard_api_numbers(session, client):
     today = data["trend"][-1]
     assert today["passed"] == 1
     assert today["failed"] == 1
+    assert data["trend_total"] == 2
+    assert data["trend_bad"] == 1
 
 
 async def test_dashboard_page_renders(session, client):
@@ -92,6 +94,16 @@ async def test_dashboard_page_renders(session, client):
     assert "通过率" in page.text
     assert "50.0%" in page.text
     assert "风险敞口" in page.text
+    assert "查看数据表" in page.text
+    assert "共 2 次执行，其中失败/异常 1 次" in page.text
+
+
+async def test_dashboard_empty_trend_state(session, client):
+    page = await client.get("/dashboard")
+
+    assert page.status_code == 200
+    assert "过去 14 天没有执行记录" in page.text
+    assert "<canvas" not in page.text
 
 
 async def test_dashboard_empty_state(session, client):

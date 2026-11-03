@@ -184,3 +184,50 @@ async def test_last_status_respects_release_window(session, client, tmp_path):
     assert listed["quality"]["runs"] == 1
     assert listed["quality"]["last_status"] == "passed"
     assert listed["quality"]["last_run_id"] == after["id"]
+
+async def test_release_html_report(session, client, tmp_path):
+    bad = make_plugin(
+        tmp_path,
+        "report-fail",
+        'echo "report failure detail" >&2\nexit 12\n',
+        '[Console]::Error.WriteLine("report failure detail")\nexit 12\n',
+    )
+    product = (
+        await client.post("/api/v1/products", json={"code": "RPT", "name": "报告产品"})
+    ).json()
+    version = (
+        await client.post(
+            f"/api/v1/products/{product['id']}/versions", json={"version": "3.1.0"}
+        )
+    ).json()
+    plan = await client.post(
+        "/api/v1/plans",
+        json={
+            "product_version_id": version["id"],
+            "name": "报告计划",
+            "definition": {
+                "nodes": [{"key": "boom", "plugin": str(bad), "timeout": 30}]
+            },
+        },
+    )
+    release = (
+        await client.post(
+            "/api/v1/releases",
+            json={
+                "product_version_id": version["id"],
+                "target_date": (datetime.now(UTC).date() + timedelta(days=1)).isoformat(),
+                "name": "3.1 报告",
+            },
+        )
+    ).json()
+    await client.post("/api/v1/runs", json={"plan_id": plan.json()["id"]})
+
+    response = await client.get(f"/releases/{release['id']}/report")
+
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "release-report.html" in response.headers["content-disposition"]
+    assert "发布报告" in response.text
+    assert "RPT" in response.text
+    assert "口径说明" in response.text
+    assert "report failure detail" in response.text

@@ -10,6 +10,9 @@
   </p>
   {% if release.note %}<p class="muted">{{ release.note }}</p>{% endif %}
 
+  <p><a class="btn" style="text-decoration:none;" href="/releases/{{ release.id }}/report">下载 HTML 报告</a>
+     <span class="muted">单文件、离线可打开</span></p>
+
   <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:.8rem;">
     <div class="card">
       <div class="muted">本发布执行</div>

@@ -14,6 +14,7 @@ from app.api.deps import require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
 from app.services.catalog import all_versions_with_products
+from app.services.release_report import build_context
 from app.services.releases import (
     ReleaseError,
     create_release,
@@ -124,3 +125,27 @@ async def update_release_form(
 
     await session.commit()
     return RedirectResponse("/releases", status_code=303)
+
+
+@router.get("/releases/{release_id}/report")
+async def release_report(
+    release_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    release = await get_release(session, release_id)
+    if release is None:
+        raise HTTPException(status_code=404, detail="发布单不存在")
+
+    context = await build_context(session, release, generated_by=user)
+    product = (context["release"].get("product_code") or "product").replace(" ", "-")
+    version = (context["release"].get("version") or "version").replace(" ", "-")
+    filename = f"riverat-{product}-{version}-release-report.html"
+
+    return templates.TemplateResponse(
+        request=request,
+        name="release_report.html",
+        context=context,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )

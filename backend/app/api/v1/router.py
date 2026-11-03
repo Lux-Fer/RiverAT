@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from app.api.deps import require_admin, require_user
+from app.api.v1.assistant import router as assistant_router
 from app.api.v1.audit import router as audit_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.catalog import router as catalog_router
@@ -33,6 +34,7 @@ api_router.include_router(users_router)
 api_router.include_router(llm_config_router, dependencies=[Depends(require_admin)])
 api_router.include_router(work_products_router, dependencies=[Depends(require_user)])
 api_router.include_router(tools_router, dependencies=[Depends(require_user)])
+api_router.include_router(assistant_router)
 
 
 @api_router.get("/ping", tags=["meta"])

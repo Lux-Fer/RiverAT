@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1rem;">助手</h2>
+  <p class="muted">
+    用一句话说清要测什么。平台会让模型生成**工具调用草案**，你确认后才会执行（执行在 M4 上线）。
+  </p>
+
+  {% if error %}<p style="color:#e03131;">{{ error }}</p>{% endif %}
+
+  <div class="card" style="margin-bottom:1rem;">
+    <form method="post" action="/assistant/messages">
+{% include "_csrf_input.html" %}
+      <p style="margin:.2rem 0;">
+        <select name="product_id" style="padding:.35rem .5rem; min-width:14rem;">
+          <option value="">被测产品（可选）</option>
+          {% for p in products %}
+          <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </p>
+      <p style="margin:.4rem 0;">
+        <textarea name="text" rows="3" required
+                  placeholder="例如：对 DEMO-CN 的登录做一次冒烟检查"
+                  style="width:100%; padding:.4rem .5rem;"></textarea>
+      </p>
+      <button type="submit" class="btn">生成草案</button>
+    </form>
+  </div>
+
+  {% if draft %}
+  <h3 style="font-size:.95rem;">最新草案</h3>
+  <div class="card" style="border-left:3px solid #1667b8;">
+    <p style="margin:.2rem 0;"><strong>{{ draft.title }}</strong>
+      <span class="badge queued">{{ draft.status }}</span>
+    </p>
+    {% if draft.draft.reply %}<p class="muted">{{ draft.draft.reply | soft_markdown }}</p>{% endif %}
+
+    {% if draft.draft.errors %}
+    <div style="color:#b45309; font-size:13px;">
+      {% for item in draft.draft.errors %}<div>⚠ {{ item }}</div>{% endfor %}
+    </div>
+    {% endif %}
+
+    {% if steps %}
+    <div class="table-scroll" style="margin-top:.6rem;">
+      <table>
+        <thead><tr><th>#</th><th>工具</th><th>参数</th><th>状态</th></tr></thead>
+        <tbody>
+          {% for step in steps %}
+          <tr>
+            <td class="muted">{{ step.seq }}</td>
+            <td><strong>{{ step.tool_name }}</strong>
+              <span class="muted">{{ step.tool_version }}</span></td>
+            <td class="muted"><code style="font-size:12px;">{{ step.args | tojson }}</code></td>
+            <td class="muted">{{ step.status }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="muted">这个草案没有工具调用。</p>
+    {% endif %}
+
+    <p style="margin-top:.8rem;">
+      <button class="btn" disabled title="执行在 M4 上线">确认执行（M4 上线）</button>
+      <span class="muted">草案还需要人工确认；v1.1 不做自主执行。</span>
+    </p>
+  </div>
+  {% endif %}
+
+  {% if messages %}
+  <h3 style="font-size:.95rem; margin-top:1.5rem;">对话记录</h3>
+  {% for message in messages %}
+  <p style="font-size:13px; margin:.35rem 0;">
+    <span class="muted">{{ "你" if message.role == "user" else "助手" }}：</span>
+    {{ message.content | soft_markdown }}
+  </p>
+  {% endfor %}
+  {% endif %}
+{% endblock %}

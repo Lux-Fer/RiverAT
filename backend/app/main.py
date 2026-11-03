@@ -14,6 +14,7 @@ from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
+from app.web.assistant_pages import router as assistant_pages_router
 from app.web.audit_pages import router as audit_pages_router
 from app.web.auth_pages import router as auth_pages_router
 from app.web.csrf import csrf_cookie_middleware
@@ -116,6 +117,7 @@ def create_app() -> FastAPI:
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     app.include_router(auth_pages_router)
+    app.include_router(assistant_pages_router)
     app.include_router(products_pages_router)
     app.include_router(tools_pages_router)
     app.include_router(settings_pages_router)

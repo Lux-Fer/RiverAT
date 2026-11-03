@@ -21,6 +21,7 @@
     {% endif %}
   </div>
   <nav class="muted" style="margin-top:-.4rem; margin-bottom:1rem;" aria-label="主导航">
+    <a href="/assistant" {% if path.startswith("/assistant") %}class="active" aria-current="page"{% endif %}>助手</a> ·
     <a href="/products" {% if path.startswith("/products") %}class="active" aria-current="page"{% endif %}>产品</a> ·
     <a href="/tools" {% if path.startswith("/tools") %}class="active" aria-current="page"{% endif %}>工具</a>
     {% if user and user.role == "admin" %} ·

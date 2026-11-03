@@ -234,6 +234,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-03 发布报告：自包含 HTML 文件可下载（D86），140 passed / 3 skipped。
 - 2026-11-03 **v1.1 转向**：AI 承接测试工作（D95–D100），设计见 `docs/design-v1.1.md`；PRODUCT.md 已重写。
 - 2026-11-03 v1.1 M1+M2：模型配置、产品注册、工具上传/审核（D101），旧页面删除，126 passed / 3 skipped。
+- 2026-11-03 v1.1 M3：对话 → 任务草案（D102），真模型返回 tool_calls，134 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -301,3 +302,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D99 | 工具契约 v2：包 = `tar.gz` + `tool.json`（name / version / description / entrypoint / input_schema / output_schema / timeout_seconds）；**进程调用**（stdin JSON → stdout JSON，非 0 = 失败，超时杀进程树），平台注入 `RIVERAT_PRODUCT_*` 环境变量 | 复用 v1.0 已有的打包、超时、证据回收；HTTP 工具会引入"服务谁托管、端口谁分配"的新问题 |
 | D100 | v1.1 范围锁死四件事：① 模型配置 ② 产品注册 ③ 工具安装/审核 ④ 对话 → 任务草案 → 确认 → 执行 → 结果。数据模型新增 `llm_config / work_product / tool / task / task_step / chat_message`；**旧表不删**，`plan / dashboard / release` 移出导航并冻结 | 范围再大就变成半年；旧资产保留可回滚 |
 | D101 | M1/M2 实现细节：compose 用 `env_file: ./backend/.env (required: false)` 注入 `RIVERAT_LLM_*`，`environment` 里的 DB/Redis 地址仍然优先；**旧页面模块与模板直接删除**（不是隐藏），登录后落 `/products`；工具列表只展示参数名与必填项、不展示原始 JSON；工具包存放 `backend/var/tools/<sha256>.tar.gz` | 用户要求"删了"；原始 JSON 对人不友好且暴露实现细节 |
+| D102 | M3 实现细节：`task / task_step / chat_message` 三表；`propose_task()` 把已审核工具（同名取最新）转成 function schema → `llm.chat(tools=...)` → 解析 `tool_calls` → **最小 schema 校验**（required + 顶层 type，不引入 jsonschema 依赖）；系统提示必须写明"tool_call 只是草案、不会执行"，否则模型只肯用文字描述（实测 deepseek-flash 会因此不返回 tool_calls）；助手回复用 `soft_markdown` 过滤器渲染（转义 HTML 后再放粗体/行内代码/换行） | 实测踩坑：提示里写"不要执行"会让模型回避 tool_calls；不转义直接渲染模型文本会有 XSS |

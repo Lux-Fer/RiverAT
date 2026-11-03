@@ -1,6 +1,6 @@
 # RiverAT v1.1 设计：AI 承接测试工作
 
-> 状态：**M1 / M2 已实现**（D101），M3 / M4 待做。
+> 状态：**M1–M3 已实现**（D101–D102），M4（确认执行）待做。
 > 依据：`docs/decisions-riverat-requirements.md` 第 9 节（D87–D96、Q24–Q28）与重写后的 `PRODUCT.md`。
 
 ## 1. 目标与非目标
@@ -151,7 +151,7 @@ my-tool/
 |---|---|---|
 | M1 ✅ | 模型配置 + 设置页 + LLM 客户端 | 已实现：数据库配置优先、`.env` 兜底；"测试连接"真实调用 DeepSeek 成功（1.0s） |
 | M2 ✅ | 产品注册 + 工具上传/审核 | 已实现：表单注册、tar.gz 上传、tool.json 校验、pending → approved |
-| M3 | 对话 → 任务草案 | 真模型（或录制回放）产出 tool_calls，参数过 schema 校验，草案在页面上可确认/修改 |
+| M3 ✅ | 对话 → 任务草案 | 已实现：`/assistant` 对话 → `task(draft)` + `task_step`；真模型（deepseek-flash）返回 tool_calls 并通过 schema 校验；参数缺失会给出警告 |
 | M4 | 确认 → 队列 → 执行 → 结果 → 工作流 | 用 echo 工具端到端跑通：草案 → 确认 → 执行 → 用例结果 → 任务列完成 |
 
 ## 9. 风险与未决

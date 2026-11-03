@@ -381,3 +381,71 @@ class Tool(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class Task(Base):
+    """v1.1 任务（D95/D100）：对话产生草案，人确认后执行。"""
+
+    __tablename__ = "task"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("work_product.id", ondelete="SET NULL"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(200))
+    request_text: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(32), default="draft", index=True)
+    draft: Mapped[dict] = mapped_column(JSONB, default=dict)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TaskStep(Base):
+    """任务中的一次工具调用（D99）。"""
+
+    __tablename__ = "task_step"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("task.id", ondelete="CASCADE"), index=True
+    )
+    seq: Mapped[int] = mapped_column(Integer, default=1)
+    tool_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tool.id", ondelete="SET NULL")
+    )
+    tool_name: Mapped[str] = mapped_column(String(200))
+    tool_version: Mapped[str] = mapped_column(String(64), default="")
+    args: Mapped[dict] = mapped_column(JSONB, default=dict)
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    output: Mapped[dict] = mapped_column(JSONB, default=dict)
+    exit_code: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(String(500))
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ChatMessage(Base):
+    """助手对话记录（D95）：回看"为什么这么测"。"""
+
+    __tablename__ = "chat_message"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("task.id", ondelete="SET NULL"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(32))
+    content: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )

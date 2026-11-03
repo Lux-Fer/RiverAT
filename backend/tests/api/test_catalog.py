@@ -91,21 +91,3 @@ async def test_tree_endpoint_nests_children(session, client):
     assert [node["code"] for node in roots] == ["C"]
     assert [node["code"] for node in roots[0]["children"]] == ["A"]
     assert roots[0]["children"][0]["id"] == child["id"]
-
-
-async def test_products_and_version_pages(session, client):
-    a = await _product(client, "A", "部件 A")
-    c = await _product(client, "C", "组合产品")
-    a1 = await _version(client, a["id"], "2.1.0")
-    c1 = await _version(client, c["id"], "1.0.0")
-    assert (await _lock(client, c1["id"], a["id"], a1["id"])).status_code == 201
-
-    products = await client.get("/products")
-    assert products.status_code == 200
-    assert "部件 A" in products.text
-    assert "2.1.0" in products.text
-
-    version = await client.get(f"/versions/{c1['id']}")
-    assert version.status_code == 200
-    assert "部件 A" in version.text
-    assert "2.1.0" in version.text

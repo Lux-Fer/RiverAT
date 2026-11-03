@@ -17,6 +17,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -313,3 +314,70 @@ class AuditLog(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class LlmConfig(Base):
+    """v1.1 模型端点（D97）：OpenAI 兼容；只保留一条 is_active。"""
+
+    __tablename__ = "llm_config"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    base_url: Mapped[str] = mapped_column(String(500))
+    api_key_enc: Mapped[str] = mapped_column(Text, default="")
+    model: Mapped[str] = mapped_column(String(200))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class WorkProduct(Base):
+    """v1.1 被测产品（D100）：地址 + CI 配置占位。"""
+
+    __tablename__ = "work_product"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(200))
+    base_url: Mapped[str] = mapped_column(String(500), default="")
+    description: Mapped[str] = mapped_column(String(500), default="")
+    # CI 通知在 v1.1 只存配置，不实际收发（D98）
+    ci_provider: Mapped[str] = mapped_column(String(64), default="")
+    ci_webhook_url: Mapped[str] = mapped_column(String(500), default="")
+    ci_secret_enc: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(32), default="active", index=True)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class Tool(Base):
+    """v1.1 工具（D99）：上传的 tar.gz + tool.json，审核后可用。"""
+
+    __tablename__ = "tool"
+    __table_args__ = (
+        UniqueConstraint("name", "version", name="uq_tool_name_version"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    name: Mapped[str] = mapped_column(String(200))
+    version: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(String(500), default="")
+    manifest: Mapped[dict] = mapped_column(JSONB, default=dict)
+    bundle_sha256: Mapped[str] = mapped_column(String(64))
+    bundle_path: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    uploaded_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

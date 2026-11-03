@@ -88,45 +88,6 @@ async def test_dashboard_api_numbers(session, client):
     assert data["release_summary"] == {"total": 0, "no_runs": 0}
 
 
-async def test_dashboard_page_is_release_first(session, client):
-    await _seed(session)
-
-    page = await client.get("/dashboard")
-
-    assert page.status_code == 200
-    assert "通过率" in page.text
-    assert "50.0%" in page.text
-    assert "风险敞口" in page.text
-    assert "查看数据表" in page.text
-    assert "共 2 次执行，其中失败/异常 1 次" in page.text
-    # 待发在前，全平台累计在后
-    assert page.text.index("未来 7 天待发") < page.text.index("全平台累计")
-    assert "截至" in page.text
-    # 步骤落库率降级为页脚的数据健康说明
-    assert "数据健康：步骤落库率" in page.text
-    assert "不是覆盖率" in page.text
-
-
-async def test_dashboard_empty_trend_state(session, client):
-    page = await client.get("/dashboard")
-
-    assert page.status_code == 200
-    assert "过去 14 天没有执行记录" in page.text
-    assert "<canvas" not in page.text
-
-
-async def test_dashboard_first_run_empty_state(session, client):
-    page = await client.get("/dashboard")
-
-    assert page.status_code == 200
-    # 不再出现 "%:" 这类空值占位
-    assert "—%" not in page.text
-    assert "还没有执行记录" in page.text
-    assert "去跑第一次" in page.text
-    assert "还没有已结束的执行" in page.text
-    assert "暂时算不出步骤落库率" in page.text
-
-
 async def test_dashboard_empty_state(session, client):
     response = await client.get("/api/v1/dashboard")
 

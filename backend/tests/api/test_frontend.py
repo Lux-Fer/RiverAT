@@ -76,22 +76,3 @@ async def test_vendor_assets_are_served(client):
     assert "javascript" in htmx.headers["content-type"]
     assert chart.status_code == 200
     assert "javascript" in chart.headers["content-type"]
-
-
-async def test_panel_polls_while_running_and_stops_when_done(
-    session, client, app, tmp_path
-):
-    run = await _queued_run(client, app, tmp_path)
-    assert run["status"] == "queued"
-
-    polling = await client.get(f"/runs/{run['id']}/panel")
-    assert polling.status_code == 200
-    assert f'hx-get="/runs/{run["id"]}/panel"' in polling.text
-    assert 'hx-trigger="every 2s"' in polling.text
-
-    await _set_status(session, uuid.UUID(run["id"]), "passed")
-
-    final = await client.get(f"/runs/{run['id']}/panel")
-    assert final.status_code == 200
-    assert "hx-get" not in final.text
-    assert "every 2s" not in final.text

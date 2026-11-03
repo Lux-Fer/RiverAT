@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2 style="font-size:1rem;">被测产品</h2>
+  <p class="muted">注册被测产品：地址会注入给工具；CI 配置在 v1.1 只保存、不实际收发。</p>
+
+  {% if error %}<p style="color:#e03131;">{{ error }}</p>{% endif %}
+
+  {% if user and user.role != "viewer" %}
+  <div class="card" style="margin-bottom:1rem;">
+    <form method="post" action="/products"
+          style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.5rem;">
+{% include "_csrf_input.html" %}
+      <input name="code" placeholder="产品编码，如 DEMO" required
+             style="padding:.35rem .5rem;">
+      <input name="name" placeholder="产品名称" required
+             style="padding:.35rem .5rem;">
+      <input name="base_url" placeholder="地址，如 http://10.0.0.5:8080"
+             style="padding:.35rem .5rem; grid-column:1/-1;">
+      <input name="description" placeholder="一句话说明"
+             style="padding:.35rem .5rem; grid-column:1/-1;">
+      <select name="ci_provider" style="padding:.35rem .5rem;">
+        <option value="">CI：暂不配置</option>
+        <option value="jenkins">Jenkins</option>
+        <option value="gitlab">GitLab</option>
+        <option value="custom">自研</option>
+      </select>
+      <input name="ci_webhook_url" placeholder="CI 通知地址（占位）"
+             style="padding:.35rem .5rem;">
+      <input name="ci_secret" type="password" placeholder="CI 回调密钥（可选）"
+             style="padding:.35rem .5rem;">
+      <div style="grid-column:1/-1;">
+        <button type="submit" class="btn">注册产品</button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if products %}
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr><th>产品</th><th>地址</th><th>CI</th><th>说明</th><th>状态</th></tr>
+      </thead>
+      <tbody>
+        {% for p in products %}
+        <tr>
+          <td><strong>{{ p.code }}</strong> · {{ p.name }}</td>
+          <td class="muted">{{ p.base_url or "—" }}</td>
+          <td class="muted">{{ p.ci_provider or "—" }}</td>
+          <td class="muted">{{ p.description or "—" }}</td>
+          <td><span class="badge passed">{{ p.status }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">还没有注册产品。</p>
+  {% endif %}
+{% endblock %}

@@ -34,11 +34,17 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173"]
     # 相对路径的插件包从这儿解析（绝对路径原样使用）
     bundle_root: Path = BASE_DIR / "var" / "plugins"
+    # v1.1 工具包存放目录（上传的 tar.gz）
+    tools_root: Path = BASE_DIR / "var" / "tools"
     # 会话（D43：服务端会话，cookie 只带 token）
     session_ttl_seconds: int = 8 * 3600
     # 首次启动、库里没有用户时，用它建管理员（为空则跳过）
     admin_username: str = "admin"
     admin_password: str = ""
+    # v1.1 模型端点（D97）：OpenAI 兼容；DB 里没有配置时的兜底
+    riverat_llm_base_url: str = ""
+    riverat_llm_model: str = ""
+    riverat_llm_api_key: str = ""
 
 
 @lru_cache

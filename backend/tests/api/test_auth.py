@@ -52,7 +52,7 @@ async def test_wrong_password_is_rejected(session, client, real_auth):
 
 
 async def test_pages_redirect_to_login(session, client, real_auth):
-    response = await client.get("/", follow_redirects=False)
+    response = await client.get("/products", follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"].startswith("/login")
@@ -65,9 +65,9 @@ async def test_form_login_then_logout(session, client, real_auth):
         follow_redirects=False,
     )
     assert login.status_code == 303
-    assert login.headers["location"] == "/"
+    assert login.headers["location"] == "/products"
 
-    home = await client.get("/")
+    home = await client.get("/products")
     assert home.status_code == 200
     assert "alice" in home.text
 

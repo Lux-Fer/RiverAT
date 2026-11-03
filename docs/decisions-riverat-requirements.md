@@ -231,7 +231,9 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-03 看板空态：首次运行不再显示 —%、0/0（D83），136 passed / 3 skipped。
 - 2026-11-03 耗时排序与图表刻度：sort=duration、最后一天可见（D84），137 passed / 3 skipped。
 - 2026-11-03 审计筛选与导出：按人/动作筛选 + CSV（D85），139 passed / 3 skipped。
-- 2026-11-03 发布报告：自包含 HTML 文件可下载（D86），140 passed / 3 skipped。`n- 2026-11-03 **v1.1 转向**：AI 承接测试工作（D95–D100），设计见 `docs/design-v1.1.md`；PRODUCT.md 已重写。
+- 2026-11-03 发布报告：自包含 HTML 文件可下载（D86），140 passed / 3 skipped。
+- 2026-11-03 **v1.1 转向**：AI 承接测试工作（D95–D100），设计见 `docs/design-v1.1.md`；PRODUCT.md 已重写。
+- 2026-11-03 v1.1 M1+M2：模型配置、产品注册、工具上传/审核（D101），旧页面删除，126 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -298,3 +300,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D98 | **CI 通知 v1.1 只做配置占位**（产品里存 provider/webhook 字段，不实际收发）；真实 webhook 与鉴权放 v1.2 | 避免 v1.1 同时做"AI 代理 + CI 集成 + 工作流引擎"，三件事都做不完整 |
 | D99 | 工具契约 v2：包 = `tar.gz` + `tool.json`（name / version / description / entrypoint / input_schema / output_schema / timeout_seconds）；**进程调用**（stdin JSON → stdout JSON，非 0 = 失败，超时杀进程树），平台注入 `RIVERAT_PRODUCT_*` 环境变量 | 复用 v1.0 已有的打包、超时、证据回收；HTTP 工具会引入"服务谁托管、端口谁分配"的新问题 |
 | D100 | v1.1 范围锁死四件事：① 模型配置 ② 产品注册 ③ 工具安装/审核 ④ 对话 → 任务草案 → 确认 → 执行 → 结果。数据模型新增 `llm_config / work_product / tool / task / task_step / chat_message`；**旧表不删**，`plan / dashboard / release` 移出导航并冻结 | 范围再大就变成半年；旧资产保留可回滚 |
+| D101 | M1/M2 实现细节：compose 用 `env_file: ./backend/.env (required: false)` 注入 `RIVERAT_LLM_*`，`environment` 里的 DB/Redis 地址仍然优先；**旧页面模块与模板直接删除**（不是隐藏），登录后落 `/products`；工具列表只展示参数名与必填项、不展示原始 JSON；工具包存放 `backend/var/tools/<sha256>.tar.gz` | 用户要求"删了"；原始 JSON 对人不友好且暴露实现细节 |

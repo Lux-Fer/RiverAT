@@ -54,28 +54,3 @@ async def test_failed_run_is_indexed_and_similar_found(session, client, tmp_path
     run_ids = [item["run_id"] for item in body["items"]]
     assert first["id"] in run_ids
     assert body["items"][0]["score"] > 0
-
-
-async def test_passed_run_has_no_similar_section(session, client, tmp_path):
-    plugin = make_plugin(tmp_path, "ok", 'echo "ok"\n', 'Write-Output "ok"\n')
-    plan_id = await _plan_with_plugin(client, plugin)
-
-    run = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
-    assert run["status"] == "passed"
-
-    page = await client.get(f"/runs/{run['id']}")
-    assert page.status_code == 200
-    assert "相似历史失败" not in page.text
-
-
-async def test_failed_run_page_shows_similar_section(session, client, tmp_path):
-    plugin = make_plugin(
-        tmp_path, "bad", 'echo "boom" >&2\nexit 3\n', '[Console]::Error.WriteLine("boom")\nexit 3\n'
-    )
-    plan_id = await _plan_with_plugin(client, plugin)
-    run = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
-
-    page = await client.get(f"/runs/{run['id']}")
-
-    assert page.status_code == 200
-    assert "相似历史失败" in page.text

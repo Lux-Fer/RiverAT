@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from tests.plugins import make_plugin
 
 _NODES = [{"key": "a", "plugin": "x"}]
@@ -95,33 +93,6 @@ async def test_invalid_definition_is_rejected(session, client, tmp_path):
     assert "plugin" in broken.json()["detail"]
 
 
-async def test_edit_form_creates_new_revision(session, client, tmp_path):
-    plan_id, plugin = await _setup(client, tmp_path)
-
-    definition_text = json.dumps(
-        {
-            "nodes": [
-                {"key": "a", "plugin": plugin, "timeout": 30},
-                {"key": "b", "plugin": plugin, "timeout": 30},
-            ]
-        },
-        ensure_ascii=False,
-    )
-    response = await client.post(
-        f"/plans/{plan_id}/edit",
-        data={"name": "页面改的计划", "definition": definition_text},
-    )
-
-    assert response.status_code == 303
-    page = await client.get(f"/plans/{plan_id}")
-    assert "revision 2" in page.text
-    assert "页面改的计划" in page.text
-
-
-def _definition(plugin: str) -> dict:
-    return {"nodes": [{"key": "a", "plugin": plugin, "timeout": 30}]}
-
-
 async def test_expected_revision_locks_edits(session, client, tmp_path):
     plan_id, plugin = await _setup(client, tmp_path)
 
@@ -140,21 +111,5 @@ async def test_expected_revision_locks_edits(session, client, tmp_path):
     assert "已被修改" in stale.json()["detail"]
 
 
-async def test_edit_form_conflict_returns_409(session, client, tmp_path):
-    plan_id, plugin = await _setup(client, tmp_path)
-    await client.patch(
-        f"/api/v1/plans/{plan_id}",
-        json={"definition": _definition(plugin), "expected_revision": 1},
-    )
-
-    response = await client.post(
-        f"/plans/{plan_id}/edit",
-        data={
-            "name": "过期编辑",
-            "definition": json.dumps(_definition(plugin)),
-            "expected_revision": "1",
-        },
-    )
-
-    assert response.status_code == 409
-    assert "已被修改" in response.text
+def _definition(plugin: str) -> dict:
+    return {"nodes": [{"key": "a", "plugin": plugin, "timeout": 30}]}

@@ -20,7 +20,8 @@ async def test_viewer_page_hides_create_form(session, client, login_as):
 
     page = await client.get("/products")
     assert page.status_code == 200
-    assert "新建产品" not in page.text
+    # 表单整个不渲染（空态文案里仍会出现"注册产品"四个字）
+    assert 'action="/products"' not in page.text
 
     forbidden = await client.post("/products", data={"code": "V-2", "name": "x"})
     assert forbidden.status_code == 403
@@ -52,7 +53,7 @@ async def test_engineer_sees_create_form(session, client, login_as):
 
     page = await client.get("/products")
     assert page.status_code == 200
-    assert "新建产品" in page.text
+    assert "注册产品" in page.text
 
 
 async def test_admin_can_manage_hosts(session, client, login_as):

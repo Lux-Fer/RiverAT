@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.models import Run
 from tests.plugins import make_plugin
@@ -61,24 +61,6 @@ async def test_release_quality_and_dashboard_upcoming(session, client, tmp_path)
     assert dashboard["release_summary"] == {"total": 1, "no_runs": 0}
 
 
-async def test_dashboard_shows_release_first_with_link(session, client, tmp_path):
-    version_id, _ = await _version(client, tmp_path)
-    target = (datetime.now(UTC).date() + timedelta(days=2)).isoformat()
-    release = (
-        await client.post(
-            "/api/v1/releases",
-            json={"product_version_id": version_id, "target_date": target},
-        )
-    ).json()
-
-    page = await client.get("/dashboard")
-
-    assert page.status_code == 200
-    assert f'href="/releases/{release["id"]}"' in page.text
-    assert "个还没有执行" in page.text
-    assert page.text.index("未来 7 天待发") < page.text.index("全平台累计")
-
-
 async def test_released_release_leaves_upcoming(session, client, tmp_path):
     version_id, _ = await _version(client, tmp_path)
     target = (datetime.now(UTC).date() + timedelta(days=1)).isoformat()
@@ -99,55 +81,6 @@ async def test_released_release_leaves_upcoming(session, client, tmp_path):
     dashboard = (await client.get("/api/v1/dashboard")).json()
     assert release["id"] not in [item["id"] for item in dashboard["upcoming"]]
 
-
-async def test_release_page_creates_and_marks_released(session, client, tmp_path):
-    version_id, _ = await _version(client, tmp_path)
-
-    page = await client.get("/releases")
-    assert page.status_code == 200
-    assert "新建发布单" in page.text
-
-    created = await client.post(
-        "/releases",
-        data={
-            "product_version_id": version_id,
-            "target_date": date.today().isoformat(),
-            "name": "页面发布",
-        },
-    )
-    assert created.status_code == 303
-
-    page = await client.get("/releases")
-    assert "页面发布" in page.text
-
-    release = (await client.get("/api/v1/releases")).json()[0]
-    marked = await client.post(
-        f"/releases/{release['id']}/status", data={"status": "released"}
-    )
-    assert marked.status_code == 303
-    assert (await client.get("/api/v1/releases")).json()[0]["status"] == "released"
-
-
-async def test_release_detail_page_lists_its_runs(session, client, tmp_path):
-    version_id, plan_id = await _version(client, tmp_path)
-    target = (datetime.now(UTC).date() + timedelta(days=3)).isoformat()
-    release = (
-        await client.post(
-            "/api/v1/releases",
-            json={"product_version_id": version_id, "target_date": target},
-        )
-    ).json()
-
-    run = (await client.post("/api/v1/runs", json={"plan_id": plan_id})).json()
-
-    page = await client.get(f"/releases/{release['id']}")
-    assert page.status_code == 200
-    assert "这次发布包含的执行" in page.text
-    assert run["id"][:8] in page.text
-    assert "通过" in page.text
-
-    missing = await client.get(f"/releases/{uuid.uuid4()}")
-    assert missing.status_code == 404
 
 async def test_last_status_respects_release_window(session, client, tmp_path):
     """建单前的执行不能冒充「最近一次」—— 否则会出现 0 次 + 绿色通过（D76）。"""
@@ -184,50 +117,3 @@ async def test_last_status_respects_release_window(session, client, tmp_path):
     assert listed["quality"]["runs"] == 1
     assert listed["quality"]["last_status"] == "passed"
     assert listed["quality"]["last_run_id"] == after["id"]
-
-async def test_release_html_report(session, client, tmp_path):
-    bad = make_plugin(
-        tmp_path,
-        "report-fail",
-        'echo "report failure detail" >&2\nexit 12\n',
-        '[Console]::Error.WriteLine("report failure detail")\nexit 12\n',
-    )
-    product = (
-        await client.post("/api/v1/products", json={"code": "RPT", "name": "报告产品"})
-    ).json()
-    version = (
-        await client.post(
-            f"/api/v1/products/{product['id']}/versions", json={"version": "3.1.0"}
-        )
-    ).json()
-    plan = await client.post(
-        "/api/v1/plans",
-        json={
-            "product_version_id": version["id"],
-            "name": "报告计划",
-            "definition": {
-                "nodes": [{"key": "boom", "plugin": str(bad), "timeout": 30}]
-            },
-        },
-    )
-    release = (
-        await client.post(
-            "/api/v1/releases",
-            json={
-                "product_version_id": version["id"],
-                "target_date": (datetime.now(UTC).date() + timedelta(days=1)).isoformat(),
-                "name": "3.1 报告",
-            },
-        )
-    ).json()
-    await client.post("/api/v1/runs", json={"plan_id": plan.json()["id"]})
-
-    response = await client.get(f"/releases/{release['id']}/report")
-
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert "release-report.html" in response.headers["content-disposition"]
-    assert "发布报告" in response.text
-    assert "RPT" in response.text
-    assert "口径说明" in response.text
-    assert "report failure detail" in response.text

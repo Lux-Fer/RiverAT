@@ -21,19 +21,17 @@
     {% endif %}
   </div>
   <nav class="muted" style="margin-top:-.4rem; margin-bottom:1rem;" aria-label="主导航">
-    <a href="/" {% if path == "/" %}class="active" aria-current="page"{% endif %}>执行记录</a> ·
-    <a href="/dashboard" {% if path.startswith("/dashboard") %}class="active" aria-current="page"{% endif %}>看板</a> ·
-    <a href="/releases" {% if path.startswith("/releases") %}class="active" aria-current="page"{% endif %}>发布</a> ·
-    <a href="/products" {% if path.startswith("/products") or path.startswith("/versions") %}class="active" aria-current="page"{% endif %}>产品树</a> ·
-    <a href="/plans" {% if path.startswith("/plans") %}class="active" aria-current="page"{% endif %}>计划</a>
+    <a href="/products" {% if path.startswith("/products") %}class="active" aria-current="page"{% endif %}>产品</a> ·
+    <a href="/tools" {% if path.startswith("/tools") %}class="active" aria-current="page"{% endif %}>工具</a>
     {% if user and user.role == "admin" %} ·
+    <a href="/settings/llm" {% if path.startswith("/settings") %}class="active" aria-current="page"{% endif %}>模型设置</a> ·
     <a href="/users" {% if path.startswith("/users") %}class="active" aria-current="page"{% endif %}>用户</a> ·
     <a href="/audit" {% if path.startswith("/audit") %}class="active" aria-current="page"{% endif %}>审计</a>{% endif %}
   </nav>
   <main>
   {% block content %}{% endblock %}
   </main>
-  <footer class="muted">RiverAT · 产品组合自动化测试平台 v0</footer>
+  <footer class="muted">RiverAT v1.1 · 承接测试工作的平台</footer>
   {% block scripts %}{% endblock %}
 </body>
 </html>

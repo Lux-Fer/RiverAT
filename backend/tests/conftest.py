@@ -147,7 +147,7 @@ async def session(engine):
     async with maker() as session:
         await session.execute(
             text(
-                "TRUNCATE audit_log, run_step, run, plan, version_component, "
+                "TRUNCATE llm_config, tool, work_product, audit_log, run_step, run, plan, version_component, "
                 'product_version, product, host, "user" RESTART IDENTITY CASCADE'
             )
         )

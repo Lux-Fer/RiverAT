@@ -15,12 +15,12 @@ from app.core.config import get_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
 from app.web.audit_pages import router as audit_pages_router
+from app.web.auth_pages import router as auth_pages_router
 from app.web.csrf import csrf_cookie_middleware
-from app.web.dashboard_pages import router as dashboard_pages_router
-from app.web.pages import router as pages_router
-from app.web.plans_pages import router as plans_pages_router
-from app.web.releases_pages import router as releases_pages_router
+from app.web.products_pages import router as products_pages_router
+from app.web.settings_pages import router as settings_pages_router
 from app.web.templates import STATIC_DIR, templates
+from app.web.tools_pages import router as tools_pages_router
 from app.web.users_pages import router as users_pages_router
 
 
@@ -115,11 +115,11 @@ def create_app() -> FastAPI:
     app.include_router(api_router, prefix="/api/v1")
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
-    app.include_router(pages_router)
-    app.include_router(plans_pages_router)
-    app.include_router(releases_pages_router)
+    app.include_router(auth_pages_router)
+    app.include_router(products_pages_router)
+    app.include_router(tools_pages_router)
+    app.include_router(settings_pages_router)
     app.include_router(users_pages_router)
-    app.include_router(dashboard_pages_router)
     app.include_router(audit_pages_router)
     return app
 

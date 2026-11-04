@@ -81,6 +81,23 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
 
+    @app.middleware("http")
+    async def readout_middleware(request, call_next):
+        """页面顶部的平台读数条（模型/任务/待审工具），HTML 请求才取。"""
+
+        request.state.readout = None
+        wants_html = not request.url.path.startswith(("/static/", "/api/"))
+        if request.method == "GET" and wants_html and request.url.path != "/login":
+            from app.db.session import get_sessionmaker
+            from app.services.readout import get_readout
+
+            try:
+                async with get_sessionmaker()() as session:
+                    request.state.readout = await get_readout(session)
+            except Exception:  # noqa: BLE001 - 读数失败不能挡住页面
+                request.state.readout = None
+        return await call_next(request)
+
     app.middleware("http")(csrf_cookie_middleware)
 
     app.add_middleware(

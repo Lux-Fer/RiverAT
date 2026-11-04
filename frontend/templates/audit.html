@@ -1,12 +1,13 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2 style="font-size:1rem;">审计日志</h2>
+  <h2 class="page-title">审计日志</h2>
+  <p class="page-lede">
+    只记录管理层动作（计划、用户、发布单、测试机），不记录执行本身；最多显示最近 200 条，导出上限 5000 条。
+  </p>
 
-  <form method="get" action="/audit"
-        style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; margin:.6rem 0 1rem;">
-    <input name="username" value="{{ filters.username }}" placeholder="操作人用户名"
-           style="padding:.35rem .5rem; width:10rem;">
-    <select name="action" style="padding:.35rem .5rem;">
+  <form method="get" action="/audit" class="row" style="margin-bottom:14px;">
+    <input name="username" value="{{ filters.username }}" placeholder="操作人用户名" style="width:10rem;">
+    <select name="action">
       <option value="">全部动作</option>
       {% for value, label in actions %}
       <option value="{{ value }}" {% if value == filters.action %}selected{% endif %}>{{ label }}</option>
@@ -16,13 +17,8 @@
     {% if filters.username or filters.action %}
     <a href="/audit">清除筛选</a>
     {% endif %}
-    <a class="btn" style="text-decoration:none;"
-       href="/api/v1/audit/export.csv?username={{ filters.username }}&action={{ filters.action }}">导出 CSV</a>
+    <a class="btn" href="/api/v1/audit/export.csv?username={{ filters.username }}&action={{ filters.action }}">导出 CSV</a>
   </form>
-
-  <p class="muted">
-    只记录管理层动作（计划、用户、发布单、测试机），不记录执行本身；最多显示最近 200 条，导出上限 5000 条。
-  </p>
 
   {% if logs %}
   <div class="table-scroll">
@@ -33,12 +29,10 @@
       <tbody>
         {% for entry in logs %}
         <tr>
-          <td class="muted">
-            {{ entry.created_at.strftime("%m-%d %H:%M") if entry.created_at else "—" }}
-          </td>
+          <td class="mono muted">{{ entry.created_at | localtime }}</td>
           <td>{{ entry.username }}</td>
           <td>{{ action_label(entry.action) }}</td>
-          <td class="muted">
+          <td class="mono muted">
             {{ entry.target_type }}{% if entry.target_id %} · {{ entry.target_id[:8] }}{% endif %}
           </td>
           <td class="muted">

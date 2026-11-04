@@ -14,6 +14,7 @@ from app.db.session import get_session
 from app.models import User
 from app.services.llm import LlmError
 from app.services.tasks import (
+    list_tasks,
     TaskError,
     latest_draft,
     list_messages,
@@ -39,10 +40,15 @@ async def _render(
         request=request,
         name="assistant.html",
         context={
-            "messages": await list_messages(session),
+            "messages": await list_messages(session, limit=14),
             "draft": draft,
             "steps": await steps_for(session, draft.id) if draft else [],
             "products": await list_products(session),
+            "recent": [
+                task
+                for task in await list_tasks(session, limit=6)
+                if task.status != "draft"
+            ],
             "user": user,
             "error": error,
         },

@@ -1,26 +1,30 @@
 {% extends "base.html" %}
 {% block content %}
-  <p>
-    <strong>{{ task.title }}</strong>
+  <h2 class="page-title" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    {{ task.title }}
     <span class="badge {{ task.status if task.status in ('passed','failed','error','skipped') else 'queued' }}">{{ task.status }}</span>
-    <span class="muted">{{ task.created_at | localtime }}</span>
+  </h2>
+  <p class="page-lede">
+    {% if task.request_text %}原始需求：{{ task.request_text }}{% endif %}
+    <span class="mono" style="margin-left:8px;">{{ task.created_at | localtime }}</span>
   </p>
-  {% if task.request_text %}<p class="muted">原始需求：{{ task.request_text }}</p>{% endif %}
 
   {% if task.status == "draft" %}
-  <form method="post" action="/tasks/{{ task.id }}/approve" style="display:inline;">
+  <p class="row" style="margin:0 0 16px;">
+    <form method="post" action="/tasks/{{ task.id }}/approve" style="display:inline;">
 {% include "_csrf_input.html" %}
-    <button type="submit" class="btn">确认执行</button>
-  </form>
-  <form method="post" action="/tasks/{{ task.id }}/cancel" style="display:inline;">
+      <button type="submit" class="btn btn-primary">确认执行</button>
+    </form>
+    <form method="post" action="/tasks/{{ task.id }}/cancel" style="display:inline;">
 {% include "_csrf_input.html" %}
-    <button type="submit" class="btn">取消</button>
-  </form>
+      <button type="submit" class="btn">取消</button>
+    </form>
+  </p>
   {% elif task.status in ("queued", "running") %}
   <p class="muted">任务已排队/执行中，刷新页面看进度。</p>
   {% endif %}
 
-  <h3 style="font-size:.95rem; margin-top:1.2rem;">步骤（{{ steps | length }}）</h3>
+  <h3 class="section">步骤 <b>{{ steps | length }}</b></h3>
   {% if steps %}
   <div class="table-scroll">
     <table>
@@ -28,11 +32,11 @@
       <tbody>
         {% for step in steps %}
         <tr>
-          <td class="muted">{{ step.seq }}</td>
-          <td><strong>{{ step.tool_name }}</strong> <span class="muted">{{ step.tool_version }}</span></td>
-          <td class="muted"><code style="font-size:12px;">{{ step.args | tojson }}</code></td>
+          <td class="mono muted">{{ step.seq }}</td>
+          <td><strong class="mono">{{ step.tool_name }}</strong> <span class="muted">{{ step.tool_version }}</span></td>
+          <td class="mono muted">{{ step.args | tojson }}</td>
           <td><span class="badge {{ step.status if step.status in ('passed','failed','error','skipped') else 'queued' }}">{{ step.status }}</span></td>
-          <td class="muted">{{ step.exit_code if step.exit_code is not none else "—" }}</td>
+          <td class="mono muted">{{ step.exit_code if step.exit_code is not none else "—" }}</td>
           <td class="muted">{{ step.error or "—" }}</td>
         </tr>
         {% endfor %}
@@ -44,16 +48,16 @@
   {% endif %}
 
   {% if cases %}
-  <h3 style="font-size:.95rem; margin-top:1.2rem;">用例结果（{{ cases | length }}）</h3>
+  <h3 class="section">用例结果 <b>{{ cases | length }}</b></h3>
   <div class="table-scroll">
     <table>
       <thead><tr><th>用例</th><th>状态</th><th>耗时</th><th>原因</th><th>来自步骤</th></tr></thead>
       <tbody>
         {% for case in cases %}
         <tr>
-          <td>{{ case.case_id or "—" }}</td>
+          <td class="mono">{{ case.case_id or "—" }}</td>
           <td><span class="badge {{ case.status if case.status in ('passed','failed','error','skipped') else 'queued' }}">{{ case.status }}</span></td>
-          <td class="muted">{{ case.duration_ms if case.duration_ms is not none else "—" }} ms</td>
+          <td class="mono muted">{{ case.duration_ms if case.duration_ms is not none else "—" }} ms</td>
           <td class="muted">{{ case.reason or "—" }}</td>
           <td class="muted">{{ case.step.seq }} · {{ case.step.tool_name }}</td>
         </tr>
@@ -64,9 +68,9 @@
   {% endif %}
 
   {% for step in steps if (step.output or {}).get("stderr") %}
-  <details style="margin-top:1rem;">
-    <summary class="muted">步骤 {{ step.seq }} 的 stderr</summary>
-    <pre class="muted" style="white-space:pre-wrap; font-size:12px;">{{ step.output.get("stderr") }}</pre>
+  <details>
+    <summary>步骤 {{ step.seq }} 的 stderr</summary>
+    <pre>{{ step.output.get("stderr") }}</pre>
   </details>
   {% endfor %}
 {% endblock %}

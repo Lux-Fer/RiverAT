@@ -1,15 +1,23 @@
 {% extends "base.html" %}
 {% block content %}
-  <div class="card" style="max-width: 360px; margin: 2rem auto;">
-    <h2 style="font-size:1rem; margin:.2rem 0 .9rem;">登录</h2>
-    {% if error %}<p style="color:#e03131; font-size:13px;">{{ error }}</p>{% endif %}
-    <form method="post" action="/login">
+  <div class="auth">
+    <div class="card">
+      <div class="brandbar"><span class="mark" aria-hidden="true"></span>RiverAT</div>
+      <h2 class="page-title" style="margin-bottom:16px;">登录</h2>
+      {% if error %}<p class="notice bad" role="alert">{{ error }}</p>{% endif %}
+      <form method="post" action="/login">
 {% include "_csrf_input.html" %}
-      <p><input name="username" placeholder="用户名" value="{{ username or '' }}" required
-                style="width:100%; padding:.45rem .6rem; box-sizing:border-box;"></p>
-      <p><input name="password" type="password" placeholder="密码" required
-                style="width:100%; padding:.45rem .6rem; box-sizing:border-box;"></p>
-      <p><button type="submit" style="width:100%; padding:.5rem; cursor:pointer;">登录</button></p>
-    </form>
+        <p style="margin:0 0 10px;">
+          <input name="username" placeholder="用户名" value="{{ username or '' }}" required
+                 autocomplete="username" style="width:100%;">
+        </p>
+        <p style="margin:0 0 14px;">
+          <input name="password" type="password" placeholder="密码" required
+                 autocomplete="current-password" style="width:100%;">
+        </p>
+        <button type="submit" class="btn btn-primary" style="width:100%; height:34px;">登录</button>
+      </form>
+      <p class="muted" style="margin:14px 0 0;">内网部署 · 账号由管理员分配</p>
+    </div>
   </div>
 {% endblock %}

@@ -1,47 +1,46 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2 style="font-size:1rem;">模型端点</h2>
-  <p class="muted">
-    平台通过 OpenAI 兼容协议调用模型（D97）。配置存在数据库里，key 加密保存、不显示。
-    当前来源：<strong>{{ config.source if config else "未配置" }}</strong>
-    {% if config %}· 模型 <code>{{ config.model }}</code> · {{ config.base_url }}{% endif %}
+  <h2 class="page-title">模型端点</h2>
+  <p class="page-lede">
+    平台通过 OpenAI 兼容协议调用模型。配置存在数据库里，key 加密保存、不显示。
+    当前来源：<b>{{ config.source if config else "未配置" }}</b>
+    {% if config %}· 模型 <code>{{ config.model }}</code> · <span class="mono">{{ config.base_url }}</span>{% endif %}
   </p>
 
-  {% if error %}<p style="color:#e03131;">{{ error }}</p>{% endif %}
-  {% if message %}<p style="color:#1e7e34;">{{ message }}</p>{% endif %}
+  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
+  {% if message %}<p class="notice ok">{{ message }}</p>{% endif %}
 
   {% if tested %}
     {% if tested.ok %}
-    <p class="muted">连接成功：{{ tested.model }} · {{ tested.latency_ms }} ms · 回复「{{ tested.reply or "（无文本）" }}」</p>
+    <p class="notice ok">连接成功：{{ tested.model }} · {{ tested.latency_ms }} ms · 回复「{{ tested.reply or "（无文本）" }}」</p>
     {% else %}
-    <p style="color:#e03131;">连接失败：{{ tested.error }}</p>
+    <p class="notice bad">连接失败：{{ tested.error }}</p>
     {% endif %}
   {% endif %}
 
   <div class="card">
     <form method="post" action="/settings/llm">
 {% include "_csrf_input.html" %}
-      <p><input name="base_url" required
-                value="{{ config.base_url if config else '' }}"
-                placeholder="https://api.deepseek.com/v1"
-                style="padding:.35rem .5rem; width:100%;"></p>
-      <p><input name="model" required
-                value="{{ config.model if config else '' }}"
-                placeholder="deepseek-chat"
-                style="padding:.35rem .5rem; width:100%;"></p>
-      <p><input name="api_key" type="password"
-                placeholder="{% if config and config.api_key %}留空表示不修改{% else %}API Key{% endif %}"
-                style="padding:.35rem .5rem; width:100%;"></p>
-      <button type="submit" class="btn">保存</button>
+      <div class="grid-2">
+        <input name="base_url" required
+               value="{{ config.base_url if config else '' }}"
+               placeholder="https://api.deepseek.com/v1">
+        <input name="model" required
+               value="{{ config.model if config else '' }}"
+               placeholder="deepseek-chat">
+        <input name="api_key" type="password" style="grid-column:1/-1;"
+               placeholder="{% if config and config.api_key %}留空表示不修改{% else %}API Key{% endif %}">
+      </div>
+      <p style="margin:14px 0 0;"><button type="submit" class="btn btn-primary">保存</button></p>
     </form>
   </div>
 
-  <form method="post" action="/settings/llm/test" style="margin-top:.8rem;">
+  <form method="post" action="/settings/llm/test" style="margin-top:12px;">
 {% include "_csrf_input.html" %}
     <button type="submit" class="btn">测试连接（真实调用一次模型）</button>
   </form>
 
-  <p class="muted" style="margin-top:1.5rem;">
+  <p class="muted" style="margin-top:20px; max-width:72ch;">
     端点不可用时，平台仍可手动创建任务并执行；模型只影响"用自然语言提需求"这一个入口。
   </p>
 {% endblock %}

@@ -1,89 +1,115 @@
 {% extends "base.html" %}
 {% block content %}
-  <h2 style="font-size:1rem;">助手</h2>
-  <p class="muted">
-    用一句话说清要测什么。平台会让模型生成**工具调用草案**，你确认后才会执行（执行在 M4 上线）。
+  <h2 class="page-title">助手</h2>
+  <p class="page-lede">
+    说清要测什么。平台让模型生成<b>工具调用草案</b>，你确认后才会执行。
   </p>
 
-  {% if error %}<p style="color:#e03131;">{{ error }}</p>{% endif %}
+  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
 
-  <div class="card" style="margin-bottom:1rem;">
-    <form method="post" action="/assistant/messages">
+  <div class="assistant-grid">
+    <div>
+      <div class="card">
+        <form method="post" action="/assistant/messages">
 {% include "_csrf_input.html" %}
-      <p style="margin:.2rem 0;">
-        <select name="product_id" style="padding:.35rem .5rem; min-width:14rem;">
-          <option value="">被测产品（可选）</option>
-          {% for p in products %}
-          <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
-          {% endfor %}
-        </select>
-      </p>
-      <p style="margin:.4rem 0;">
-        <textarea name="text" rows="3" required
-                  placeholder="例如：对 DEMO-CN 的登录做一次冒烟检查"
-                  style="width:100%; padding:.4rem .5rem;"></textarea>
-      </p>
-      <button type="submit" class="btn">生成草案</button>
-    </form>
-  </div>
+          <p style="margin:0 0 10px;">
+            <select name="product_id" style="min-width:16rem;">
+              <option value="">被测产品（可选）</option>
+              {% for p in products %}
+              <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
+              {% endfor %}
+            </select>
+          </p>
+          <p style="margin:0 0 10px;">
+            <textarea name="text" rows="3" required
+                      placeholder="例如：用账号 tester 对 DEMO-CN 的登录做一次冒烟检查"
+                      style="width:100%;"></textarea>
+          </p>
+          <button type="submit" class="btn btn-primary">生成草案</button>
+        </form>
+      </div>
 
-  {% if draft %}
-  <h3 style="font-size:.95rem;">最新草案</h3>
-  <div class="card" style="border-left:3px solid #1667b8;">
-    <p style="margin:.2rem 0;"><strong>{{ draft.title }}</strong>
-      <span class="badge queued">{{ draft.status }}</span>
-    </p>
-    {% if draft.draft.reply %}<p class="muted">{{ draft.draft.reply | soft_markdown }}</p>{% endif %}
-
-    {% if draft.draft.errors %}
-    <div style="color:#b45309; font-size:13px;">
-      {% for item in draft.draft.errors %}<div>⚠ {{ item }}</div>{% endfor %}
-    </div>
-    {% endif %}
-
-    {% if steps %}
-    <div class="table-scroll" style="margin-top:.6rem;">
-      <table>
-        <thead><tr><th>#</th><th>工具</th><th>参数</th><th>状态</th></tr></thead>
-        <tbody>
-          {% for step in steps %}
-          <tr>
-            <td class="muted">{{ step.seq }}</td>
-            <td><strong>{{ step.tool_name }}</strong>
-              <span class="muted">{{ step.tool_version }}</span></td>
-            <td class="muted"><code style="font-size:12px;">{{ step.args | tojson }}</code></td>
-            <td class="muted">{{ step.status }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-    {% else %}
-    <p class="muted">这个草案没有工具调用。</p>
-    {% endif %}
-
-    <p style="margin-top:.8rem;">
-      {% if steps %}
-      <form method="post" action="/tasks/{{ draft.id }}/approve" style="display:inline;">
-{% include "_csrf_input.html" %}
-        <button type="submit" class="btn">确认执行</button>
-      </form>
-      <a class="btn" style="text-decoration:none;" href="/tasks/{{ draft.id }}">查看任务</a>
-      {% else %}
-      <button class="btn" disabled title="没有工具调用可以执行">确认执行</button>
+      {% if messages %}
+      <h3 class="section">对话记录 <b>{{ messages | length }}</b></h3>
+      <div class="chat-log">
+        {% for message in messages %}
+        <div class="msg {{ message.role }}">
+          <span class="role">{{ "你" if message.role == "user" else "助手" }}</span>
+          {{ message.content | soft_markdown }}
+        </div>
+        {% endfor %}
+      </div>
       {% endif %}
-      <span class="muted">草案还需要人工确认；v1.1 不做自主执行。</span>
-    </p>
-  </div>
-  {% endif %}
+    </div>
 
-  {% if messages %}
-  <h3 style="font-size:.95rem; margin-top:1.5rem;">对话记录</h3>
-  {% for message in messages %}
-  <p style="font-size:13px; margin:.35rem 0;">
-    <span class="muted">{{ "你" if message.role == "user" else "助手" }}：</span>
-    {{ message.content | soft_markdown }}
-  </p>
-  {% endfor %}
-  {% endif %}
+    <div class="sticky">
+      {% if draft %}
+      <h3 class="section">最新草案 <b>{{ draft.status }}</b></h3>
+      <div class="card">
+        <p style="margin:0 0 6px;"><strong>{{ draft.title }}</strong></p>
+        {% if draft.draft.reply %}
+        <p class="muted" style="margin:0 0 8px;">{{ draft.draft.reply | soft_markdown }}</p>
+        {% endif %}
+
+        {% if draft.draft.errors %}
+        <div class="notice bad" style="margin:8px 0;">
+          {% for item in draft.draft.errors %}<div>⚠ {{ item }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if steps %}
+        <div class="table-scroll" style="margin:10px 0;">
+          <table>
+            <thead><tr><th>#</th><th>工具</th><th>参数</th><th>状态</th></tr></thead>
+            <tbody>
+              {% for step in steps %}
+              <tr>
+                <td class="mono muted">{{ step.seq }}</td>
+                <td><strong class="mono">{{ step.tool_name }}</strong>
+                  <span class="muted">{{ step.tool_version }}</span></td>
+                <td class="mono muted">{{ step.args | tojson }}</td>
+                <td class="muted">{{ step.status }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <p style="margin:10px 0 0;" class="row">
+          <form method="post" action="/tasks/{{ draft.id }}/approve" style="display:inline;">
+{% include "_csrf_input.html" %}
+            <button type="submit" class="btn btn-primary">确认执行</button>
+          </form>
+          <a class="btn" href="/tasks/{{ draft.id }}">查看任务</a>
+        </p>
+        {% else %}
+        <p class="muted">这个草案没有工具调用。</p>
+        <p style="margin:10px 0 0;">
+          <button class="btn" disabled title="没有工具调用可以执行">确认执行</button>
+        </p>
+        {% endif %}
+
+        <p class="muted" style="margin:10px 0 0;">草案还需要人工确认；v1.1 不做自主执行。</p>
+      </div>
+      {% else %}
+      <div class="card">
+        <p class="muted" style="margin:0;">还没有草案。左边说一句要测什么，模型会给出工具调用草案。</p>
+      </div>
+      {% endif %}
+
+      {% if recent %}
+      <h3 class="section" style="margin-top:20px;">最近任务 <b>{{ recent | length }}</b></h3>
+      <div class="flow-col">
+        {% for t in recent %}
+        <a class="flow-item" href="/tasks/{{ t.id }}">
+          <span class="t">{{ t.title }}</span>
+          <span class="meta">
+            <span class="badge {{ t.status if t.status in ('passed','failed','error','skipped') else 'queued' }}">{{ t.status }}</span>
+            {{ t.finished_at | localtime }}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
 {% endblock %}

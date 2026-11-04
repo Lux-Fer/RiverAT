@@ -4,17 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RiverAT</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v=20261106">
   <script src="/static/vendor/htmx.min.js" defer></script>
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
   {% set path = request.url.path %}
   <header class="site">
     <div class="shell site-inner">
       <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>RiverAT</a>
       {% if user %}
       <nav class="main" aria-label="主导航">
+        <a href="/" {% if path == "/" %}class="active" aria-current="page"{% endif %}>工作台</a>
         <a href="/assistant" {% if path.startswith("/assistant") %}class="active" aria-current="page"{% endif %}>助手</a>
         <a href="/tasks" {% if path.startswith("/tasks") %}class="active" aria-current="page"{% endif %}>任务</a>
         <a href="/products" {% if path.startswith("/products") %}class="active" aria-current="page"{% endif %}>产品</a>

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261106">
+  <meta http-equiv="refresh" content="10">
+{% endblock %}
+{% block content %}
+<div class="ov-head">
+  <h1>工作台</h1>
+  <div class="ov-meta">{{ overview.updated }} · 每 10s 刷新<br>{{ overview.running_total }} 运行 · {{ overview.upcoming_total }} 将进行</div>
+</div>
+
+<div class="axis">
+  <span></span>
+  <div class="ticks">
+    {% for tick in overview.ticks %}<span>{{ tick }}</span>{% endfor %}
+    <span class="nowtag" style="left: {{ overview.now_pct }}%">NOW</span>
+  </div>
+  <span></span>
+</div>
+
+{% for lane in overview.lanes %}
+<a class="lane{% if lane.group == 'idle' %} idle{% endif %}" href="{{ lane.href }}">
+  <div>
+    <div class="code">{{ lane.product.code }}</div>
+    <div class="name">{{ lane.product.name }}</div>
+    <div class="ver">{{ lane.product.description or lane.product.base_url or "—" }}</div>
+  </div>
+  <div class="track">
+    <div class="line{% if lane.group != 'running' %} pale{% endif %}"></div>
+    {% if lane.group == 'running' %}<div class="nowv" style="left: {{ overview.now_pct }}%"></div>{% endif %}
+    {% for dot in lane.dots %}
+    <span class="mk {{ dot.kind }}" style="left: {{ dot.pct }}%">
+      {% if dot.label %}<span class="l">{{ dot.label }}</span>{% endif %}
+      <span class="d"></span>
+    </span>
+    {% endfor %}
+  </div>
+  <div class="meta">
+    {% if lane.group == 'running' %}
+      <span class="on">{{ lane.running | length }} 运行</span> · {{ lane.upcoming | length }} 将进行<br>下一个 {{ lane.next_text }}
+    {% elif lane.group == 'upcoming' %}
+      <span class="dr">{{ lane.upcoming | length }} 待确认</span><br>{{ lane.next_text }}
+    {% else %}
+      {{ lane.last_text }}
+    {% endif %}
+  </div>
+  <div class="chev">→</div>
+</a>
+{% else %}
+<div class="empty">
+  还没有产品。先去 <a href="/products">注册一个产品</a>，再让助手接活。
+</div>
+{% endfor %}
+{% endblock %}

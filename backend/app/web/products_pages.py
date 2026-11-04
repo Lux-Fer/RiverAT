@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
+from app.services.overview import build_overview
+from app.services.product_detail import build_detail
 from app.services.work_products import (
     ProductError,
     create_product,
@@ -40,9 +43,34 @@ async def _render(
     )
 
 
-@router.get("/", include_in_schema=False)
-async def home() -> RedirectResponse:
-    return RedirectResponse("/products", status_code=303)
+@router.get("/", response_class=HTMLResponse)
+async def home(
+    request: Request,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="overview.html",
+        context={"overview": await build_overview(session), "user": user},
+    )
+
+
+@router.get("/products/{product_id}", response_class=HTMLResponse)
+async def product_detail_page(
+    request: Request,
+    product_id: UUID,
+    user: Annotated[User, Depends(require_user)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    detail = await build_detail(session, product_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    return templates.TemplateResponse(
+        request=request,
+        name="product_detail.html",
+        context={"detail": detail, "user": user},
+    )
 
 
 @router.get("/products", response_class=HTMLResponse)

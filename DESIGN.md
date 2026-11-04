@@ -27,9 +27,10 @@
 
 ## Type
 
-- 标题：系统无衬线，36px/650、字距 -0.04em；页面内区块 10–11px 大写等宽、字距 0.18em。
-- 数据：等宽；耗时 20–40px、tabular figures、右对齐。
-- 正文 14px/1.5；元信息 10–11px；**能删的字都删**。
+- 全站统一 **IBM Plex Sans SC**（内置 GB2312 子集，OFL，Regular 400 / SemiBold 600）；中文与拉丁同一字体，数字启用 `tabular-nums`。
+- 代码、参数、JSON 用等宽（Cascadia Mono / Consolas），其余一律不用等宽。
+- 标题：36–46px/650、字距 -0.04em；区块标签 10–11px 大写、字距 0.18em。
+- 正文 14–16px/1.55；元信息 10–12px；**能删的字都删**。
 
 ## Density
 

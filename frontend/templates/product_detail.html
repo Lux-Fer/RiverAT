@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/river.css?v=20261106">{% endblock %}
+{% block content %}
+<div class="flow-head">
+  <div>
+    <a class="back" href="/">← 总览</a>
+    <div class="pname">{{ detail.product.name }}</div>
+    <div class="pmeta">
+      {{ detail.product.code }}
+      {% if detail.product.description %} · {{ detail.product.description }}{% endif %}
+      {% if detail.product.base_url %} · {{ detail.product.base_url }}{% endif %}
+    </div>
+  </div>
+  <div>
+    <div class="flow-acts">
+      <a href="/tasks/new">手动创建</a>
+      <a href="/assistant">去助手</a>
+      <a href="/products">产品设置</a>
+    </div>
+    <div class="flow-stats">
+      <div><div class="v">{{ detail.running_count }}</div><div class="k">进行中</div></div>
+      <div><div class="v" style="color:var(--orange)">{{ detail.upcoming_count }}</div><div class="k">将进行</div></div>
+      <div><div class="v">{{ detail.done_today }}</div><div class="k">今日</div></div>
+      <div><div class="v">{{ detail.pass_rate }}<small style="font-size:11px">{% if detail.pass_rate != "—" %}%{% endif %}</small></div><div class="k">通过</div></div>
+      <div><div class="v">{{ detail.avg }}</div><div class="k">平均</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="flow">
+  {% for e in detail.upcoming %}
+  <div class="ev draft">
+    <span class="when"><b>{{ e.when }}</b>{{ e.day }}</span><span class="dot"></span>
+    <div class="t">{{ e.task.title }}</div>
+    <div class="s">草案 · {{ (e.task.draft.get("steps") or []) | length }} 步</div>
+    <form method="post" action="/tasks/{{ e.task.id }}/approve">
+      {% include "_csrf_input.html" %}
+      <button type="submit" class="go">确认执行 →</button>
+    </form>
+    <a class="go" href="/tasks/{{ e.task.id }}">改参数</a>
+  </div>
+  {% endfor %}
+
+  <div class="nowband">
+    <span class="lbl">NOW {{ detail.now_label }}</span>
+    <span class="line"></span>
+  </div>
+
+  {% for e in detail.running %}
+  <div class="run">
+    <span class="when"><b>{{ e.when }}</b>{{ e.day }}</span><span class="dot"></span>
+    <div class="head">
+      <div>
+        <div class="t">{{ e.task.title }}</div>
+        <div class="s">{{ e.task.status }}{% if e.task.approved_by %} · 已确认{% endif %} · {{ e.step_text }}</div>
+        <div class="prog">
+          {% for m in e.steps %}<i class="{% if m.done %}d{% elif m.failed %}f{% elif m.current %}n{% endif %}"></i>{% endfor %}
+        </div>
+        <div class="ops">
+          <a href="/tasks/{{ e.task.id }}">查看</a>
+          <form method="post" action="/tasks/{{ e.task.id }}/cancel">
+            {% include "_csrf_input.html" %}
+            <button type="submit" class="go">取消</button>
+          </form>
+        </div>
+      </div>
+      <div class="clock">{{ e.elapsed }}</div>
+    </div>
+  </div>
+  {% endfor %}
+
+  {% if not detail.running %}
+  <div class="flow-empty">现在没有运行中的任务。</div>
+  {% endif %}
+
+  <div class="sectcap">更早</div>
+  <div class="tail">
+    {% for e in detail.history %}
+    <a class="row" href="/tasks/{{ e.task.id }}">
+      <span class="tm">{{ e.day }} {{ e.when }}</span>
+      <span class="rs {% if e.task.status == 'passed' %}p{% else %}f{% endif %}">{{ e.task.status }}</span>
+      <span class="nm">{{ e.task.title }}</span>
+      <span class="du">{{ e.elapsed }}</span>
+    </a>
+    {% else %}
+    <div class="flow-empty">还没有执行记录。</div>
+    {% endfor %}
+    <a class="more" href="/tasks">全部任务 →</a>
+  </div>
+</div>
+{% endblock %}

@@ -9,6 +9,8 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import signal
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -18,6 +20,27 @@ from app.models import Tool, WorkProduct
 
 MAX_CAPTURE = 64 * 1024
 ALLOWED_STATUSES = {"passed", "failed", "skipped", "error"}
+
+
+def _kill_tree(process: asyncio.subprocess.Process) -> None:
+    """超时终止整个进程树：POSIX 用进程组，Windows 用 taskkill /T。"""
+
+    if process.pid is None:
+        return
+    if sys.platform.startswith("win"):
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+            capture_output=True,
+            check=False,
+        )
+        return
+    try:
+        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
 
 
 def _os_key() -> str:
@@ -87,6 +110,12 @@ async def run_tool(
             }
         ).encode()
 
+        launch: dict = {}
+        if sys.platform.startswith("win"):
+            launch["creationflags"] = 0x00000200  # CREATE_NEW_PROCESS_GROUP
+        else:
+            launch["start_new_session"] = True
+
         process = await asyncio.create_subprocess_exec(
             *argv,
             cwd=str(root),
@@ -94,6 +123,7 @@ async def run_tool(
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            **launch,
         )
 
         try:
@@ -101,14 +131,14 @@ async def run_tool(
                 process.communicate(payload), timeout=timeout
             )
         except TimeoutError:
-            process.kill()
+            _kill_tree(process)
             await process.wait()
             return {
                 "status": "error",
                 "exit_code": None,
                 "output": {},
                 "stderr": "",
-                "error": f"执行超时（{timeout:g}s），已终止进程",
+                "error": f"执行超时（{timeout:g}s），已终止进程树",
             }
 
         out_text = stdout[:MAX_CAPTURE].decode("utf-8", "replace")

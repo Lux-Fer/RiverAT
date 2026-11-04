@@ -347,3 +347,41 @@ async def test_cancel_finished_task_conflicts(session, client, monkeypatch):
     response = await client.post(f"/api/v1/tasks/{draft['id']}/cancel")
 
     assert response.status_code == 409
+
+def _slow_bundle() -> bytes:
+    import sys
+
+    script = "import sys, time\nsys.stdin.read()\ntime.sleep(5)\n"
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        entry = [sys.executable, "main.py"]
+        manifest = {
+            "name": "slow_tool",
+            "version": "1.0.0",
+            "entrypoint": {"linux": entry, "windows": entry},
+            "input_schema": {"type": "object", "properties": {}},
+            "timeout_seconds": 1,
+        }
+        data = json.dumps(manifest).encode()
+        info = tarfile.TarInfo("tool.json")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+        body = script.encode()
+        info = tarfile.TarInfo("main.py")
+        info.size = len(body)
+        tar.addfile(info, io.BytesIO(body))
+    return buffer.getvalue()
+
+
+async def test_timeout_kills_tool_and_marks_error(session, client):
+    tool = await _upload_and_approve(client, _slow_bundle())
+    draft = (
+        await client.post(
+            "/api/v1/tasks", json={"tool_id": tool["id"], "args": {}}
+        )
+    ).json()
+
+    approved = (await client.post(f"/api/v1/tasks/{draft['id']}/approve")).json()
+
+    assert approved["status"] == "error"
+    assert "超时" in approved["steps"][0]["error"]

@@ -66,6 +66,22 @@ def _validate(manifest: dict) -> None:
     if not isinstance(schema, dict) or schema.get("type") != "object":
         raise ToolError("input_schema 必须是 type=object 的 JSON Schema")
 
+    runtime = manifest.get("runtime")
+    if runtime is not None:
+        if not isinstance(runtime, dict):
+            raise ToolError("runtime 必须是对象")
+        setup = runtime.get("setup")
+        if setup is not None:
+            if not isinstance(setup, list) or not setup:
+                raise ToolError("runtime.setup 必须是非空数组")
+            if not all(isinstance(part, str) and part for part in setup):
+                raise ToolError("runtime.setup 的每一项都必须是非空字符串")
+        timeout = runtime.get("setup_timeout_seconds")
+        if timeout is not None and (
+            not isinstance(timeout, (int, float)) or timeout <= 0
+        ):
+            raise ToolError("runtime.setup_timeout_seconds 必须是正数")
+
 
 async def register_tool(
     session: AsyncSession, *, data: bytes, actor: User | None = None

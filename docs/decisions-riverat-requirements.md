@@ -244,6 +244,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-04 僵尸任务回收（D109），164 passed / 3 skipped。
 - 2026-11-04 文档同步 v1.1 + 超时杀进程树（D110），165 passed / 3 skipped。
 - 2026-11-04 UX 收尾：自动刷新、首次使用引导、空态下一步（D111），170 passed / 3 skipped。
+- 2026-11-04 工具依赖安装 runtime.setup（D112），173 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -321,3 +322,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D109 | 僵尸任务回收：`task.heartbeat_at` 由 worker **每步 + 独立会话每 30s** 刷新；`running/cancelling` 心跳超 10 分钟视为卡死。worker 启动时自动回收（审计记 `system`），admin 在 `/tasks` 的「疑似卡住」区可手动「标记失败」；回收置 `error` 并写 `task.recover` 审计 | worker 崩溃/重启会留下永远 running 的任务；心跳比"按创建时间猜"可靠 |
 | D110 | 文档同步 v1.1 + 工具超时**杀进程树**：新增根 `README.md`（快速开始/流程/契约/限制）、`docs/tool-contract.md`（v2 契约）、重写 `docs/deploy.md`（4 容器、env 优先级、工具包备份、离线）；删除 v1.0 的 `docs/plugin-contract.md`，`transport-contract.md` 标为遗留；`tool_exec` 用 `start_new_session`/`CREATE_NEW_PROCESS_GROUP` + `killpg`/`taskkill /T` 终止整棵进程树，并加超时用例 | v1.1 换了核心，旧 README/部署文档会把接手的人带进 v1.0 的坑；只 kill 主进程会留下子进程 |
 | D111 | UX 收尾：任务详情在 `queued/running/cancelling` 每 5s 自动刷新、任务列表有活动/卡死任务时每 10s 刷新（meta refresh，无 JS）；读数条「模型未配置」对 admin 可点进设置；助手在缺模型/产品/工具时显示「首次使用 3 步」；产品/工具/任务空态给下一步链接 | 执行完要手刷才能看到结果；首次使用的人不知道下一步做什么 |
+| D112 | 工具依赖安装（`runtime.setup`）：首次执行前在**持久目录** `backend/var/tools/work/<sha256>/` 解压并跑 setup（argv 数组、可设超时），成功后写 `.riverat-setup-done` 不再重跑；setup 失败 → 步骤 `error` 带 stderr 尾部；不同版本不同目录，旧目录不自动清理（文档给清理命令）；setup 与入口同权限，admin 审核即视为批准 | 工具接入的最后摩擦；缓存避免每步 `pip install`；不做容器隔离，与既有信任边界一致 |

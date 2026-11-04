@@ -116,7 +116,7 @@ uv run alembic upgrade head
 
 - 单机 Docker Compose；**没有 HTTPS/反向代理、监控告警、自动备份**，内网试点可，直接公网不行。
 - 工具以**服务进程权限**在 RiverAT 主机运行，**没有沙箱**：只安装可信工具。
-- 工具依赖不自动安装：由工具自带或主机预装（离线环境请把 wheel 放进包里）。
-- 不回收工具产物文件（只收 stdout JSON 与 stderr）。
+- 工具可在 `tool.json` 里声明 `runtime.setup`，首次执行前安装依赖并缓存；离线环境把 wheel 放进包里。
+- 不回收工具产物文件（只收 stdout JSON 与 stderr）；工具工作目录不会自动清理。
 - 只支持本地执行（无远程 runner / WinRM）；CI webhook 只有配置占位。
 - v1.0 遗留 API（`/api/v1/plans`、`/runs`、`/releases` 等）仍挂载但已冻结，页面已下线，不要在其上开发。

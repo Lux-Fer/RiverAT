@@ -385,3 +385,107 @@ async def test_timeout_kills_tool_and_marks_error(session, client):
 
     assert approved["status"] == "error"
     assert "超时" in approved["steps"][0]["error"]
+
+def _setup_bundle(*, fail: bool = False, runtime: dict | None = None) -> bytes:
+    import sys
+
+    setup_script = (
+        "import sys\nsys.stderr.write('boom')\nsys.exit(3)\n"
+        if fail
+        else (
+            "import pathlib\n"
+            "p = pathlib.Path('setup-count.txt')\n"
+            "n = int(p.read_text()) if p.exists() else 0\n"
+            "p.write_text(str(n + 1))\n"
+        )
+    )
+    main_script = (
+        "import json, pathlib, sys\n"
+        "sys.stdin.read()\n"
+        "ok = pathlib.Path('setup-count.txt').exists()\n"
+        "print(json.dumps({'cases': [{'case_id': 'setup-ok' if ok else 'setup-missing',"
+        " 'status': 'passed' if ok else 'failed'}]}))\n"
+    )
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
+        entry = [sys.executable, "main.py"]
+        manifest = {
+            "name": "setup_tool",
+            "version": "1.0.0",
+            "entrypoint": {"linux": entry, "windows": entry},
+            "input_schema": {"type": "object", "properties": {}},
+            "timeout_seconds": 20,
+            "runtime": runtime
+            if runtime is not None
+            else {"setup": [sys.executable, "setup.py"], "setup_timeout_seconds": 20},
+        }
+        data = json.dumps(manifest).encode()
+        info = tarfile.TarInfo("tool.json")
+        info.size = len(data)
+        tar.addfile(info, io.BytesIO(data))
+        for name, body in (("setup.py", setup_script), ("main.py", main_script)):
+            raw = body.encode()
+            info = tarfile.TarInfo(name)
+            info.size = len(raw)
+            tar.addfile(info, io.BytesIO(raw))
+    return buffer.getvalue()
+
+
+async def test_runtime_setup_runs_once_and_caches(session, client):
+    import shutil
+
+    from app.core.config import get_settings
+
+    tool = await _upload_and_approve(client, _setup_bundle())
+    workdir = get_settings().tools_root / "work" / tool["sha256"]
+    shutil.rmtree(workdir, ignore_errors=True)
+
+    for title in ("setup-1", "setup-2"):
+        draft = (
+            await client.post(
+                "/api/v1/tasks",
+                json={"tool_id": tool["id"], "args": {}, "title": title},
+            )
+        ).json()
+        result = (await client.post(f"/api/v1/tasks/{draft['id']}/approve")).json()
+        assert result["status"] == "passed", result
+        assert result["steps"][0]["output"]["cases"][0]["case_id"] == "setup-ok"
+
+    assert (workdir / "setup-count.txt").read_text(encoding="utf-8") == "1"
+    shutil.rmtree(workdir, ignore_errors=True)
+
+
+async def test_runtime_setup_failure_marks_error(session, client):
+    import shutil
+
+    from app.core.config import get_settings
+
+    tool = await _upload_and_approve(client, _setup_bundle(fail=True))
+    workdir = get_settings().tools_root / "work" / tool["sha256"]
+    shutil.rmtree(workdir, ignore_errors=True)
+
+    draft = (
+        await client.post(
+            "/api/v1/tasks", json={"tool_id": tool["id"], "args": {}, "title": "setup-fail"}
+        )
+    ).json()
+    result = (await client.post(f"/api/v1/tasks/{draft['id']}/approve")).json()
+
+    assert result["status"] == "error"
+    assert "依赖安装失败" in result["steps"][0]["error"]
+    shutil.rmtree(workdir, ignore_errors=True)
+
+
+async def test_upload_rejects_bad_runtime(session, client):
+    response = await client.post(
+        "/api/v1/tools",
+        files={
+            "file": (
+                "bad-runtime.tar.gz",
+                _setup_bundle(runtime={"setup": "pip install x"}),
+                "application/gzip",
+            )
+        },
+    )
+    assert response.status_code == 422
+    assert "runtime.setup" in response.json()["detail"]

@@ -82,6 +82,7 @@ curl http://127.0.0.1:8000/health     # {"status":"ok","env":"prod"}
 |---|---|
 | 数据库（用户/产品/工具元数据/任务/审计） | Docker 卷 `pgdata` |
 | 工具包（`<sha256>.tar.gz`） | 宿主 `backend/var/tools/`（挂载进 `/app/backend/var`） |
+| 工具工作目录（解压 + 依赖） | `backend/var/tools/work/<sha256>/`（可删，下次执行重建） |
 | Redis（会话 + 队列） | Docker 卷 `redisdata`，可丢 |
 
 ```bash
@@ -94,7 +95,13 @@ cat riverat-2026-11-04.sql | docker compose exec -T db psql -U riverat riverat
 tar xzf riverat-tools-2026-11-04.tar.gz -C backend
 ```
 
-**只备份数据库不够**：工具包在文件系统里，丢了包，任务就跑不起来。
+**只备份数据库不够**：工具包在文件系统里，丢了包，任务就跑不起来；`work/` 目录不用备份。
+
+占空间时清工作目录（不影响已上传的包，下次执行会重新解压/安装）：
+
+```bash
+rm -rf backend/var/tools/work/*
+```
 
 ## 5. 升级
 

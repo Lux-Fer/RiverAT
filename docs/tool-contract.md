@@ -38,7 +38,11 @@ login-smoke/
     "properties": {"cases": {"type": "array"}},
     "required": ["cases"]
   },
-  "timeout_seconds": 600
+  "timeout_seconds": 600,
+  "runtime": {
+    "setup": ["pip", "install", "-r", "requirements.txt"],
+    "setup_timeout_seconds": 300
+  }
 }
 ```
 
@@ -50,10 +54,12 @@ login-smoke/
 | `output_schema` | 否 | 只作文档用途，平台不强制校验 |
 | `description` | 否 | 会直接给模型看，写清楚"做什么、怎么用" |
 | `timeout_seconds` | 否 | 默认 600；到点终止**整个进程树** |
+| `runtime.setup` | 否 | 依赖安装命令（argv 数组）；每份包**首次执行前跑一次**，成功后不再跑 |
+| `runtime.setup_timeout_seconds` | 否 | 默认 300；安装超时同样终止进程树 |
 
 ## 3. 调用协议
 
-平台把工具解压到临时目录，以包根为工作目录启动入口：
+平台把工具解压到**持久目录**（`backend/var/tools/work/<sha256>/`），以包根为工作目录启动入口：
 
 **stdin**（平台 → 工具，一行 JSON）：
 
@@ -107,7 +113,23 @@ print(json.dumps({"cases": cases}, ensure_ascii=False))
 
 `tool.json` 里 `entrypoint.linux = ["python", "main.py"]`。
 
-## 5. 审核与生命周期
+## 5. 依赖安装（runtime.setup）
+
+```json
+"runtime": {
+  "setup": ["pip", "install", "-r", "requirements.txt"],
+  "setup_timeout_seconds": 300
+}
+```
+
+- 工具第一次被执行时，平台先在**持久工作目录**里跑 `setup`；成功后写 `.riverat-setup-done`，之后不再跑。
+- `setup` 以 argv 数组执行（不经过 shell），stdin 不传入，stdout/stderr 被截取；非 0 退出或超时 → 该步骤 `error`，错误信息带 stderr 尾部。
+- 依赖装在工具自己的目录里（例如 `pip install --target .` 或 venv），不会污染平台环境。
+- 修改依赖 = 上传一个新版本（新 sha256 → 新目录 → 重新安装）；旧目录不会自动删除，见 §7。
+- 离线环境：把 wheel 放进包里，`setup` 写 `["pip", "install", "--no-index", "--find-links", "wheels", "-r", "requirements.txt"]`。
+- **安全边界**：`setup` 与入口一样以服务进程权限运行，admin 审核工具即视为批准这段代码；只上传可信包。
+
+## 6. 审核与生命周期
 
 ```
 engineer 上传 → pending → admin「工具」页点「通过」→ approved → 可在任务里调用
@@ -118,10 +140,11 @@ engineer 上传 → pending → admin「工具」页点「通过」→ approved 
 - 工具包按内容寻址存放：`backend/var/tools/<sha256>.tar.gz`。
 - 已被引用的工具不会因为新版本上传而被替换；同名取**创建时间最新且 approved** 的那个。
 
-## 6. 限制（v1.1 如实说明）
+## 7. 限制与清理（v1.1 如实说明）
 
-- **没有沙箱**：工具以 RiverAT 服务进程的权限运行，能读写主机文件。只安装可信工具。
-- **不自动装依赖**：`requirements.txt` 不会被执行。离线环境请把 wheel 或虚拟环境打进包里，或在主机预装。
+- **没有沙箱**：工具与 `setup` 都以 RiverAT 服务进程的权限运行，能读写主机文件。只安装可信工具。
+- **工作目录不会自动清理**：每份包解压并装好依赖后长期保留在 `backend/var/tools/work/<sha256>/`；
+  占空间时手动删（删掉后下次执行会重新解压/安装），或按 `sha256` 只删旧版本。
 - **不回收产物**：平台只收 stdout JSON 与 stderr，不抓 `artifacts/`、截图、日志文件（v1.0 的产物回收没有带过来）。
 - **只在本机执行**：没有远程 runner，工具自己连被测产品（网络可达性由部署方保证）。
 - **失败不重试**：单步失败就记失败，不自动重跑；需要重跑请用任务的「重跑」生成新草案。

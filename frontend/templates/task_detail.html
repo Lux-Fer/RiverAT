@@ -23,7 +23,23 @@
     </form>
   </p>
   {% elif task.status in ("queued", "running") %}
-  <p class="muted">任务已排队/执行中，刷新页面看进度。</p>
+  <p class="row" style="margin:0 0 16px;">
+    <span class="muted">任务已排队/执行中，刷新页面看进度。</span>
+    <form method="post" action="/tasks/{{ task.id }}/cancel" style="display:inline;">
+{% include "_csrf_input.html" %}
+      <button type="submit" class="btn">取消</button>
+    </form>
+    <span class="muted">运行中取消会在当前步骤结束后生效。</span>
+  </p>
+  {% elif task.status == "cancelling" %}
+  <p class="muted">已请求取消，等当前步骤结束。</p>
+  {% elif steps %}
+  <p class="row" style="margin:0 0 16px;">
+    <form method="post" action="/tasks/{{ task.id }}/rerun" style="display:inline;">
+{% include "_csrf_input.html" %}
+      <button type="submit" class="btn">重跑（生成新草案）</button>
+    </form>
+  </p>
   {% endif %}
 
   <h3 class="section">步骤 <b>{{ steps | length }}</b></h3>

@@ -239,6 +239,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-04 UI 重做：精密仪表、读数条、深色模式（D104），新增 DESIGN.md，detector 0 findings。
 - 2026-11-04 任务动作进审计 + 修复确认按钮路由（D105），147 passed / 3 skipped。
 - 2026-11-04 草案参数在线编辑（D106），150 passed / 3 skipped。
+- 2026-11-04 运行中取消 + 重跑（D107），154 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -311,3 +312,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D104 | UI 重做为 **精密仪表**（`DESIGN.md`）：近白纸面 / 石墨字 / 发丝线 / 无阴影；petrol 顶栏 + tab 下划线；常驻**读数条**（模型 · 待确认 · 进行中 · 已完成 · 待审工具）；状态 = 描边等宽标签；ID/时间/参数用等宽；紧凑密度（表格 13px、行高约 36px）；深色跟随系统；`/tasks` 改三列工作流、`/assistant` 两栏 + 右栏"最近任务"；未登录不显示读数条 | Operate 界面第一诉求是扫得快；把平台状态从各页收拢到读数条；深色适配夜间值班 |
 | D105 | 任务动作进审计：`task.approve` / `task.cancel` 写入 `audit_log`（服务层、与业务同事务），detail 记 title 与步骤数/原状态；**补页面路由** `POST /tasks/{id}/approve|cancel`（原先表单指向只有 API 的路径，按钮实际 404） | 修一个真 bug；"谁确认执行"必须有记录 |
 | D106 | 草案参数在线编辑：任务详情页对 `draft` 的每个步骤渲染 JSON 文本域 + 保存；`POST /tasks/{id}/steps/{step_id}/args` 校验 JSON 与 `input_schema`（失败 422 整页提示），成功后写 `task.edit` 审计（**只记 keys，不记值**）；只有 draft 可改 | 模型少填/填错参数时不用重新描述需求；审计不落可能的敏感参数值 |
+| D107 | 运行中取消 + 重跑：`cancel_task` 对 `running` 任务置 `cancelling`，worker 在**步骤之间**检查并停（不硬杀子进程）；`POST /tasks/{id}/rerun` 复制步骤生成**新草案**（参数相同、不带旧输出），写 `task.rerun` 审计；页面按状态给「取消」或「重跑（生成新草案）」 | 硬杀运行中的子进程需要 worker 信号通道，风险高收益低；重跑仍走人确认，不偷偷执行 |

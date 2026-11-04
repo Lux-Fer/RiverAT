@@ -266,11 +266,13 @@ async def approve_task(
 async def cancel_task(
     session: AsyncSession, task: Task, *, actor: User | None = None
 ) -> Task:
-    if task.status not in ("draft", "queued"):
-        raise TaskError(f"只能取消未开始的任务，当前状态：{task.status}")
+    if task.status not in ("draft", "queued", "running"):
+        raise TaskError(f"只能取消未完成的任务，当前状态：{task.status}")
     previous = task.status
-    task.status = "cancelled"
-    task.finished_at = datetime.now(UTC)
+    # 运行中不硬杀进程：标成 cancelling，worker 在步骤之间停下（D107）
+    task.status = "cancelling" if previous == "running" else "cancelled"
+    if previous != "running":
+        task.finished_at = datetime.now(UTC)
     await session.flush()
 
     from app.services.audit import record
@@ -284,6 +286,57 @@ async def cancel_task(
         detail={"title": task.title[:120], "from": previous},
     )
     return task
+
+
+async def rerun_task(
+    session: AsyncSession, task: Task, *, actor: User | None = None
+) -> Task:
+    """复制一个任务的步骤，生成新的草案（D107）：不偷偷重跑，仍要人确认。"""
+
+    steps = await steps_for(session, task.id)
+    if not steps:
+        raise TaskError("任务没有步骤，无法重跑")
+
+    new_task = Task(
+        product_id=task.product_id,
+        title=f"{task.title[:180]}（重跑）",
+        request_text=task.request_text,
+        status="draft",
+        draft={
+            "reply": f"从任务 {str(task.id)[:8]} 重跑，参数已复制；确认后执行。",
+            "tool_calls": [],
+            "errors": [],
+        },
+        created_by=actor.id if actor else None,
+    )
+    session.add(new_task)
+    await session.flush()
+
+    for step in steps:
+        session.add(
+            TaskStep(
+                task_id=new_task.id,
+                seq=step.seq,
+                tool_id=step.tool_id,
+                tool_name=step.tool_name,
+                tool_version=step.tool_version,
+                args=step.args,
+                status="pending",
+            )
+        )
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.rerun",
+        target_type="task",
+        target_id=str(new_task.id),
+        detail={"from": str(task.id)[:8], "steps": len(steps)},
+    )
+    return new_task
 
 
 async def update_step_args(
@@ -346,11 +399,27 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
         await session.get(WorkProduct, task.product_id) if task.product_id else None
     )
 
+    # 排队期间被取消（D107）：还没开始就不要再跑
+    await session.refresh(task)
+    if task.status == "cancelling":
+        task.status = "cancelled"
+        task.finished_at = datetime.now(UTC)
+        await session.flush()
+        return task
+
     task.status = "running"
     await session.flush()
 
     statuses: list[str] = []
     for step in steps:
+        # 运行中取消（D107）：步骤之间检查，当前步骤跑完为止
+        await session.refresh(task)
+        if task.status == "cancelling":
+            task.status = "cancelled"
+            task.finished_at = datetime.now(UTC)
+            await session.flush()
+            return task
+
         step.status = "running"
         step.started_at = datetime.now(UTC)
         await session.flush()

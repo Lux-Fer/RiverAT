@@ -365,6 +365,7 @@ tbody tr:hover td { background: var(--row-hover); }
 .badge.blocked { color: var(--warn); }
 .badge.queued, .badge.running { color: var(--info); }
 .badge.skipped, .badge.cancelled { color: var(--idle); }
+.badge.cancelling { color: var(--warn); }
 .badge.draft { color: var(--warn); }
 
 details { margin-top: 10px; }

@@ -19,6 +19,7 @@ from app.services.tasks import (
     cancel_task,
     get_task,
     list_tasks,
+    rerun_task,
     steps_for,
     update_step_args,
 )
@@ -168,3 +169,24 @@ async def cancel_task_form(
 
     await session.commit()
     return RedirectResponse(f"/tasks/{task.id}", status_code=303)
+
+@router.post(
+    "/tasks/{task_id}/rerun",
+    dependencies=[Depends(require_csrf)],
+)
+async def rerun_task_form(
+    task_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RedirectResponse:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        new_task = await rerun_task(session, task, actor=user)
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await session.commit()
+    return RedirectResponse(f"/tasks/{new_task.id}", status_code=303)

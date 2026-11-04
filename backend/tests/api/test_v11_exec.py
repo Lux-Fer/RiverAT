@@ -289,3 +289,61 @@ async def test_edit_step_args_after_approval_conflicts(session, client, monkeypa
 
     assert response.status_code == 422
     assert "只有草案" in response.text
+
+async def test_rerun_creates_new_draft_with_same_args(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    await client.post(f"/api/v1/tasks/{draft['id']}/approve")
+
+    response = await client.post(f"/api/v1/tasks/{draft['id']}/rerun")
+
+    assert response.status_code == 201, response.text
+    new = response.json()
+    assert new["id"] != draft["id"]
+    assert new["status"] == "draft"
+    assert new["steps"][0]["args"] == {"base_url": "http://target:8080"}
+
+    logs = (await client.get("/api/v1/audit?action=task.rerun")).json()
+    assert logs
+    assert logs[0]["detail"]["from"] == draft["id"][:8]
+
+
+async def test_rerun_page_redirects_to_new_draft(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    await client.post(f"/api/v1/tasks/{draft['id']}/approve")
+
+    response = await client.post(
+        f"/tasks/{draft['id']}/rerun", follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].startswith("/tasks/")
+
+
+async def test_cancel_running_marks_cancelling_then_stops(session, client, monkeypatch):
+    from uuid import UUID
+
+    from app.models import Task
+    from app.services.tasks import cancel_task, execute_task, steps_for
+
+    draft = await _make_draft(client, monkeypatch)
+    task = await session.get(Task, UUID(draft["id"]))
+    task.status = "running"
+    await session.commit()
+
+    await cancel_task(session, task, actor=None)
+    await session.commit()
+    assert task.status == "cancelling"
+
+    await execute_task(session, task)
+    await session.commit()
+    assert task.status == "cancelled"
+    assert all(step.status == "pending" for step in await steps_for(session, task.id))
+
+
+async def test_cancel_finished_task_conflicts(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    await client.post(f"/api/v1/tasks/{draft['id']}/approve")
+
+    response = await client.post(f"/api/v1/tasks/{draft['id']}/cancel")
+
+    assert response.status_code == 409

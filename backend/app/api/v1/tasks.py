@@ -6,6 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_engineer, require_user
@@ -15,6 +16,7 @@ from app.services.tasks import (
     TaskError,
     approve_task,
     cancel_task,
+    create_manual_task,
     get_task,
     list_tasks,
     rerun_task,
@@ -133,3 +135,31 @@ async def rerun(
 
     await session.commit()
     return _detail(new_task, await steps_for(session, new_task.id))
+
+class ManualTaskCreate(BaseModel):
+    tool_id: UUID
+    args: dict
+    product_id: UUID | None = None
+    title: str = ""
+
+
+@router.post("", status_code=201)
+async def create_manual(
+    payload: ManualTaskCreate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_engineer)],
+) -> dict:
+    try:
+        task = await create_manual_task(
+            session,
+            tool_id=payload.tool_id,
+            args=payload.args,
+            product_id=payload.product_id,
+            title=payload.title,
+            actor=user,
+        )
+    except TaskError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    await session.commit()
+    return _detail(task, await steps_for(session, task.id))

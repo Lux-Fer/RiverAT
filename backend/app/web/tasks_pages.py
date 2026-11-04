@@ -17,12 +17,15 @@ from app.services.tasks import (
     TaskError,
     approve_task,
     cancel_task,
+    create_manual_task,
     get_task,
     list_tasks,
     rerun_task,
     steps_for,
     update_step_args,
 )
+from app.services.tools import available_tools
+from app.services.work_products import list_products
 from app.web.csrf import require_csrf
 from app.web.templates import templates
 from app.worker.task_dispatch import get_task_dispatcher
@@ -75,6 +78,26 @@ async def _render_detail(
                 for step in steps
                 for case in (step.output or {}).get("cases", [])
             ],
+            "user": user,
+            "error": error,
+        },
+        status_code=422 if error else 200,
+    )
+
+
+@router.get("/tasks/new", response_class=HTMLResponse)
+async def manual_task_page(
+    request: Request,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    error: str | None = None,
+) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="manual_task.html",
+        context={
+            "products": await list_products(session),
+            "tools": await available_tools(session),
             "user": user,
             "error": error,
         },
@@ -190,3 +213,51 @@ async def rerun_task_form(
 
     await session.commit()
     return RedirectResponse(f"/tasks/{new_task.id}", status_code=303)
+
+@router.post(
+    "/tasks/manual",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def manual_task_submit(
+    request: Request,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    tool_id: Annotated[UUID, Form()],
+    args: Annotated[str, Form()] = "{}",
+    product_id: Annotated[str, Form()] = "",
+    title: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    try:
+        payload = json.loads(args)
+    except json.JSONDecodeError as exc:
+        return await _manual_error(request, session, user, f"参数不是合法 JSON：{exc.msg}")
+
+    try:
+        task = await create_manual_task(
+            session,
+            tool_id=tool_id,
+            args=payload,
+            product_id=UUID(product_id) if product_id else None,
+            title=title,
+            actor=user,
+        )
+    except TaskError as exc:
+        return await _manual_error(request, session, user, str(exc))
+
+    await session.commit()
+    return RedirectResponse(f"/tasks/{task.id}", status_code=303)
+
+
+async def _manual_error(request: Request, session: AsyncSession, user: User, error: str) -> HTMLResponse:
+    return templates.TemplateResponse(
+        request=request,
+        name="manual_task.html",
+        context={
+            "products": await list_products(session),
+            "tools": await available_tools(session),
+            "user": user,
+            "error": error,
+        },
+        status_code=422,
+    )

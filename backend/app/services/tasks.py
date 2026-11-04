@@ -237,6 +237,69 @@ async def list_tasks(session: AsyncSession, *, limit: int = 100) -> list[Task]:
     return list(rows.scalars().all())
 
 
+async def create_manual_task(
+    session: AsyncSession,
+    *,
+    tool_id: UUID,
+    args: object,
+    product_id: UUID | None = None,
+    title: str = "",
+    actor: User | None = None,
+) -> Task:
+    """模型不可用时的降级入口（D97/D108）：人选工具、填参数，生成草案。"""
+
+    from app.models import Tool
+
+    tool = await session.get(Tool, tool_id)
+    if tool is None or tool.status != "approved":
+        raise TaskError("工具不存在或还没有审核通过")
+    if not isinstance(args, dict):
+        raise TaskError("参数必须是 JSON 对象")
+
+    problems = validate_args((tool.manifest or {}).get("input_schema", {}), args)
+    if problems:
+        raise TaskError("；".join(problems))
+
+    task = Task(
+        product_id=product_id,
+        title=(title.strip() or f"手动：{tool.name}")[:200],
+        request_text="手动创建（不经过模型）",
+        status="draft",
+        draft={
+            "reply": f"手动创建：调用 {tool.name}，确认后执行。",
+            "tool_calls": [],
+            "errors": [],
+        },
+        created_by=actor.id if actor else None,
+    )
+    session.add(task)
+    await session.flush()
+    session.add(
+        TaskStep(
+            task_id=task.id,
+            seq=1,
+            tool_id=tool.id,
+            tool_name=tool.name,
+            tool_version=tool.version,
+            args=args,
+            status="pending",
+        )
+    )
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.create",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"title": task.title[:120], "tool": tool.name, "keys": sorted(args)},
+    )
+    return task
+
+
 async def approve_task(
     session: AsyncSession, task: Task, *, actor: User | None
 ) -> Task:

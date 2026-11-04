@@ -7,6 +7,18 @@
 
   {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
 
+  {% set readout = request.state.readout %}
+  {% if not (readout and readout.model_ready) or not products or not tools_count %}
+  <div class="card" style="margin-bottom:14px;">
+    <h3 class="section" style="margin:0 0 8px;">首次使用 <b>3 步</b></h3>
+    <ol class="muted" style="margin:0; padding-left:18px; line-height:2;">
+      <li>配置模型：{% if readout and readout.model_ready %}已配置{% elif user.role == "admin" %}<a href="/settings/llm">去模型设置</a>{% else %}联系 admin 配置{% endif %}</li>
+      <li>注册被测产品：{% if products %}已注册 {{ products | length }} 个{% else %}<a href="/products">去注册</a>{% endif %}</li>
+      <li>安装工具：{% if tools_count %}已审核 {{ tools_count }} 个{% else %}<a href="/tools">去上传</a>，需 admin 审核{% endif %}</li>
+    </ol>
+  </div>
+  {% endif %}
+
   <div class="assistant-grid">
     <div>
       <div class="card">

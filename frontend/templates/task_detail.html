@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% block head %}
+  {% if task.status in ("queued", "running", "cancelling") %}
+  <meta http-equiv="refresh" content="5">
+  {% endif %}
+{% endblock %}
 {% block content %}
   <h2 class="page-title" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
     {{ task.title }}

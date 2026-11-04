@@ -1,4 +1,9 @@
 {% extends "base.html" %}
+{% block head %}
+  {% if active or stale %}
+  <meta http-equiv="refresh" content="10">
+  {% endif %}
+{% endblock %}
 {% block content %}
   <h2 class="page-title">任务</h2>
   <p class="page-lede">将进行 = 草案（等人确认）；进行中 = 已确认、正在执行；已完成 = 终态。</p>
@@ -67,6 +72,6 @@
   </div>
 
   {% if not (draft or active or done) %}
-  <p class="muted" style="margin-top:16px;">还没有任务。去 <a href="/assistant">助手</a> 说一句要测什么。</p>
+  <p class="muted" style="margin-top:16px;">还没有任务。去 <a href="/assistant">助手</a> 说一句要测什么，或<a href="/tasks/new">手动创建任务</a>。</p>
   {% endif %}
 {% endblock %}

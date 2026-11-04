@@ -21,6 +21,7 @@ from app.services.tasks import (
     propose_task,
     steps_for,
 )
+from app.services.tools import available_tools
 from app.services.work_products import list_products
 from app.web.csrf import require_csrf
 from app.web.templates import templates
@@ -36,6 +37,8 @@ async def _render(
     error: str | None = None,
 ) -> HTMLResponse:
     draft = await latest_draft(session)
+    products = await list_products(session)
+    tools = await available_tools(session)
     return templates.TemplateResponse(
         request=request,
         name="assistant.html",
@@ -43,7 +46,8 @@ async def _render(
             "messages": await list_messages(session, limit=14),
             "draft": draft,
             "steps": await steps_for(session, draft.id) if draft else [],
-            "products": await list_products(session),
+            "products": products,
+            "tools_count": len(tools),
             "recent": [
                 task
                 for task in await list_tasks(session, limit=6)

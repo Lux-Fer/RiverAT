@@ -43,7 +43,13 @@
     <div class="shell readout-row" role="status" aria-label="平台状态">
       <span class="item">
         <span class="dot {{ '' if readout.model_ready else 'off' }}" aria-hidden="true"></span>
-        模型 {% if readout.model_ready %}<b>{{ readout.model }}</b>{% else %}<b>未配置</b>{% endif %}
+        {% if readout.model_ready %}
+        模型 <b>{{ readout.model }}</b>
+        {% elif user and user.role == "admin" %}
+        <a href="/settings/llm" style="color:var(--ink);">模型 <b>未配置 →</b></a>
+        {% else %}
+        模型 <b>未配置</b>
+        {% endif %}
       </span>
       <span class="item {{ 'warn' if readout.draft else '' }}">待确认 <b>{{ readout.draft }}</b></span>
       <span class="item">进行中 <b>{{ readout.active }}</b></span>

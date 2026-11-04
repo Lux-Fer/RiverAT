@@ -243,6 +243,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-04 手动创建任务（D108），160 passed / 3 skipped。
 - 2026-11-04 僵尸任务回收（D109），164 passed / 3 skipped。
 - 2026-11-04 文档同步 v1.1 + 超时杀进程树（D110），165 passed / 3 skipped。
+- 2026-11-04 UX 收尾：自动刷新、首次使用引导、空态下一步（D111），170 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -319,3 +320,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D108 | 手动创建任务（兑现 D97 降级承诺）：`GET /tasks/new` 选产品 + 已审核工具、填 JSON 参数；`POST /tasks/manual` / `POST /api/v1/tasks` 校验 schema 后生成**草案**（仍要确认），写 `task.create` 审计（记 tool 与 keys）；`/tasks/new` 必须注册在 `/tasks/{id}` 之前，否则被 UUID 路由吃掉返回 422 | 模型不可用时平台仍可用；审计能回答"这个任务是谁手建的" |
 | D109 | 僵尸任务回收：`task.heartbeat_at` 由 worker **每步 + 独立会话每 30s** 刷新；`running/cancelling` 心跳超 10 分钟视为卡死。worker 启动时自动回收（审计记 `system`），admin 在 `/tasks` 的「疑似卡住」区可手动「标记失败」；回收置 `error` 并写 `task.recover` 审计 | worker 崩溃/重启会留下永远 running 的任务；心跳比"按创建时间猜"可靠 |
 | D110 | 文档同步 v1.1 + 工具超时**杀进程树**：新增根 `README.md`（快速开始/流程/契约/限制）、`docs/tool-contract.md`（v2 契约）、重写 `docs/deploy.md`（4 容器、env 优先级、工具包备份、离线）；删除 v1.0 的 `docs/plugin-contract.md`，`transport-contract.md` 标为遗留；`tool_exec` 用 `start_new_session`/`CREATE_NEW_PROCESS_GROUP` + `killpg`/`taskkill /T` 终止整棵进程树，并加超时用例 | v1.1 换了核心，旧 README/部署文档会把接手的人带进 v1.0 的坑；只 kill 主进程会留下子进程 |
+| D111 | UX 收尾：任务详情在 `queued/running/cancelling` 每 5s 自动刷新、任务列表有活动/卡死任务时每 10s 刷新（meta refresh，无 JS）；读数条「模型未配置」对 admin 可点进设置；助手在缺模型/产品/工具时显示「首次使用 3 步」；产品/工具/任务空态给下一步链接 | 执行完要手刷才能看到结果；首次使用的人不知道下一步做什么 |

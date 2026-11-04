@@ -236,3 +236,166 @@ body.river .tail .row:nth-child(n+7) { opacity: 0.45; }
 body.river .tail .more { display: inline-block; margin: 10px 0 0 150px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
 body.river .flow-empty { padding: 16px 0 8px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 
+/* ---------------- assistant ---------------- */
+body.river .page-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; margin: 28px 0 20px;
+}
+body.river .page-head h1 { margin: 0; font-size: 30px; font-weight: 650; letter-spacing: -0.03em; }
+body.river .page-sub { margin-top: 4px; font-size: 12.5px; color: var(--ink-3); }
+body.river .page-meta {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  text-align: right; line-height: 1.8; letter-spacing: 0.06em;
+}
+body.river .asst-grid {
+  display: grid; grid-template-columns: minmax(0, 1.48fr) minmax(340px, 0.85fr);
+  gap: 36px; align-items: start;
+}
+
+body.river .brief { border: 1px solid var(--rule-2); background: #fffdf7; padding: 16px 18px 12px; }
+body.river .brief-row {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px;
+  align-items: center; padding: 2px 0 6px;
+}
+body.river .brief-label {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-3);
+}
+body.river .brief select {
+  appearance: none; border: 0; background: transparent; color: var(--ink);
+  font: 400 14px/1.4 var(--sans); padding: 2px 16px 2px 0;
+  background-image: linear-gradient(45deg, transparent 50%, var(--ink-3) 50%), linear-gradient(135deg, var(--ink-3) 50%, transparent 50%);
+  background-position: calc(100% - 6px) 55%, calc(100% - 2px) 55%;
+  background-size: 4px 4px; background-repeat: no-repeat; cursor: pointer;
+}
+body.river .brief textarea {
+  display: block; width: 100%; min-height: 86px; resize: vertical;
+  border: 0; border-bottom: 1px solid var(--rule-2); border-radius: 0;
+  background: transparent; color: var(--ink);
+  font: 400 15px/1.65 var(--sans); padding: 10px 0;
+}
+body.river .brief textarea::placeholder { color: var(--ink-3); }
+body.river .brief textarea:focus { outline: 0; }\nbody.river .brief:focus-within { border-color: var(--water-2); }
+body.river .brief-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-top: 10px; }
+body.river .brief-hint { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+
+body.river .act-primary {
+  display: inline; border: 0; border-bottom: 1px solid var(--ink);
+  background: transparent; color: var(--ink); padding: 0 0 2px;
+  font: 600 14px/1.2 var(--sans); cursor: pointer;
+}
+body.river .act-primary:hover { color: var(--water-ink); border-bottom-color: var(--water-ink); }
+body.river .act-primary:disabled { color: var(--ink-3); border-bottom-color: var(--rule-2); cursor: not-allowed; }
+body.river .act {
+  display: inline-block; border-bottom: 1px solid var(--rule-2);
+  color: var(--ink-2); padding: 0 0 2px; font: 400 12.5px/1.2 var(--sans);
+}
+body.river .act:hover { color: var(--ink); border-bottom-color: var(--ink); }
+
+body.river .chat-ledger {
+  max-height: calc(100vh - 430px); min-height: 280px; overflow-y: auto;
+  padding-right: 8px; scrollbar-width: thin;
+}
+body.river .chat-row {
+  display: grid; grid-template-columns: 46px 54px minmax(0, 1fr); gap: 12px;
+  padding: 9px 0;
+}
+body.river .chat-row .tm {
+  font-family: var(--mono); font-size: 10px; color: var(--ink-3); text-align: right;
+  padding-top: 2px;
+}
+body.river .chat-row .who {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ink-3); padding-top: 2px;
+}
+body.river .chat-row.user .who { color: var(--ink); }
+body.river .chat-row.assistant .who { color: var(--water); }
+body.river .chat-row .body { font-size: 13.5px; line-height: 1.7; color: var(--ink-2); }
+body.river .chat-row.user .body { color: var(--ink); }
+body.river .chat-row .body strong { color: var(--ink); font-weight: 600; }
+body.river .chat-row .body code {
+  font-family: var(--code); font-size: 11px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--rule); padding: 0 3px;
+}
+
+body.river .draft-sheet { border-top: 0; padding-top: 0; }
+body.river .draft-title { font-size: 20px; font-weight: 650; letter-spacing: -0.02em; }
+body.river .draft-title .st {
+  margin-left: 8px; font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em;
+  color: var(--orange); vertical-align: 2px;
+}
+body.river .draft-reply { margin-top: 6px; font-size: 12.5px; color: var(--ink-2); line-height: 1.7; }
+body.river .draft-errors { margin-top: 8px; color: var(--red); font-size: 12px; line-height: 1.7; }
+body.river .steps { margin-top: 12px; }
+body.river .step-line {
+  display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px;
+  padding: 4px 0;
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+}
+body.river .step-line .n { color: var(--ink-3); }
+body.river .step-line .tool { color: var(--ink); }
+body.river .step-line .args { grid-column: 2; color: var(--ink-3); font-size: 10px; margin-top: 2px; word-break: break-all; }
+body.river .draft-actions { display: flex; align-items: baseline; gap: 20px; margin-top: 12px; }
+body.river .draft-note { margin-top: 10px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
+body.river .draft-empty { padding: 10px 0; font-size: 12.5px; color: var(--ink-3); }
+
+body.river .recent { margin-top: 26px; }
+body.river .recent-row {
+  display: grid; grid-template-columns: 46px 62px minmax(0, 1fr); gap: 10px;
+  align-items: baseline; padding: 4px 0;
+  font-family: var(--mono); font-size: 10px; color: var(--ink-2);
+}
+body.river .recent-row .tm { color: var(--ink-3); }
+body.river .recent-row .st { font-size: 9px; letter-spacing: 0.1em; }
+body.river .recent-row .st.p { color: var(--water); }
+body.river .recent-row .st.f { color: var(--red); }
+body.river .recent-row .st.w { color: var(--orange); }
+body.river .recent-row .st.i { color: var(--ink-3); }
+body.river .recent-row .tt {
+  font-family: var(--sans); font-size: 12.5px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+body.river .asst-error {
+  border-top: 1px solid var(--red); border-bottom: 1px solid var(--red);
+  color: var(--red); font-size: 12px; padding: 6px 0; margin: 0 0 16px;
+}
+body.river .setup {
+  border-top: 1px solid var(--rule-2); border-bottom: 1px solid var(--rule-2);
+  padding: 10px 0; margin-bottom: 18px; font-size: 12px; color: var(--ink-2);
+}
+body.river .setup .setup-title {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px;
+}
+body.river .setup ol { margin: 0; padding-left: 16px; line-height: 1.9; }
+body.river .setup a { border-bottom: 1px solid rgba(14, 91, 87, 0.35); }
+
+@media (max-width: 900px) {
+  body.river .asst-grid { grid-template-columns: 1fr; }
+  body.river .page-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+  body.river .page-meta { text-align: left; }
+}
+
+body.river .flow-title {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 0 0 6px;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+  text-transform: uppercase; font-weight: 600; color: var(--ink-3);
+}
+body.river .flow-title b { font-size: 11px; color: var(--ink-3); font-weight: 400; letter-spacing: 0.04em; }
+body.river .flow-title span { margin-left: auto; font-size: 9px; color: var(--ink-3); letter-spacing: 0.06em; }
+
+body.river .chat-older { margin: 0 0 4px; }
+body.river .chat-older summary {
+  list-style: none; cursor: pointer;
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.1em;
+  color: var(--ink-3); padding: 2px 0;
+}
+body.river .chat-older summary::-webkit-details-marker { display: none; }
+body.river .chat-older summary:hover { color: var(--ink); }
+body.river .chat-ledger::-webkit-scrollbar { width: 6px; }
+body.river .chat-ledger::-webkit-scrollbar-track { background: transparent; }
+body.river .chat-ledger::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 3px; }
+body.river .chat-ledger:hover::-webkit-scrollbar-thumb { background: var(--ink-3); }
+body.river .site-foot { border-top: 0; }

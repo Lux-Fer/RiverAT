@@ -43,6 +43,7 @@ def _detail(task, steps) -> dict:
         "errors": (task.draft or {}).get("errors", []),
         "steps": [
             {
+                "id": str(step.id),
                 "seq": step.seq,
                 "tool": step.tool_name,
                 "version": step.tool_version,

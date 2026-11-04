@@ -235,3 +235,57 @@ async def test_page_approve_twice_conflict(session, client, monkeypatch):
 
     again = await client.post(f"/tasks/{draft['id']}/approve", follow_redirects=False)
     assert again.status_code == 409
+
+async def test_edit_step_args_before_approval(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    detail = (await client.get(f"/api/v1/tasks/{draft['id']}")).json()
+    step_id = detail["steps"][0]["id"]
+
+    response = await client.post(
+        f"/tasks/{draft['id']}/steps/{step_id}/args",
+        data={"args": json.dumps({"base_url": "http://edited:9000"})},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    updated = (await client.get(f"/api/v1/tasks/{draft['id']}")).json()
+    assert updated["steps"][0]["args"]["base_url"] == "http://edited:9000"
+
+    logs = (await client.get("/api/v1/audit?action=task.edit")).json()
+    assert logs
+    assert logs[0]["detail"]["keys"] == ["base_url"]
+
+
+async def test_edit_step_args_rejects_invalid(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    detail = (await client.get(f"/api/v1/tasks/{draft['id']}")).json()
+    step_id = detail["steps"][0]["id"]
+
+    missing = await client.post(
+        f"/tasks/{draft['id']}/steps/{step_id}/args",
+        data={"args": json.dumps({"x": 1})},
+    )
+    assert missing.status_code == 422
+    assert "缺少 base_url" in missing.text
+
+    broken = await client.post(
+        f"/tasks/{draft['id']}/steps/{step_id}/args",
+        data={"args": "not json"},
+    )
+    assert broken.status_code == 422
+    assert "不是合法 JSON" in broken.text
+
+
+async def test_edit_step_args_after_approval_conflicts(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    detail = (await client.get(f"/api/v1/tasks/{draft['id']}")).json()
+    step_id = detail["steps"][0]["id"]
+    await client.post(f"/api/v1/tasks/{draft['id']}/approve")
+
+    response = await client.post(
+        f"/tasks/{draft['id']}/steps/{step_id}/args",
+        data={"args": json.dumps({"base_url": "http://late:9000"})},
+    )
+
+    assert response.status_code == 422
+    assert "只有草案" in response.text

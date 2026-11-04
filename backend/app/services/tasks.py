@@ -286,6 +286,55 @@ async def cancel_task(
     return task
 
 
+async def update_step_args(
+    session: AsyncSession,
+    task: Task,
+    step_id: UUID,
+    args: object,
+    *,
+    actor: User | None = None,
+) -> TaskStep:
+    """草案阶段改某个步骤的参数（D106）；只校验、不执行。"""
+
+    from app.models import Tool
+
+    if task.status != "draft":
+        raise TaskError(f"只有草案可以改参数，当前状态：{task.status}")
+    if not isinstance(args, dict):
+        raise TaskError("参数必须是 JSON 对象")
+
+    step = await session.get(TaskStep, step_id)
+    if step is None or step.task_id != task.id:
+        raise TaskError("步骤不存在")
+
+    tool = await session.get(Tool, step.tool_id) if step.tool_id else None
+    if tool is None:
+        raise TaskError("工具不存在或已被删除")
+
+    problems = validate_args((tool.manifest or {}).get("input_schema", {}), args)
+    if problems:
+        raise TaskError("；".join(problems))
+
+    step.args = args
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.edit",
+        target_type="task",
+        target_id=str(task.id),
+        detail={
+            "step": step.seq,
+            "tool": step.tool_name,
+            "keys": sorted(args),
+        },
+    )
+    return step
+
+
 async def execute_task(session: AsyncSession, task: Task) -> Task:
     """逐步执行任务；每步一个工具调用，失败不中断后续步骤。"""
 

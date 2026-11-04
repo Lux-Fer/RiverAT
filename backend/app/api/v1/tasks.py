@@ -102,13 +102,13 @@ async def approve(
 async def cancel(
     task_id: UUID,
     session: Annotated[AsyncSession, Depends(get_session)],
-    _user: Annotated[User, Depends(require_engineer)],
+    user: Annotated[User, Depends(require_engineer)],
 ) -> dict:
     task = await get_task(session, task_id)
     if task is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     try:
-        await cancel_task(session, task)
+        await cancel_task(session, task, actor=user)
     except TaskError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

@@ -191,3 +191,47 @@ def test_aggregate_status(statuses, expected):
     from app.services.tasks import _aggregate
 
     assert _aggregate(statuses) == expected
+
+
+async def test_page_approve_button_works_and_is_audited(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+
+    response = await client.post(
+        f"/tasks/{draft['id']}/approve", follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == f"/tasks/{draft['id']}"
+    detail = (await client.get(f"/api/v1/tasks/{draft['id']}")).json()
+    assert detail["status"] == "passed"
+
+    logs = (await client.get("/api/v1/audit?action=task.approve")).json()
+    assert logs
+    assert logs[0]["target_id"] == draft["id"]
+    assert logs[0]["action_label"] == "确认任务"
+
+
+async def test_page_cancel_is_audited(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+
+    response = await client.post(
+        f"/tasks/{draft['id']}/cancel", follow_redirects=False
+    )
+
+    assert response.status_code == 303
+    detail = (await client.get(f"/api/v1/tasks/{draft['id']}")).json()
+    assert detail["status"] == "cancelled"
+
+    logs = (await client.get("/api/v1/audit?action=task.cancel")).json()
+    assert logs
+    assert logs[0]["target_id"] == draft["id"]
+
+
+async def test_page_approve_twice_conflict(session, client, monkeypatch):
+    draft = await _make_draft(client, monkeypatch)
+    assert (
+        await client.post(f"/tasks/{draft['id']}/approve", follow_redirects=False)
+    ).status_code == 303
+
+    again = await client.post(f"/tasks/{draft['id']}/approve", follow_redirects=False)
+    assert again.status_code == 409

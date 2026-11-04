@@ -21,6 +21,8 @@ ACTION_LABELS = {
     "release.create": "新建发布单",
     "release.update": "更新发布单",
     "host.create": "注册测试机",
+    "task.approve": "确认任务",
+    "task.cancel": "取消任务",
 }
 
 

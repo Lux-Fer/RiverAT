@@ -246,15 +246,43 @@ async def approve_task(
     task.approved_by = actor.id if actor else None
     task.approved_at = datetime.now(UTC)
     await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.approve",
+        target_type="task",
+        target_id=str(task.id),
+        detail={
+            "title": task.title[:120],
+            "steps": len(await steps_for(session, task.id)),
+        },
+    )
     return task
 
 
-async def cancel_task(session: AsyncSession, task: Task) -> Task:
+async def cancel_task(
+    session: AsyncSession, task: Task, *, actor: User | None = None
+) -> Task:
     if task.status not in ("draft", "queued"):
         raise TaskError(f"只能取消未开始的任务，当前状态：{task.status}")
+    previous = task.status
     task.status = "cancelled"
     task.finished_at = datetime.now(UTC)
     await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.cancel",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"title": task.title[:120], "from": previous},
+    )
     return task
 
 

@@ -241,6 +241,7 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 - 2026-11-04 草案参数在线编辑（D106），150 passed / 3 skipped。
 - 2026-11-04 运行中取消 + 重跑（D107），154 passed / 3 skipped。
 - 2026-11-04 手动创建任务（D108），160 passed / 3 skipped。
+- 2026-11-04 僵尸任务回收（D109），164 passed / 3 skipped。
 
 ## 9. v1.1 插件系统（2026-11-03 起）
 
@@ -315,3 +316,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D106 | 草案参数在线编辑：任务详情页对 `draft` 的每个步骤渲染 JSON 文本域 + 保存；`POST /tasks/{id}/steps/{step_id}/args` 校验 JSON 与 `input_schema`（失败 422 整页提示），成功后写 `task.edit` 审计（**只记 keys，不记值**）；只有 draft 可改 | 模型少填/填错参数时不用重新描述需求；审计不落可能的敏感参数值 |
 | D107 | 运行中取消 + 重跑：`cancel_task` 对 `running` 任务置 `cancelling`，worker 在**步骤之间**检查并停（不硬杀子进程）；`POST /tasks/{id}/rerun` 复制步骤生成**新草案**（参数相同、不带旧输出），写 `task.rerun` 审计；页面按状态给「取消」或「重跑（生成新草案）」 | 硬杀运行中的子进程需要 worker 信号通道，风险高收益低；重跑仍走人确认，不偷偷执行 |
 | D108 | 手动创建任务（兑现 D97 降级承诺）：`GET /tasks/new` 选产品 + 已审核工具、填 JSON 参数；`POST /tasks/manual` / `POST /api/v1/tasks` 校验 schema 后生成**草案**（仍要确认），写 `task.create` 审计（记 tool 与 keys）；`/tasks/new` 必须注册在 `/tasks/{id}` 之前，否则被 UUID 路由吃掉返回 422 | 模型不可用时平台仍可用；审计能回答"这个任务是谁手建的" |
+| D109 | 僵尸任务回收：`task.heartbeat_at` 由 worker **每步 + 独立会话每 30s** 刷新；`running/cancelling` 心跳超 10 分钟视为卡死。worker 启动时自动回收（审计记 `system`），admin 在 `/tasks` 的「疑似卡住」区可手动「标记失败」；回收置 `error` 并写 `task.recover` 审计 | worker 崩溃/重启会留下永远 running 的任务；心跳比"按创建时间猜"可靠 |

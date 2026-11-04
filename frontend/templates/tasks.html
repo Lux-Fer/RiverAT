@@ -7,6 +7,24 @@
     <span class="muted">模型不可用时的入口</span>
   </p>
 
+  {% if user.role == "admin" and stale %}
+  <section class="card" style="margin-bottom:16px;">
+    <h3 class="section" style="margin:0 0 8px;">疑似卡住 <b>{{ stale | length }}</b></h3>
+    {% for t in stale %}
+    <div class="row" style="justify-content:space-between; border-top:1px solid var(--rule); padding:8px 0;">
+      <span>
+        <a href="/tasks/{{ t.id }}">{{ t.title }}</a>
+        <span class="mono muted">{{ t.status }} · 心跳 {{ t.heartbeat_at | localtime }}</span>
+      </span>
+      <form method="post" action="/tasks/{{ t.id }}/recover" style="display:inline;">
+{% include "_csrf_input.html" %}
+        <button type="submit" class="btn">标记失败</button>
+      </form>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
   <div class="flow-grid">
     <section class="flow-col" aria-label="将进行">
       <div class="flow-head"><span>将进行</span><b>{{ draft | length }}</b></div>

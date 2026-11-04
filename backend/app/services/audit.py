@@ -26,6 +26,7 @@ ACTION_LABELS = {
     "task.cancel": "取消任务",
     "task.edit": "编辑任务参数",
     "task.rerun": "重跑任务",
+    "task.recover": "回收卡死任务",
 }
 
 

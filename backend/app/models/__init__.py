@@ -405,6 +405,8 @@ class Task(Base):
     )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # worker 每步刷新；长时间不刷新 = 疑似卡死，可被回收（D109）
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TaskStep(Base):

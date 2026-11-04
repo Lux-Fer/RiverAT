@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_engineer, require_user
+from app.api.deps import require_admin, require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
 from app.services.tasks import (
@@ -19,6 +19,7 @@ from app.services.tasks import (
     create_manual_task,
     get_task,
     list_tasks,
+    recover_task,
     rerun_task,
     steps_for,
 )
@@ -160,6 +161,23 @@ async def create_manual(
         )
     except TaskError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    await session.commit()
+    return _detail(task, await steps_for(session, task.id))
+
+@router.post("/{task_id}/recover")
+async def recover(
+    task_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_admin)],
+) -> dict:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        await recover_task(session, task, actor=admin)
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     await session.commit()
     return _detail(task, await steps_for(session, task.id))

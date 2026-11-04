@@ -5,8 +5,9 @@ M3 只生成草案；M4 增加确认、执行与结果聚合。
 
 from __future__ import annotations
 
+import asyncio
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -451,6 +452,94 @@ async def update_step_args(
     return step
 
 
+STALE_AFTER = timedelta(minutes=10)
+
+
+def is_stale(task: Task, *, now: datetime | None = None) -> bool:
+    """running/cancelling 且心跳过期 = 疑似 worker 已死（D109）。"""
+
+    if task.status not in ("running", "cancelling"):
+        return False
+    now = now or datetime.now(UTC)
+    reference = task.heartbeat_at or task.approved_at or task.created_at
+    return reference is not None and reference < now - STALE_AFTER
+
+
+async def stale_tasks(session: AsyncSession) -> list[Task]:
+    rows = await session.execute(
+        select(Task)
+        .where(Task.status.in_(("running", "cancelling")))
+        .order_by(Task.created_at)
+    )
+    now = datetime.now(UTC)
+    return [task for task in rows.scalars().all() if is_stale(task, now=now)]
+
+
+async def recover_task(
+    session: AsyncSession, task: Task, *, actor: User | None = None
+) -> Task:
+    """把疑似卡死的任务标成 error，保留原因（D109）。"""
+
+    if not is_stale(task):
+        raise TaskError(f"任务没有超时，不能回收，当前状态：{task.status}")
+
+    task.status = "error"
+    task.finished_at = datetime.now(UTC)
+    draft = dict(task.draft or {})
+    errors = list(draft.get("errors") or [])
+    errors.append("worker 心跳超时，任务已被标记失败（可重跑）")
+    draft["errors"] = errors
+    task.draft = draft
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.recover",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"title": task.title[:120], "status": "error"},
+    )
+    return task
+
+
+async def recover_stale_tasks(session: AsyncSession) -> int:
+    """worker 启动时扫一遍，回收上次崩溃留下的僵尸任务。"""
+
+    recovered = 0
+    for task in await stale_tasks(session):
+        await recover_task(session, task, actor=None)
+        recovered += 1
+    return recovered
+
+
+async def _heartbeat_loop(task_id: UUID, stop: asyncio.Event) -> None:
+    """独立会话每 30s 刷新一次心跳，避免长步骤被误判为僵尸（D109）。"""
+
+    from sqlalchemy import update
+
+    from app.db.session import get_sessionmaker
+
+    while not stop.is_set():
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=30)
+            return
+        except TimeoutError:
+            pass
+        try:
+            async with get_sessionmaker()() as heartbeat_session:
+                await heartbeat_session.execute(
+                    update(Task)
+                    .where(Task.id == task_id)
+                    .values(heartbeat_at=datetime.now(UTC))
+                )
+                await heartbeat_session.commit()
+        except Exception:  # noqa: BLE001 - 心跳失败不影响执行
+            return
+
+
 async def execute_task(session: AsyncSession, task: Task) -> Task:
     """逐步执行任务；每步一个工具调用，失败不中断后续步骤。"""
 
@@ -471,63 +560,71 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
         return task
 
     task.status = "running"
+    task.heartbeat_at = datetime.now(UTC)
     await session.flush()
 
-    statuses: list[str] = []
-    for step in steps:
-        # 运行中取消（D107）：步骤之间检查，当前步骤跑完为止
-        await session.refresh(task)
-        if task.status == "cancelling":
-            task.status = "cancelled"
-            task.finished_at = datetime.now(UTC)
+    stop = asyncio.Event()
+    heartbeat = asyncio.create_task(_heartbeat_loop(task.id, stop))
+    try:
+        statuses: list[str] = []
+        cancelled = False
+
+        for step in steps:
+            # 运行中取消（D107）：步骤之间检查，当前步骤跑完为止
+            await session.refresh(task)
+            if task.status == "cancelling":
+                cancelled = True
+                break
+
+            task.heartbeat_at = datetime.now(UTC)
+            step.status = "running"
+            step.started_at = datetime.now(UTC)
             await session.flush()
-            return task
 
-        step.status = "running"
-        step.started_at = datetime.now(UTC)
-        await session.flush()
-
-        tool = await session.get(Tool, step.tool_id) if step.tool_id else None
-        if tool is None:
-            result = {
-                "status": "error",
-                "exit_code": None,
-                "output": {},
-                "stderr": "",
-                "error": "工具不存在或已被删除",
-            }
-        else:
-            try:
-                result = await run_tool(
-                    tool,
-                    args=step.args or {},
-                    product=product,
-                    task_id=str(task.id),
-                )
-            except Exception as exc:  # noqa: BLE001 - 单步异常不能让任务卡死
+            tool = await session.get(Tool, step.tool_id) if step.tool_id else None
+            if tool is None:
                 result = {
                     "status": "error",
                     "exit_code": None,
                     "output": {},
                     "stderr": "",
-                    "error": f"执行异常：{exc}",
+                    "error": "工具不存在或已被删除",
                 }
+            else:
+                try:
+                    result = await run_tool(
+                        tool,
+                        args=step.args or {},
+                        product=product,
+                        task_id=str(task.id),
+                    )
+                except Exception as exc:  # noqa: BLE001 - 单步异常不能让任务卡死
+                    result = {
+                        "status": "error",
+                        "exit_code": None,
+                        "output": {},
+                        "stderr": "",
+                        "error": f"执行异常：{exc}",
+                    }
 
-        step.status = result["status"]
-        step.exit_code = result.get("exit_code")
-        output = dict(result.get("output") or {})
-        if result.get("stderr"):
-            output["stderr"] = str(result["stderr"])[:2000]
-        step.output = output
-        step.error = (result.get("error") or "")[:500] or None
-        step.finished_at = datetime.now(UTC)
-        statuses.append(step.status)
+            step.status = result["status"]
+            step.exit_code = result.get("exit_code")
+            output = dict(result.get("output") or {})
+            if result.get("stderr"):
+                output["stderr"] = str(result["stderr"])[:2000]
+            step.output = output
+            step.error = (result.get("error") or "")[:500] or None
+            step.finished_at = datetime.now(UTC)
+            statuses.append(step.status)
+            await session.flush()
+
+        task.status = "cancelled" if cancelled else _aggregate(statuses)
+        task.finished_at = datetime.now(UTC)
         await session.flush()
-
-    task.status = _aggregate(statuses)
-    task.finished_at = datetime.now(UTC)
-    await session.flush()
-    return task
+        return task
+    finally:
+        stop.set()
+        heartbeat.cancel()
 
 
 async def execute_task_by_id(task_id: UUID) -> None:

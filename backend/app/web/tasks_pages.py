@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_engineer, require_user
+from app.api.deps import require_admin, require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
 from app.services.tasks import (
@@ -20,7 +20,9 @@ from app.services.tasks import (
     create_manual_task,
     get_task,
     list_tasks,
+    recover_task,
     rerun_task,
+    stale_tasks,
     steps_for,
     update_step_args,
 )
@@ -46,7 +48,7 @@ async def tasks_page(
         context={
             "draft": [task for task in tasks if task.status == "draft"],
             "active": [
-                task for task in tasks if task.status in ("queued", "running")
+                task for task in tasks if task.status in ("queued", "running", "cancelling")
             ],
             "done": [
                 task
@@ -54,6 +56,7 @@ async def tasks_page(
                 if task.status in ("passed", "failed", "error", "skipped", "cancelled")
             ],
             "user": user,
+            "stale": await stale_tasks(session) if user.role == "admin" else [],
         },
     )
 
@@ -261,3 +264,23 @@ async def _manual_error(request: Request, session: AsyncSession, user: User, err
         },
         status_code=422,
     )
+
+@router.post(
+    "/tasks/{task_id}/recover",
+    dependencies=[Depends(require_csrf)],
+)
+async def recover_task_form(
+    task_id: UUID,
+    admin: Annotated[User, Depends(require_admin)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RedirectResponse:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        await recover_task(session, task, actor=admin)
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await session.commit()
+    return RedirectResponse("/tasks", status_code=303)

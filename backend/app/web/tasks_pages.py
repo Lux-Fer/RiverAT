@@ -13,13 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_admin, require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
+from app.services.task_board import build_task_board
 from app.services.tasks import (
     TaskError,
     approve_task,
     cancel_task,
     create_manual_task,
     get_task,
-    list_tasks,
     recover_task,
     rerun_task,
     stale_tasks,
@@ -41,20 +41,12 @@ async def tasks_page(
     user: Annotated[User, Depends(require_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> HTMLResponse:
-    tasks = await list_tasks(session)
+    board = await build_task_board(session)
     return templates.TemplateResponse(
         request=request,
         name="tasks.html",
         context={
-            "draft": [task for task in tasks if task.status == "draft"],
-            "active": [
-                task for task in tasks if task.status in ("queued", "running", "cancelling")
-            ],
-            "done": [
-                task
-                for task in tasks
-                if task.status in ("passed", "failed", "error", "skipped", "cancelled")
-            ],
+            "board": board,
             "user": user,
             "stale": await stale_tasks(session) if user.role == "admin" else [],
         },

@@ -275,7 +275,8 @@ body.river .brief textarea {
   font: 400 15px/1.65 var(--sans); padding: 10px 0;
 }
 body.river .brief textarea::placeholder { color: var(--ink-3); }
-body.river .brief textarea:focus { outline: 0; }\nbody.river .brief:focus-within { border-color: var(--water-2); }
+body.river .brief textarea:focus { outline: 0; }
+body.river .brief:focus-within { border-color: var(--water-2); }
 body.river .brief-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-top: 10px; }
 body.river .brief-hint { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
 
@@ -380,7 +381,7 @@ body.river .setup a { border-bottom: 1px solid rgba(14, 91, 87, 0.35); }
 body.river .flow-title {
   display: flex; align-items: baseline; gap: 8px;
   margin: 0 0 6px;
-  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.16em;
   text-transform: uppercase; font-weight: 600; color: var(--ink-3);
 }
 body.river .flow-title b { font-size: 11px; color: var(--ink-3); font-weight: 400; letter-spacing: 0.04em; }
@@ -399,3 +400,118 @@ body.river .chat-ledger::-webkit-scrollbar-track { background: transparent; }
 body.river .chat-ledger::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 3px; }
 body.river .chat-ledger:hover::-webkit-scrollbar-thumb { background: var(--ink-3); }
 body.river .site-foot { border-top: 0; }
+
+/* ---------------- tasks ---------------- */
+body.river .page-meta a {
+  color: var(--ink); border-bottom: 1px solid var(--rule-2); padding-bottom: 1px;
+}
+body.river .page-meta a:hover { border-bottom-color: var(--ink); }
+
+body.river .task-band { margin-top: 18px; }
+body.river .page-head + .task-band { margin-top: 6px; }
+body.river .task-band .flow-title { margin-bottom: 4px; }
+
+body.river .task-run {
+  display: grid; grid-template-columns: 74px minmax(0, 1fr) 100px 16px;
+  gap: 18px; align-items: center; padding: 15px 0;
+  border-bottom: 1px solid var(--rule); color: inherit;
+}
+body.river .task-run:last-child { border-bottom: 0; }
+body.river .task-run:hover { background: linear-gradient(90deg, rgba(14, 91, 87, 0.045), transparent 70%); }
+body.river .task-run .tm {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  text-align: right; line-height: 1.55;
+}
+body.river .task-run .tm b { display: block; font-size: 14px; color: var(--ink); font-weight: 600; }
+body.river .task-run .tt { font-size: 19px; font-weight: 650; letter-spacing: -0.015em; }
+body.river .task-run .sub {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .task-run .sub .stt { margin-left: 2px; letter-spacing: 0.08em; }
+body.river .task-run .prog { display: flex; align-items: center; gap: 10px; margin-top: 9px; }
+body.river .task-run .bar { display: flex; gap: 2px; width: 176px; flex: none; }
+body.river .task-run .bar i { flex: 1; height: 3px; background: var(--rule); }
+body.river .task-run .bar i.d { background: var(--water); }
+body.river .task-run .bar i.n { background: var(--orange); }
+body.river .task-run .bar i.f { background: var(--red); }
+body.river .task-run .step {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+  letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .task-run .stt.p { color: var(--water); }
+body.river .task-run .stt.f { color: var(--red); }
+body.river .task-run .stt.w { color: var(--orange); }
+body.river .task-run .stt.i { color: var(--ink-3); }
+body.river .task-run .stt.run { color: var(--water); }
+body.river .task-run .clock {
+  font-family: var(--mono); font-size: 32px; letter-spacing: -0.045em;
+  line-height: 1; text-align: right; color: var(--ink);
+}
+body.river .task-run .clock.wait { font-size: 12px; letter-spacing: 0.12em; color: var(--ink-3); }
+body.river .task-run .chev { font-family: var(--mono); color: var(--ink-3); }
+
+body.river .task-draft {
+  display: grid; grid-template-columns: 74px minmax(0, 1fr) 88px;
+  gap: 18px; align-items: center; padding: 12px 0;
+  border-bottom: 1px solid var(--rule); color: inherit;
+}
+body.river .task-draft:last-child { border-bottom: 0; }
+body.river .task-draft:hover { background: linear-gradient(90deg, rgba(194, 65, 12, 0.04), transparent 70%); }
+body.river .task-draft .tm {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  text-align: right; line-height: 1.55;
+}
+body.river .task-draft .tm b { display: block; font-size: 14px; color: var(--ink); font-weight: 600; }
+body.river .task-draft .tt { font-size: 16.5px; font-weight: 600; letter-spacing: -0.01em; }
+body.river .task-draft .sub {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-top: 3px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .task-draft .go {
+  font-family: var(--mono); font-size: 11px; color: var(--ink);
+  text-align: right; border-bottom: 1px solid var(--rule-2); padding-bottom: 2px;
+  justify-self: end;
+}
+
+body.river .task-tail { margin-top: 2px; }
+body.river .task-done {
+  display: grid; grid-template-columns: 112px 38px minmax(0, 1fr) 84px 62px;
+  gap: 12px; align-items: baseline; padding: 5px 0;
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-2);
+}
+body.river .task-done:hover { background: linear-gradient(90deg, rgba(14, 91, 87, 0.04), transparent 70%); }
+body.river .task-done .tm { color: var(--ink-3); font-size: 10.5px; }
+body.river .task-done .rs { font-size: 9.5px; letter-spacing: 0.1em; }
+body.river .task-done .rs.p { color: var(--water); }
+body.river .task-done .rs.f { color: var(--red); }
+body.river .task-done .rs.i { color: var(--ink-3); }
+body.river .task-done .tt {
+  font-family: var(--sans); font-size: 14px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .task-done .pd, body.river .task-done .du { font-size: 10.5px; color: var(--ink-3); }
+body.river .task-done .du { text-align: right; }
+body.river .task-done:nth-child(n+10) { opacity: 0.62; }
+body.river .task-done:nth-child(n+20) { opacity: 0.42; }
+body.river .done-more { margin-top: 8px; font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+
+body.river .task-stale {
+  display: grid; grid-template-columns: minmax(0, 1fr) 250px 84px;
+  gap: 14px; align-items: center; padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+}
+body.river .task-stale:last-child { border-bottom: 0; }
+body.river .task-stale .tt { font-size: 15px; color: var(--ink); }
+body.river .task-stale .sub { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+body.river .task-stale form { justify-self: end; }
+
+@media (max-width: 900px) {
+  body.river .task-run { grid-template-columns: 56px minmax(0, 1fr) 84px 16px; gap: 12px; }
+  body.river .task-run .prog { display: none; }
+  body.river .task-draft { grid-template-columns: 56px minmax(0, 1fr) 72px; gap: 12px; }
+  body.river .task-done { grid-template-columns: 88px 36px minmax(0, 1fr) 56px; gap: 8px; }
+  body.river .task-done .pd { display: none; }
+  body.river .task-stale { grid-template-columns: minmax(0, 1fr) 80px; }
+  body.river .task-stale .sub { display: none; }
+}

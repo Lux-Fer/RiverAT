@@ -10,6 +10,10 @@ STATUS_LABELS = {
     "skipped": "跳过",
     "queued": "排队中",
     "running": "运行中",
+    "draft": "待确认",
+    "cancelling": "取消中",
+    "cancelled": "已取消",
+    "pending": "等待",
 }
 
 

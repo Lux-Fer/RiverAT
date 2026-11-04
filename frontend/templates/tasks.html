@@ -1,77 +1,102 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
 {% block head %}
-  {% if active or stale %}
-  <meta http-equiv="refresh" content="10">
-  {% endif %}
+  <link rel="stylesheet" href="/static/river.css?v=20261107">
+  {% if board.running_count %}<meta http-equiv="refresh" content="10">{% endif %}
 {% endblock %}
 {% block content %}
-  <h2 class="page-title">任务</h2>
-  <p class="page-lede">将进行 = 草案（等人确认）；进行中 = 已确认、正在执行；已完成 = 终态。</p>
-  <p class="row" style="margin:0 0 16px;">
-    <a class="btn" href="/tasks/new">手动创建任务</a>
-    <span class="muted">模型不可用时的入口</span>
-  </p>
-
-  {% if user.role == "admin" and stale %}
-  <section class="card" style="margin-bottom:16px;">
-    <h3 class="section" style="margin:0 0 8px;">疑似卡住 <b>{{ stale | length }}</b></h3>
-    {% for t in stale %}
-    <div class="row" style="justify-content:space-between; border-top:1px solid var(--rule); padding:8px 0;">
-      <span>
-        <a href="/tasks/{{ t.id }}">{{ t.title }}</a>
-        <span class="mono muted">{{ t.status }} · 心跳 {{ t.heartbeat_at | localtime }}</span>
-      </span>
-      <form method="post" action="/tasks/{{ t.id }}/recover" style="display:inline;">
-{% include "_csrf_input.html" %}
-        <button type="submit" class="btn">标记失败</button>
-      </form>
-    </div>
-    {% endfor %}
-  </section>
-  {% endif %}
-
-  <div class="flow-grid">
-    <section class="flow-col" aria-label="将进行">
-      <div class="flow-head"><span>将进行</span><b>{{ draft | length }}</b></div>
-      {% for t in draft %}
-      <a class="flow-item" href="/tasks/{{ t.id }}">
-        <span class="t">{{ t.title }}</span>
-        <span class="meta"><span class="badge draft">draft</span>{{ t.created_at | localtime }}</span>
-      </a>
-      {% else %}
-      <p class="flow-empty">没有待确认的草案。</p>
-      {% endfor %}
-    </section>
-
-    <section class="flow-col" aria-label="进行中">
-      <div class="flow-head"><span>进行中</span><b>{{ active | length }}</b></div>
-      {% for t in active %}
-      <a class="flow-item" href="/tasks/{{ t.id }}">
-        <span class="t">{{ t.title }}</span>
-        <span class="meta"><span class="badge queued">{{ t.status }}</span>{{ t.created_at | localtime }}</span>
-      </a>
-      {% else %}
-      <p class="flow-empty">没有排队或执行中的任务。</p>
-      {% endfor %}
-    </section>
-
-    <section class="flow-col" aria-label="已完成">
-      <div class="flow-head"><span>已完成</span><b>{{ done | length }}</b></div>
-      {% for t in done %}
-      <a class="flow-item" href="/tasks/{{ t.id }}">
-        <span class="t">{{ t.title }}</span>
-        <span class="meta">
-          <span class="badge {{ t.status if t.status in ('passed','failed','error','skipped') else 'queued' }}">{{ t.status }}</span>
-          {{ t.finished_at | localtime }}
-        </span>
-      </a>
-      {% else %}
-      <p class="flow-empty">还没有完成的任务。</p>
-      {% endfor %}
-    </section>
+<div class="page-head">
+  <div>
+    <h1>任务</h1>
   </div>
+  <div class="page-meta">
+    {{ board.running_count }} 进行 · {{ board.upcoming_count }} 将进行 · {{ board.done_count }} 完成<br>
+    {{ board.updated }} · <a href="/tasks/new">手动创建 →</a>
+  </div>
+</div>
 
-  {% if not (draft or active or done) %}
-  <p class="muted" style="margin-top:16px;">还没有任务。去 <a href="/assistant">助手</a> 说一句要测什么，或<a href="/tasks/new">手动创建任务</a>。</p>
-  {% endif %}
+{% if stale %}
+<div class="task-band stale-band">
+  <div class="flow-title"><span style="color: var(--orange);">疑似卡住 {{ stale | length }}</span><span>超过 10 分钟没有心跳</span></div>
+  {% for t in stale %}
+  <div class="task-stale">
+    <a class="tt" href="/tasks/{{ t.id }}">{{ t.title }}</a>
+    <span class="sub">{{ status_label(t.status) }} · 心跳 {{ t.heartbeat_at | localtime }}</span>
+    <form method="post" action="/tasks/{{ t.id }}/recover">
+{% include "_csrf_input.html" %}
+      <button type="submit" class="act">标记失败</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if board.running_count %}
+<section class="task-band" aria-label="进行中">
+  <div class="flow-title">进行中 <b>{{ board.running_count }}</b></div>
+  {% for row in board.running %}
+  <a class="task-run" href="/tasks/{{ row.task.id }}">
+    <div class="tm"><b>{{ row.clock }}</b><span>{{ row.day }}</span></div>
+    <div class="main">
+      <div class="tt">{{ row.task.title }}</div>
+      <div class="sub">
+        {% if row.product %}{{ row.product.code }} · {{ row.product.name }}{% else %}未关联产品{% endif %}
+        · <span class="stt {{ row.tone }}">{{ row.status }}</span>
+      </div>
+      {% if row.step_marks %}
+      <div class="prog">
+        <div class="bar">
+          {% for mark in row.step_marks %}<i class="{{ mark }}"></i>{% endfor %}
+        </div>
+        <span class="step">{{ row.step_text }} · {{ row.current }}</span>
+      </div>
+      {% endif %}
+    </div>
+    <div class="clock{% if row.waiting %} wait{% endif %}">{{ row.elapsed }}</div>
+    <div class="chev">→</div>
+  </a>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if board.upcoming_count %}
+<section class="task-band" aria-label="将进行">
+  <div class="flow-title">将进行 <b>{{ board.upcoming_count }}</b></div>
+  {% for row in board.upcoming %}
+  <a class="task-draft" href="/tasks/{{ row.task.id }}">
+    <div class="tm"><b>{{ row.clock }}</b><span>{{ row.day }}</span></div>
+    <div class="main">
+      <div class="tt">{{ row.task.title }}</div>
+      <div class="sub">
+        {% if row.product %}{{ row.product.code }} · {{ row.product.name }}{% else %}未关联产品{% endif %}
+        · 草案 · {{ row.step_total }} 步 · {{ row.age }}
+      </div>
+    </div>
+    <div class="go">查看 →</div>
+  </a>
+  {% endfor %}
+</section>
+{% endif %}
+
+{% if board.done_count %}
+<section class="task-band" aria-label="已完成">
+  <div class="flow-title">已完成 <b>{{ board.done_count }}</b></div>
+  <div class="task-tail">
+    {% for row in board.done %}
+    <a class="task-done" href="/tasks/{{ row.task.id }}">
+      <span class="tm">{{ row.day }} {{ row.clock }}</span>
+      <span class="rs {{ row.tone }}">{{ row.status }}</span>
+      <span class="tt">{{ row.task.title }}</span>
+      <span class="pd">{% if row.product %}{{ row.product.code }}{% else %}—{% endif %}</span>
+      <span class="du">{{ row.duration or "—" }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if board.done_more %}<div class="done-more">更早的 {{ board.done_more }} 条在各项目详情里</div>{% endif %}
+</section>
+{% endif %}
+
+{% if not (board.running_count or board.upcoming_count or board.done_count) %}
+<div class="empty">还没有任务。去 <a href="/assistant">助手</a> 说一句要测什么，或 <a href="/tasks/new">手动创建</a>。</div>
+{% endif %}
 {% endblock %}

@@ -34,6 +34,29 @@ class TaskError(ValueError):
     """无法生成任务草案。"""
 
 
+TITLE_BREAKS = "，,。；;！!？?\n"
+
+
+def task_title(text: str, limit: int = 60) -> str:
+    """取需求的第一句/第一个分句作标题，避免在句子中间硬截断。"""
+
+    cleaned = " ".join(text.split()).strip()
+    if not cleaned:
+        return "未命名任务"
+
+    cut = len(cleaned)
+    for sep in TITLE_BREAKS:
+        index = cleaned.find(sep)
+        if index != -1:
+            cut = min(cut, index)
+    head = cleaned[:cut].strip(" ，,。；;！!？?")
+    # "你好，帮我..." 这类首分句过短时保留整段，避免标题只剩“你好”
+    title = head if len(head) >= 8 else cleaned.strip(" ，,。；;！!？?")
+    if len(title) > limit:
+        title = title[:limit].rstrip() + "…"
+    return title or "未命名任务"
+
+
 def validate_args(schema: dict, args: dict) -> list[str]:
     """最小 JSON Schema 校验：required + 顶层 type，不引入额外依赖。"""
 
@@ -159,7 +182,7 @@ async def propose_task(
     reply = (answer.get("content") or "").strip()
     task = Task(
         product_id=product.id if product else None,
-        title=text[:60],
+        title=task_title(text),
         request_text=text,
         status="draft",
         draft={

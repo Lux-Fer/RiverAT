@@ -6,7 +6,18 @@ import json
 
 import pytest
 
+from app.services.tasks import task_title
 from tests.api.test_v11 import _tool_bundle
+
+
+def test_task_title_prefers_first_clause():
+    assert (
+        task_title("请调用工具 acc-echo，对产品 ACC 做一次验收，参数 label 设为 assistant")
+        == "请调用工具 acc-echo"
+    )
+    assert task_title("你好，帮我测登录") == "你好，帮我测登录"
+    long = task_title("长" * 80)
+    assert len(long) == 61 and long.endswith("…")
 
 
 async def _approved_tool(client) -> dict:

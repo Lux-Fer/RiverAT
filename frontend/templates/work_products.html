@@ -1,57 +1,109 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261109">
+{% endblock %}
 {% block content %}
-  <h2 class="page-title">被测产品</h2>
-  <p class="page-lede">
-    注册被测产品：地址会注入给工具；CI 配置在 v1.1 只保存、不实际收发。
-  </p>
-
-  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
-
-  {% if user and user.role != "viewer" %}
-  <div class="card" style="margin-bottom:14px;">
-    <form method="post" action="/products">
-{% include "_csrf_input.html" %}
-      <div class="grid-2">
-        <input name="code" placeholder="产品编码，如 DEMO" required>
-        <input name="name" placeholder="产品名称" required>
-        <input name="base_url" placeholder="地址，如 http://10.0.0.5:8080" style="grid-column:1/-1;">
-        <input name="description" placeholder="一句话说明" style="grid-column:1/-1;">
-        <select name="ci_provider">
-          <option value="">CI：暂不配置</option>
-          <option value="jenkins">Jenkins</option>
-          <option value="gitlab">GitLab</option>
-          <option value="custom">自研</option>
-        </select>
-        <input name="ci_webhook_url" placeholder="CI 通知地址（占位）">
-        <input name="ci_secret" type="password" placeholder="CI 回调密钥（可选）">
-      </div>
-      <p style="margin:14px 0 0;">
-        <button type="submit" class="btn btn-primary">注册产品</button>
-      </p>
-    </form>
+<div class="page-head">
+  <div>
+    <h1>产品</h1>
   </div>
-  {% endif %}
-
-  {% if products %}
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr><th>产品</th><th>地址</th><th>CI</th><th>说明</th><th>状态</th></tr>
-      </thead>
-      <tbody>
-        {% for p in products %}
-        <tr>
-          <td><strong class="mono">{{ p.code }}</strong> <span class="muted">{{ p.name }}</span></td>
-          <td class="mono muted">{{ p.base_url or "—" }}</td>
-          <td class="muted">{{ p.ci_provider or "—" }}</td>
-          <td class="muted">{{ p.description or "—" }}</td>
-          <td><span class="badge passed">{{ p.status }}</span></td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="page-meta">
+    {{ overview.lanes | length }} 产品 · {{ overview.running_total }} 进行 · {{ overview.upcoming_total }} 待确认<br>
+    {{ overview.updated }} 更新
   </div>
+</div>
+
+{% if error %}<p class="prod-error">{{ error }}</p>{% endif %}
+
+{% if overview.lanes %}
+<div class="prod-list">
+  {% for lane in overview.lanes %}
+  <a class="prod-row{% if lane.group == 'idle' %} idle{% endif %}" href="{{ lane.href }}">
+    <div class="main">
+      <div class="code">{{ lane.product.code }}</div>
+      <div class="name">{{ lane.product.name }}</div>
+      <div class="addr">{{ lane.product.base_url or lane.product.description or "—" }}</div>
+    </div>
+    <div class="side">
+      {% if lane.group == "running" %}
+        <div class="sum"><span class="on">{{ lane.running | length }} 进行</span>{% if lane.upcoming %} · <span class="dr">{{ lane.upcoming | length }} 待确认</span>{% endif %}</div>
+        <div class="now">{{ status_label(lane.running[0].status) }} · {{ lane.running[0].title }}</div>
+      {% elif lane.group == "upcoming" %}
+        <div class="sum"><span class="dr">{{ lane.upcoming | length }} 待确认</span></div>
+        <div class="now">{{ lane.next_text }}</div>
+      {% else %}
+        <div class="quiet">
+          {% if lane.last_done %}{{ lane.last_done.finished_at | localtime }} · {{ status_label(lane.last_done.status) }}{% else %}未执行{% endif %}
+        </div>
+      {% endif %}
+    </div>
+    <div class="chev">→</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  {% if user.role in ("engineer", "admin") %}
+  还没有产品。在下面注册第一个，再去 <a href="/tools">工具</a> 安装测试能力。
   {% else %}
-  <p class="muted">还没有注册产品。注册后去 <a href="/tools">工具</a> 安装测试能力。</p>
+  还没有产品。工程师注册后，这里会出现产品和工作流。
   {% endif %}
+</div>
+{% endif %}
+
+{% if user.role in ("engineer", "admin") %}
+<details class="prod-reg"{% if error or not overview.lanes %} open{% endif %}>
+  <summary class="prod-add"><span class="pm"></span>注册产品</summary>
+  <form method="post" action="/products">
+{% include "_csrf_input.html" %}
+    <div class="reg-grid">
+      <label>
+        <span class="k">编码</span>
+        <input name="code" placeholder="例如 DEMO-CN" required autocomplete="off">
+      </label>
+      <label>
+        <span class="k">名称</span>
+        <input name="name" placeholder="例如 演示产品" required autocomplete="off">
+      </label>
+      <label>
+        <span class="k">地址</span>
+        <input name="base_url" placeholder="例如 http://10.0.0.6:8080" autocomplete="off">
+      </label>
+      <label>
+        <span class="k">说明</span>
+        <input name="description" placeholder="例如 中文站 · 登录与下单" autocomplete="off">
+      </label>
+    </div>
+
+    <details class="reg-ci">
+      <summary><span class="pm"></span>CI 配置（可选）</summary>
+      <div class="reg-grid">
+        <label>
+          <span class="k">CI 类型</span>
+          <select name="ci_provider">
+            <option value="">暂不配置</option>
+            <option value="jenkins">Jenkins</option>
+            <option value="gitlab">GitLab</option>
+            <option value="custom">自研</option>
+          </select>
+        </label>
+        <label>
+          <span class="k">通知地址</span>
+          <input name="ci_webhook_url" placeholder="CI 回调地址（占位）" autocomplete="off">
+        </label>
+        <label class="wide">
+          <span class="k">回调密钥</span>
+          <input name="ci_secret" type="password" placeholder="可选，只保存不校验" autocomplete="new-password">
+        </label>
+      </div>
+    </details>
+
+    <div class="reg-actions">
+      <button type="submit" class="act-primary">注册产品 →</button>
+      <span class="reg-hint">地址会注入给工具；CI 配置当前只保存</span>
+    </div>
+  </form>
+</details>
+{% endif %}
 {% endblock %}

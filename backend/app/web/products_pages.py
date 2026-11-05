@@ -17,7 +17,6 @@ from app.services.product_detail import build_detail
 from app.services.work_products import (
     ProductError,
     create_product,
-    list_products,
 )
 from app.web.csrf import require_csrf
 from app.web.templates import templates
@@ -35,7 +34,7 @@ async def _render(
         request=request,
         name="work_products.html",
         context={
-            "products": await list_products(session),
+            "overview": await build_overview(session),
             "user": user,
             "error": error,
         },

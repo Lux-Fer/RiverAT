@@ -31,11 +31,24 @@ async def _render(
     session: AsyncSession,
     user: User,
     error: str | None = None,
+    *,
+    open_new: bool = False,
+    open_user: UUID | None = None,
 ) -> HTMLResponse:
+    users = await list_users(session)
     return templates.TemplateResponse(
         request=request,
         name="users.html",
-        context={"users": await list_users(session), "user": user, "error": error},
+        context={
+            "users": users,
+            "admin_count": sum(1 for item in users if item.role == "admin"),
+            "engineer_count": sum(1 for item in users if item.role == "engineer"),
+            "viewer_count": sum(1 for item in users if item.role == "viewer"),
+            "open_new": open_new or not users,
+            "open_user": open_user,
+            "user": user,
+            "error": error,
+        },
         status_code=422 if error else 200,
     )
 
@@ -69,7 +82,7 @@ async def create_user_form(
             actor=user,
         )
     except UserError as exc:
-        return await _render(request, session, user, error=str(exc))
+        return await _render(request, session, user, str(exc), open_new=True)
 
     await session.commit()
     return RedirectResponse("/users", status_code=303)
@@ -102,7 +115,9 @@ async def update_user_form(
             password=password or None,
         )
     except UserError as exc:
-        return await _render(request, session, user, error=str(exc))
+        return await _render(
+            request, session, user, str(exc), open_user=target.id
+        )
 
     await session.commit()
     if password:

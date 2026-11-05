@@ -1,61 +1,109 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261112">
+{% endblock %}
 {% block content %}
-  <h2 class="page-title">用户</h2>
-  <p class="page-lede">角色：viewer 只读 · engineer 可提任务/传工具 · admin 管人、管机器、审工具。</p>
+{% set role_labels = {"admin": "管理员", "engineer": "工程师", "viewer": "只读"} %}
+<div class="page-head">
+  <div>
+    <h1>用户</h1>
+  </div>
+  <div class="page-meta">
+    {{ users | length }} 用户 · {{ admin_count }} 管理员 · {{ engineer_count }} 工程师 · {{ viewer_count }} 只读
+  </div>
+</div>
 
-  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
+{% if error %}<p class="prod-error">{{ error }}</p>{% endif %}
 
-  <div class="card" style="margin-bottom:14px;">
-    <form method="post" action="/users" class="row">
+<details class="user-new"{% if open_new %} open{% endif %}>
+  <summary class="user-add"><span class="pm"></span>新建用户</summary>
+  <form method="post" action="/users">
 {% include "_csrf_input.html" %}
-      <input name="username" placeholder="用户名" required style="width:10rem;">
-      <input name="password" type="password" placeholder="初始密码" required style="width:12rem;">
-      <input name="display_name" placeholder="显示名（可选）" style="width:10rem;">
-      <select name="role">
-        <option value="viewer">viewer（只读）</option>
-        <option value="engineer" selected>engineer</option>
-        <option value="admin">admin</option>
-      </select>
-      <button type="submit" class="btn btn-primary">新建用户</button>
+    <div class="reg-grid user-new-grid">
+      <label>
+        <span class="k">用户名</span>
+        <input name="username" placeholder="例如 zhangsan" required autocomplete="off">
+      </label>
+      <label>
+        <span class="k">初始密码</span>
+        <input name="password" type="password" placeholder="至少 6 位" required autocomplete="new-password">
+      </label>
+      <label>
+        <span class="k">显示名</span>
+        <input name="display_name" placeholder="可选" autocomplete="off">
+      </label>
+      <label>
+        <span class="k">角色</span>
+        <select name="role">
+          <option value="viewer">只读</option>
+          <option value="engineer" selected>工程师</option>
+          <option value="admin">管理员</option>
+        </select>
+      </label>
+    </div>
+    <div class="user-form-actions">
+      <button type="submit" class="act-primary">新建用户 →</button>
+      <span class="user-hint">初始密码至少 6 位</span>
+    </div>
+  </form>
+</details>
+
+{% if users %}
+<div class="user-list">
+  {% for u in users %}
+  <details class="user-item{% if not u.is_active %} off{% endif %}"{% if open_user == u.id %} open{% endif %}>
+    <summary class="user-row">
+      <span class="id">
+        <span class="username">{{ u.username }}</span>
+        {% if u.display_name and u.display_name != u.username %}<span class="display">{{ u.display_name }}</span>{% endif %}
+        {% if u.id == user.id %}<span class="self">当前账号</span>{% endif %}
+      </span>
+      <span class="role role-{{ u.role }}">{{ role_labels.get(u.role, u.role) }}</span>
+      <span class="st {{ 'on' if u.is_active else 'off' }}">{{ "启用" if u.is_active else "停用" }}</span>
+      <span class="created">创建 {{ u.created_at | localtime }}</span>
+      <span class="edit"><span class="pm"></span>编辑</span>
+    </summary>
+    <form method="post" action="/users/{{ u.id }}" class="user-form">
+{% include "_csrf_input.html" %}
+      <div class="reg-grid user-edit-grid">
+        <label>
+          <span class="k">显示名</span>
+          <input name="display_name" value="{{ u.display_name }}" autocomplete="off">
+        </label>
+        <label>
+          <span class="k">角色</span>
+          <select name="role">
+            {% for r in ["viewer", "engineer", "admin"] %}
+            <option value="{{ r }}" {% if r == u.role %}selected{% endif %}{% if u.id == user.id and r != "admin" %} disabled{% endif %}>{{ role_labels[r] }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span class="k">状态</span>
+          <select name="is_active">
+            <option value="true" {% if u.is_active %}selected{% endif %}>启用</option>
+            <option value="false" {% if not u.is_active %}selected{% endif %}{% if u.id == user.id %} disabled{% endif %}>停用</option>
+          </select>
+        </label>
+        <label>
+          <span class="k">重置密码</span>
+          <input name="password" type="password" placeholder="留空不改" autocomplete="new-password">
+        </label>
+      </div>
+      <div class="user-form-actions">
+        <button type="submit" class="act-primary">保存 →</button>
+        {% if u.id == user.id %}
+        <span class="user-hint">当前账号不能停用或降级</span>
+        {% else %}
+        <span class="user-hint">改密后该用户会下线</span>
+        {% endif %}
+      </div>
     </form>
-  </div>
-
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>用户</th><th>角色 / 状态</th><th>调整</th></tr></thead>
-      <tbody>
-        {% for u in users %}
-        <tr>
-          <td>
-            <strong class="mono">{{ u.username }}</strong>
-            {% if u.display_name and u.display_name != u.username %}
-            <span class="muted">{{ u.display_name }}</span>
-            {% endif %}
-            {% if not u.is_active %}<span class="badge failed">已停用</span>{% endif %}
-          </td>
-          <td>
-            <span class="badge {{ 'passed' if u.is_active else 'skipped' }}">{{ u.role }}</span>
-          </td>
-          <td>
-            <form method="post" action="/users/{{ u.id }}" class="row" style="gap:6px;">
-{% include "_csrf_input.html" %}
-              <select name="role">
-                {% for r in ["viewer", "engineer", "admin"] %}
-                <option value="{{ r }}" {% if r == u.role %}selected{% endif %}>{{ r }}</option>
-                {% endfor %}
-              </select>
-              <select name="is_active">
-                <option value="true" {% if u.is_active %}selected{% endif %}>启用</option>
-                <option value="false" {% if not u.is_active %}selected{% endif %}>停用</option>
-              </select>
-              <input name="display_name" value="{{ u.display_name }}" style="width:9rem;">
-              <input name="password" type="password" placeholder="重置密码（可空）" style="width:9rem;">
-              <button type="submit" class="btn">保存</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">还没有用户。</div>
+{% endif %}
 {% endblock %}

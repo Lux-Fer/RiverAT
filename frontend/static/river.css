@@ -955,3 +955,89 @@ body.river .llm-foot {
   body.river .llm-grid { grid-template-columns: 1fr; }
   body.river .llm-test-hint, body.river .llm-hint { display: none; }
 }
+
+/* ---------------- users ---------------- */
+body.river .user-new { margin: 2px 0 8px; }
+body.river .user-add {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 4px 0 10px; cursor: pointer; list-style: none;
+  font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
+}
+body.river .user-add::-webkit-details-marker { display: none; }
+body.river .user-add .pm { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+body.river .user-add .pm::after,
+body.river .user-row .edit .pm::after { content: "+"; }
+body.river .user-new[open] .user-add .pm::after,
+body.river .user-item[open] .user-row .edit .pm::after { content: "-"; }
+body.river .user-add:hover { color: var(--water-ink); }
+
+body.river .user-new form {
+  border: 1px solid var(--rule-2); background: #fffdf7;
+  padding: 14px 16px; margin-bottom: 12px;
+}
+body.river .user-new-grid { grid-template-columns: 1fr 1fr 1fr 140px; }
+
+body.river .user-form-actions {
+  display: flex; align-items: baseline; gap: 16px; margin-top: 14px;
+}
+body.river .user-hint { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); }
+
+body.river .user-list { margin-top: 4px; }
+body.river .user-item { border-bottom: 1px solid var(--rule); }
+body.river .user-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 90px 64px 130px 76px;
+  gap: 16px; align-items: center; padding: 12px 0;
+  cursor: pointer; list-style: none;
+}
+body.river .user-row::-webkit-details-marker { display: none; }
+body.river .user-row:hover { background: linear-gradient(90deg, rgba(14, 91, 87, 0.04), transparent 72%); }
+body.river .user-item.off .user-row { opacity: 0.55; }
+body.river .user-item.off[open] .user-row { opacity: 1; }
+body.river .user-row .id {
+  display: flex; align-items: baseline; gap: 10px; min-width: 0;
+}
+body.river .user-row .username {
+  font-family: var(--code); font-size: 15px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .user-row .display {
+  font-size: 12px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .user-row .self {
+  flex: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+  color: var(--water);
+}
+body.river .user-row .role {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-2);
+}
+body.river .user-row .role-admin { color: var(--water); }
+body.river .user-row .role-viewer { color: var(--ink-3); }
+body.river .user-row .st {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em;
+}
+body.river .user-row .st.on { color: var(--water); }
+body.river .user-row .st.off { color: var(--red); }
+body.river .user-row .created {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+body.river .user-row .edit {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+  display: flex; align-items: center; gap: 7px; justify-content: flex-end;
+}
+body.river .user-row .edit .pm { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+
+body.river .user-form {
+  border: 1px solid var(--rule-2); background: #fffdf7;
+  padding: 14px 16px; margin: 0 0 12px;
+}
+body.river .user-edit-grid { grid-template-columns: 1.4fr 150px 130px 1.2fr; }
+
+@media (max-width: 900px) {
+  body.river .user-new-grid { grid-template-columns: 1fr 1fr; }
+  body.river .user-row {
+    grid-template-columns: minmax(0, 1fr) 80px 60px 66px; gap: 10px;
+  }
+  body.river .user-row .created { display: none; }
+  body.river .user-edit-grid { grid-template-columns: 1fr 1fr; }
+}

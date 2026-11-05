@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Task, WorkProduct
+from app.services.duration import duration_between, format_duration
 from app.services.tasks import list_tasks, steps_for
 from app.services.work_products import get_product
 
@@ -67,25 +68,6 @@ def _day(dt: datetime | None) -> str:
     return local.strftime("%m-%d")
 
 
-def _dur(start: datetime | None, end: datetime | None) -> str:
-    if not start or not end:
-        return ""
-    total = max(0, int((end - start).total_seconds()))
-    hours, rem = divmod(total, 3600)
-    minutes, secs = divmod(rem, 60)
-    if hours:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
-
-
-def _clock(seconds: int) -> str:
-    hours, rem = divmod(max(0, int(seconds)), 3600)
-    minutes, secs = divmod(rem, 60)
-    if hours:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
-
-
 def _started(task: Task) -> datetime:
     return task.approved_at or task.created_at
 
@@ -127,7 +109,7 @@ async def build_detail(
                 task=task,
                 when=_short(_started(task)),
                 day=_day(_started(task)),
-                elapsed=_dur(_started(task), now),
+                elapsed=duration_between(_started(task), now),
                 steps=marks,
                 step_text=f"{sum(1 for m in marks if m.done)} / {len(marks)} 步"
                 if marks
@@ -144,7 +126,7 @@ async def build_detail(
             task=task,
             when=_short(task.finished_at),
             day=_day(task.finished_at),
-            elapsed=_dur(_started(task), task.finished_at),
+            elapsed=duration_between(_started(task), task.finished_at),
         )
         for task in done_tasks[:HISTORY_LIMIT]
     ]
@@ -158,7 +140,7 @@ async def build_detail(
         for t in done_today
         if t.finished_at and _started(t) and t.finished_at > _started(t)
     ]
-    avg = _clock(sum(durations) // len(durations)) if durations else "—"
+    avg = format_duration(sum(durations) // len(durations)) if durations else "—"
 
     return Detail(
         product=product,

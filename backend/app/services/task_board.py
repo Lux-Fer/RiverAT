@@ -15,6 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Task, TaskStep, WorkProduct
+from app.services.duration import duration_between
 from app.services.labels import status_label, status_tone
 from app.services.tasks import list_tasks
 from app.services.work_products import list_products
@@ -95,17 +96,6 @@ def _day(dt: datetime | None) -> str:
 
 def _started(task: Task) -> datetime:
     return task.approved_at or task.created_at
-
-
-def _dur(start: datetime | None, end: datetime | None) -> str:
-    if not start or not end:
-        return ""
-    total = max(0, int((end - start).total_seconds()))
-    hours, rem = divmod(total, 3600)
-    minutes, secs = divmod(rem, 60)
-    if hours:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
 
 
 def _ago(dt: datetime, now: datetime) -> str:
@@ -194,7 +184,7 @@ async def build_task_board(
                 day=_day(started),
                 status=status_label(task.status),
                 tone=status_tone(task.status),
-                elapsed="等待" if waiting else _dur(started, now),
+                elapsed="等待" if waiting else duration_between(started, now),
                 waiting=waiting,
                 step_done=sum(1 for mark in marks if mark == "d"),
                 step_total=len(steps),
@@ -226,7 +216,7 @@ async def build_task_board(
             day=_day(task.finished_at),
             status=status_label(task.status),
             tone=status_tone(task.status),
-            duration=_dur(_started(task), task.finished_at),
+            duration=duration_between(_started(task), task.finished_at),
         )
         for task in done_tasks[:DONE_PREVIEW]
     ]

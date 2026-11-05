@@ -101,3 +101,30 @@ async def test_completed_task_detail_offers_rerun(session, client):
     assert page.status_code == 200
     assert "重跑" in page.text
     assert "确认执行" not in page.text
+
+
+async def test_sub_second_step_renders_less_than_one_second(session, client):
+    now = datetime.now(UTC)
+    task = _task("passed", finished_at=now)
+    session.add(task)
+    await session.flush()
+    session.add(
+        TaskStep(
+            task_id=task.id,
+            seq=1,
+            tool_name="web-login",
+            tool_version="1.2.0",
+            args={},
+            status="passed",
+            output={},
+            exit_code=0,
+            started_at=now - timedelta(milliseconds=200),
+            finished_at=now,
+        )
+    )
+    await session.commit()
+
+    page = await client.get(f"/tasks/{task.id}")
+
+    assert page.status_code == 200
+    assert "&lt;1s" in page.text

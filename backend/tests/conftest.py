@@ -154,3 +154,16 @@ async def session(engine):
         await session.commit()
         yield session
         await session.rollback()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def clean_uploaded_tool_bundles():
+    """测试上传的工具包只属于测试库；session 结束删除新增文件，避免 var/tools 堆积。"""
+
+    root = Path(get_settings().tools_root)
+    before = {path.name for path in root.glob("*.tar.gz")} if root.exists() else set()
+    yield
+    if root.exists():
+        for path in root.glob("*.tar.gz"):
+            if path.name not in before:
+                path.unlink(missing_ok=True)

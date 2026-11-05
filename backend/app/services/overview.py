@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Task, WorkProduct
+from app.services.duration import format_duration
 from app.services.tasks import list_tasks
 from app.services.work_products import list_products
 
@@ -73,15 +74,6 @@ def _day(dt: datetime | None) -> str:
     if (today - local.date()).days == 1:
         return "昨天"
     return local.strftime("%m-%d")
-
-
-def _dur(seconds: float) -> str:
-    total = max(0, int(seconds))
-    hours, rem = divmod(total, 3600)
-    minutes, secs = divmod(rem, 60)
-    if hours:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
 
 
 def _pct(moment: datetime, start: datetime, end: datetime) -> float:
@@ -146,7 +138,7 @@ async def build_overview(session: AsyncSession, *, now: datetime | None = None) 
             first = min(running, key=_started)
             lane.title = first.title
             elapsed = (now - _started(first).astimezone(LOCAL)).total_seconds()
-            lane.elapsed = _dur(elapsed)
+            lane.elapsed = format_duration(elapsed)
             lane.meta = f"{len(running)} 运行 · {len(upcoming)} 将进行"
             lane.dots.append(
                 Dot(pct=now_pct, kind="run", label=f"{lane.elapsed} {first.title[:14]}")

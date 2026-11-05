@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Task, TaskStep, WorkProduct
+from app.services.duration import duration_between
 from app.services.labels import status_label, status_tone
 from app.services.work_products import get_product
 
@@ -68,17 +69,6 @@ def _stamp(dt: datetime | None) -> str:
     return dt.astimezone(LOCAL).strftime("%m-%d %H:%M") if dt else ""
 
 
-def _dur(start: datetime | None, end: datetime | None) -> str:
-    if not start or not end:
-        return ""
-    total = max(0, int((end - start).total_seconds()))
-    hours, rem = divmod(total, 3600)
-    minutes, secs = divmod(rem, 60)
-    if hours:
-        return f"{hours}:{minutes:02d}:{secs:02d}"
-    return f"{minutes:02d}:{secs:02d}"
-
-
 def _args(step: TaskStep) -> str:
     return json.dumps(step.args or {}, ensure_ascii=False, separators=(", ", ": "))
 
@@ -112,7 +102,7 @@ async def build_task_detail(
                 step=step,
                 tone=status_tone(step.status),
                 status=status_label(step.status),
-                duration=_dur(step.started_at, end),
+                duration=duration_between(step.started_at, end),
                 args=_args(step),
                 arg_count=len(step.args or {}),
                 stderr=str(output.get("stderr") or ""),
@@ -153,9 +143,9 @@ async def build_task_detail(
     if task.status == "queued":
         clock = "等待"
     elif task.finished_at:
-        clock = _dur(task.approved_at, task.finished_at)
+        clock = duration_between(task.approved_at, task.finished_at)
     elif task.approved_at:
-        clock = _dur(task.approved_at, now)
+        clock = duration_between(task.approved_at, now)
     else:
         clock = ""
 

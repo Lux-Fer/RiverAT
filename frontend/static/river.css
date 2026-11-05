@@ -813,3 +813,110 @@ body.river .reg-hint { font-family: var(--mono); font-size: 9.5px; color: var(--
   body.river .reg-ci .reg-grid { grid-template-columns: 1fr; }
   body.river .reg-hint { display: none; }
 }
+
+/* ---------------- tools ---------------- */
+body.river .tool-up { margin: 2px 0 8px; }
+body.river .tool-add {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 4px 0 10px; cursor: pointer; list-style: none;
+  font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
+}
+body.river .tool-add::-webkit-details-marker { display: none; }
+body.river .tool-add .pm { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+body.river .tool-add .pm::after { content: "+"; }
+body.river .tool-up[open] .tool-add .pm::after { content: "-"; }
+body.river .tool-add:hover { color: var(--water-ink); }
+
+body.river .tool-up form {
+  border: 1px solid var(--rule-2); background: #fffdf7;
+  padding: 13px 16px; margin-bottom: 12px;
+}
+body.river .tool-up-row { display: flex; align-items: center; gap: 18px; }
+body.river .file-pick {
+  display: flex; align-items: center; gap: 12px;
+  flex: 1; min-width: 0; cursor: pointer; position: relative;
+}
+body.river .file-pick input[type="file"] {
+  position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none;
+}
+body.river .file-btn {
+  flex: none; border-bottom: 1px solid var(--rule-2); padding: 2px 0;
+  font: 600 13px/1.2 var(--sans); color: var(--ink);
+}
+body.river .file-pick:hover .file-btn { border-bottom-color: var(--ink); }
+body.river .file-pick:focus-within .file-btn {
+  outline: 2px solid var(--water-2); outline-offset: 2px;
+}
+body.river .file-name {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .tool-up-hint {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+
+body.river .tool-head {
+  display: grid; grid-template-columns: 360px 80px 62px minmax(0, 1fr) 110px;
+  gap: 18px; padding: 0 0 7px;
+  border-bottom: 1px solid var(--rule-2);
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+body.river .tool-head span:last-child { text-align: right; }
+body.river .tool-list { margin-top: 0; }
+body.river .tool-row {
+  display: grid; grid-template-columns: 360px 80px 62px minmax(0, 1fr) 110px;
+  gap: 18px; align-items: center; padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+body.river .tool-row:last-child { border-bottom: 1px solid var(--rule); }
+body.river .tool-row .main { min-width: 0; }
+body.river .tool-row .name {
+  font-family: var(--code); font-size: 14.5px; font-weight: 600; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .tool-row .desc {
+  margin-top: 2px; font-size: 12.5px; color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .tool-row .up {
+  margin-top: 3px; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+body.river .tool-row .ver {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+}
+body.river .tool-row .st {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--ink-3);
+}
+body.river .tool-row .st.t-p { color: var(--water); }
+body.river .tool-row .st.t-w { color: var(--orange); }
+body.river .tool-row .st.t-f { color: var(--red); }
+body.river .tool-row .params {
+  min-width: 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-2);
+}
+body.river .tool-row .params .names {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .tool-row .params .req {
+  margin-top: 2px; font-size: 9.5px; color: var(--ink-3);
+}
+body.river .tool-row .params .quiet { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+body.river .tool-row .acts {
+  display: flex; justify-content: flex-end; align-items: baseline; gap: 14px;
+  text-align: right;
+}
+body.river .tool-row .acts form { display: inline; }
+body.river .tool-row .acts .quiet {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+
+@media (max-width: 900px) {
+  body.river .tool-up-row { flex-wrap: wrap; gap: 10px; }
+  body.river .tool-up-hint { display: none; }
+  body.river .tool-head { display: none; }
+  body.river .tool-row {
+    grid-template-columns: minmax(0, 1fr) 62px 58px 88px; gap: 12px;
+  }
+  body.river .tool-row .params { display: none; }
+  body.river .tool-row .desc { white-space: normal; }
+}

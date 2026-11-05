@@ -25,6 +25,8 @@ from app.web.templates import templates
 
 router = APIRouter(tags=["tool-pages"])
 
+TOOL_RANK = {"pending": 0, "approved": 1, "rejected": 2}
+
 
 async def _render(
     request: Request,
@@ -32,11 +34,20 @@ async def _render(
     user: User,
     error: str | None = None,
 ) -> HTMLResponse:
+    tools = await list_tools(session)
+    tools.sort(
+        key=lambda tool: (
+            TOOL_RANK.get(tool.status, 9),
+            -(tool.created_at.timestamp() if tool.created_at else 0),
+        )
+    )
     return templates.TemplateResponse(
         request=request,
         name="tools.html",
         context={
-            "tools": await list_tools(session),
+            "tools": tools,
+            "pending_count": sum(1 for tool in tools if tool.status == "pending"),
+            "approved_count": sum(1 for tool in tools if tool.status == "approved"),
             "user": user,
             "error": error,
         },

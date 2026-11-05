@@ -32,6 +32,19 @@ STATUS_TONES = {
 }
 
 
+TOOL_STATUS_LABELS = {
+    "pending": "待审",
+    "approved": "可用",
+    "rejected": "已拒绝",
+}
+
+TOOL_STATUS_TONES = {
+    "pending": "w",
+    "approved": "p",
+    "rejected": "f",
+}
+
+
 def status_label(value: str | None) -> str:
     if value is None:
         return "—"
@@ -40,3 +53,11 @@ def status_label(value: str | None) -> str:
 
 def status_tone(value: str | None) -> str:
     return STATUS_TONES.get(value or "", "i")
+
+
+def tool_status_label(value: str | None) -> str:
+    return TOOL_STATUS_LABELS.get(value or "", value or "—")
+
+
+def tool_status_tone(value: str | None) -> str:
+    return TOOL_STATUS_TONES.get(value or "", "i")

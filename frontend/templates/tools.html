@@ -1,75 +1,99 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261110">
+{% endblock %}
 {% block content %}
-  <h2 class="page-title">工具</h2>
-  <p class="page-lede">
-    工具 = <code>tar.gz</code> + <code>tool.json</code>（name / version / entrypoint /
-    input_schema / output_schema）。上传后是 <span class="badge blocked">pending</span>，
-    admin 审核通过后才能被任务调用。
-  </p>
-
-  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
-
-  {% if user and user.role != "viewer" %}
-  <div class="card" style="margin-bottom:14px;">
-    <form method="post" action="/tools" enctype="multipart/form-data" class="row">
-{% include "_csrf_input.html" %}
-      <input type="file" name="file" accept=".tar.gz,application/gzip" required
-             style="height:auto; padding:6px 9px;">
-      <button type="submit" class="btn btn-primary">上传工具包</button>
-    </form>
+<div class="page-head">
+  <div>
+    <h1>工具</h1>
   </div>
-  {% endif %}
-
-  {% if tools %}
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr><th>工具</th><th>版本</th><th>状态</th><th>参数</th><th>操作</th></tr>
-      </thead>
-      <tbody>
-        {% for t in tools %}
-        <tr>
-          <td>
-            <strong class="mono">{{ t.name }}</strong>
-            {% if t.description %}<div class="muted">{{ t.description }}</div>{% endif %}
-          </td>
-          <td class="mono muted">{{ t.version }}</td>
-          <td>
-            <span class="badge {{ 'passed' if t.status == 'approved' else ('blocked' if t.status == 'pending' else 'failed') }}">{{ t.status }}</span>
-          </td>
-          <td class="muted">
-            {% set schema = (t.manifest or {}).get("input_schema", {}) %}
-            {% set props = schema.get("properties", {}) %}
-            {% if props %}
-            参数：{% for name in props %}{{ name }}{% if not loop.last %}、{% endif %}{% endfor %}
-            {% set required = schema.get("required", []) %}
-            {% if required %}（必填：{{ required | join("、") }}）{% endif %}
-            {% else %}无参数{% endif %}
-          </td>
-          <td>
-            {% if user and user.role == "admin" and t.status == "pending" %}
-            <span class="row" style="gap:6px;">
-              <form method="post" action="/tools/{{ t.id }}/approve" style="display:inline;">
-{% include "_csrf_input.html" %}
-                <input type="hidden" name="decision" value="approve">
-                <button type="submit" class="btn">通过</button>
-              </form>
-              <form method="post" action="/tools/{{ t.id }}/approve" style="display:inline;">
-{% include "_csrf_input.html" %}
-                <input type="hidden" name="decision" value="reject">
-                <button type="submit" class="btn">拒绝</button>
-              </form>
-            </span>
-            {% else %}
-            <span class="muted">—</span>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="page-meta">
+    {{ tools | length }} 工具 · {{ pending_count }} 待审 · {{ approved_count }} 可用
   </div>
-  {% else %}
-  <p class="muted">还没有工具。上传 <code>tar.gz</code> 后让 admin 审核，就能在任务里调用。</p>
-  {% endif %}
+</div>
+
+{% if error %}<p class="prod-error">{{ error }}</p>{% endif %}
+
+{% if user.role in ("engineer", "admin") %}
+<details class="tool-up"{% if error or not tools %} open{% endif %}>
+  <summary class="tool-add"><span class="pm"></span>上传工具包</summary>
+  <form method="post" action="/tools" enctype="multipart/form-data">
+{% include "_csrf_input.html" %}
+    <div class="tool-up-row">
+      <label class="file-pick">
+        <input type="file" name="file" accept=".tar.gz,application/gzip" required>
+        <span class="file-btn">选择工具包</span>
+        <span class="file-name">未选择文件</span>
+      </label>
+      <button type="submit" class="act-primary">上传并送审 →</button>
+      <span class="tool-up-hint">tar.gz + tool.json（name / version / entrypoint / input_schema）</span>
+    </div>
+  </form>
+</details>
+{% endif %}
+
+{% if tools %}
+<div class="tool-head">
+  <span>工具</span><span>版本</span><span>状态</span><span>参数</span><span>操作</span>
+</div>
+<div class="tool-list">
+  {% for t in tools %}
+  <div class="tool-row">
+    <div class="main">
+      <div class="name">{{ t.name }}</div>
+      {% if t.description %}<div class="desc">{{ t.description }}</div>{% endif %}
+      <div class="up">上传 {{ t.created_at | localtime }}</div>
+    </div>
+    <div class="ver">{{ t.version }}</div>
+    <div class="st t-{{ tool_status_tone(t.status) }}">{{ tool_status_label(t.status) }}</div>
+    <div class="params">
+      {% set schema = (t.manifest or {}).get("input_schema", {}) %}
+      {% set props = schema.get("properties", {}) %}
+      {% set required = schema.get("required", []) %}
+      {% if props %}
+        <div class="names">{% for name in props %}{{ name }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+        {% if required %}<div class="req">必填 {{ required | join(" · ") }}</div>{% endif %}
+      {% else %}
+        <div class="quiet">无参数</div>
+      {% endif %}
+      {% set runtime = (t.manifest or {}).get("runtime") or {} %}
+      {% if runtime.get("setup") %}<div class="req">环境 {{ runtime.setup | length }} 步</div>{% endif %}
+    </div>
+    <div class="acts">
+      {% if user.role == "admin" and t.status == "pending" %}
+      <form method="post" action="/tools/{{ t.id }}/approve">
+{% include "_csrf_input.html" %}
+        <input type="hidden" name="decision" value="approve">
+        <button type="submit" class="act-primary">通过</button>
+      </form>
+      <form method="post" action="/tools/{{ t.id }}/approve">
+{% include "_csrf_input.html" %}
+        <input type="hidden" name="decision" value="reject">
+        <button type="submit" class="act">拒绝</button>
+      </form>
+      {% elif t.status == "pending" %}
+      <span class="quiet">等 admin 审核</span>
+      {% else %}
+      <span class="quiet">—</span>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">还没有工具。上传 tar.gz 后由 admin 审核，通过后就能在任务里调用。</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if user.role in ("engineer", "admin") %}
+<script>
+  document.querySelectorAll(".file-pick input[type=file]").forEach((input) => {
+    input.addEventListener("change", () => {
+      const name = input.files[0]?.name || "未选择文件";
+      input.closest(".file-pick").querySelector(".file-name").textContent = name;
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

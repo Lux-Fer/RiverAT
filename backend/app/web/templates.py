@@ -15,7 +15,12 @@ from fastapi.templating import Jinja2Templates
 from markupsafe import Markup
 
 from app.core.config import BASE_DIR, get_settings
-from app.services.labels import status_label
+from app.services.labels import (
+    status_label,
+    status_tone,
+    tool_status_label,
+    tool_status_tone,
+)
 
 FRONTEND_DIR = BASE_DIR.parent / "frontend"
 TEMPLATES_DIR = FRONTEND_DIR / "templates"
@@ -24,6 +29,9 @@ STATIC_DIR = FRONTEND_DIR / "static"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # 模板里直接用 {{ status_label("passed") }} → 通过（D76）
 templates.env.globals["status_label"] = status_label
+templates.env.globals["status_tone"] = status_tone
+templates.env.globals["tool_status_label"] = tool_status_label
+templates.env.globals["tool_status_tone"] = tool_status_tone
 
 
 def soft_markdown(text: str) -> Markup:

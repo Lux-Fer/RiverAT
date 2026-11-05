@@ -109,6 +109,7 @@ uv run alembic upgrade head
 | [docs/tool-contract.md](docs/tool-contract.md) | 工具契约 v2：包结构、JSON 输入输出、限制 |
 | [docs/design-v1.1.md](docs/design-v1.1.md) | v1.1 设计：数据模型、流程、里程碑 |
 | [docs/decisions-riverat-requirements.md](docs/decisions-riverat-requirements.md) | 决策记录 D1–D109（含 v1.1 转向） |
+| [tools/text-doc-check](tools/text-doc-check/README.md) | 示例工具：本地文本文档检查 |
 | [PRODUCT.md](PRODUCT.md) | 产品定位、用户、原则 |
 | [DESIGN.md](DESIGN.md) | 视觉系统：精密仪表、token、组件 |
 

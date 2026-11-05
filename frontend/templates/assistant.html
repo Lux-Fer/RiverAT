@@ -1,14 +1,6 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/river.css?v=20261120">{% endblock %}
-
-{% macro chat_row(message) %}
-<div class="chat-row {{ message.role }}">
-  <span class="tm">{{ (message.created_at | localtime)[-5:] }}</span>
-  <span class="who">{{ "你" if message.role == "user" else "助手" }}</span>
-  <div class="body">{{ message.content | soft_markdown }}</div>
-</div>
-{% endmacro %}
+{% block head %}<link rel="stylesheet" href="/static/river.css?v=20261123">{% endblock %}
 
 {% block content %}
 <div class="page-head">
@@ -44,8 +36,27 @@
 {% endif %}
 
 <div class="asst-grid">
-  <div>
-    <form class="brief" method="post" action="/assistant/messages">
+  <div class="asst-chat">
+    {% if messages %}
+    <div class="chat-thread" id="chat-thread">
+      {% for message in messages %}
+      <article class="chat-msg {{ message.role }}">
+        {% if message.role == "assistant" %}<div class="chat-avatar" aria-hidden="true">R</div>{% endif %}
+        <div class="chat-main">
+          <div class="chat-head">
+            {% if message.role == "assistant" %}<span class="chat-who">RiverAT 助手</span>{% endif %}
+            <span class="chat-time">{{ (message.created_at | localtime)[-5:] }}</span>
+          </div>
+          <div class="chat-body">{{ message.content | soft_markdown }}</div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="chat-empty">还没有对话。下面说一句要测什么，模型先给草案，你确认后才执行。</div>
+    {% endif %}
+
+    <form class="brief composer" method="post" action="/assistant/messages">
       {% include "_csrf_input.html" %}
       <div class="brief-row">
         <span class="brief-label">产品</span>
@@ -60,16 +71,9 @@
                 placeholder="例如：用账号 tester 对 DEMO-CN 的登录做一次冒烟检查"></textarea>
       <div class="brief-foot">
         <span class="brief-hint">不自动执行</span>
-        <button type="submit" class="act-primary">生成草案 →</button>
+        <button type="submit" class="act-primary">发送 →</button>
       </div>
     </form>
-
-    {% if messages %}
-    <div class="flow-title" style="margin-top:24px;">对话 <b>{{ messages | length }}</b><span>上下滑动</span></div>
-    <div class="chat-ledger">
-      {% for message in messages %}{{ chat_row(message) }}{% endfor %}
-    </div>
-    {% endif %}
   </div>
 
   <div class="sticky">
@@ -113,7 +117,7 @@
       {% endif %}
     </div>
     {% else %}
-    <div class="draft-empty">还没有草案。左边说一句要测什么，模型会给出工具调用草案。</div>
+    <div class="draft-empty">还没有草案。下面说一句要测什么，模型会给出工具调用草案。</div>
     {% endif %}
 
     {% if recent %}
@@ -130,4 +134,13 @@
     {% endif %}
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (() => {
+    const thread = document.getElementById("chat-thread");
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  })();
+</script>
 {% endblock %}

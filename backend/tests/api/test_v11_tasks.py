@@ -69,6 +69,8 @@ async def test_assistant_creates_draft(session, client, monkeypatch):
 
     page = await client.get("/assistant")
     assert page.status_code == 200
+    assert 'class="chat-msg user"' in page.text
+    assert 'class="chat-avatar"' in page.text
     assert "最新草案" in page.text
     assert "login_smoke" in page.text
     assert "确认执行" in page.text

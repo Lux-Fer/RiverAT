@@ -29,6 +29,7 @@ async def _render(
     session: AsyncSession,
     user: User,
     error: str | None = None,
+    values: dict[str, str] | None = None,
 ) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
@@ -37,6 +38,7 @@ async def _render(
             "overview": await build_overview(session),
             "user": user,
             "error": error,
+            "values": values,
         },
         status_code=422 if error else 200,
     )
@@ -111,7 +113,20 @@ async def create_product_form(
             actor=user,
         )
     except ProductError as exc:
-        return await _render(request, session, user, error=str(exc))
+        return await _render(
+            request,
+            session,
+            user,
+            error=str(exc),
+            values={
+                "code": code,
+                "name": name,
+                "base_url": base_url,
+                "description": description,
+                "ci_provider": ci_provider,
+                "ci_webhook_url": ci_webhook_url,
+            },
+        )
 
     await session.commit()
     return RedirectResponse("/products", status_code=303)

@@ -35,13 +35,19 @@ templates.env.globals["tool_status_tone"] = tool_status_tone
 
 
 def soft_markdown(text: str) -> Markup:
-    """模型回复的极简渲染：粗体、行内代码、换行；代码围栏按普通文本处理。"""
+    """模型回复的极简渲染：粗体、行内代码、换行；三反引号渲染为代码块。"""
 
     escaped = html.escape(text or "")
-    escaped = re.sub(r"```[a-zA-Z]*\n?", "", escaped)
-    escaped = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", escaped)
-    escaped = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", escaped)
-    return Markup(escaped.replace("\n", "<br>"))
+    parts = re.split(r"```[a-zA-Z0-9_+-]*\n?(.*?)```", escaped, flags=re.DOTALL)
+    rendered: list[str] = []
+    for index, part in enumerate(parts):
+        if index % 2:
+            rendered.append(f"<pre><code>{part.rstrip()}</code></pre>")
+            continue
+        part = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", part)
+        part = re.sub(r"`([^`\n]+)`", r"<code>\1</code>", part)
+        rendered.append(part.replace("\n", "<br>"))
+    return Markup("".join(rendered))
 
 
 templates.env.filters["soft_markdown"] = soft_markdown

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261120">
+  <link rel="stylesheet" href="/static/river.css?v=20261122">
 {% endblock %}
 {% block content %}
 <div class="page-head">
@@ -14,7 +14,6 @@
   </div>
 </div>
 
-{% if error %}<p class="prod-error">{{ error }}</p>{% endif %}
 
 {% if overview.lanes %}
 <div class="prod-list">
@@ -53,47 +52,55 @@
 {% endif %}
 
 {% if user.role in ("engineer", "admin") %}
-<details class="prod-reg"{% if error or not overview.lanes %} open{% endif %}>
+<details class="prod-reg" id="register"{% if error or not overview.lanes %} open{% endif %}>
   <summary class="prod-add"><span class="pm"></span>注册产品</summary>
+  {% if error %}<p class="prod-error" role="alert">注册未完成：{{ error }}</p>{% endif %}
   <form method="post" action="/products">
 {% include "_csrf_input.html" %}
     <div class="reg-grid">
       <label>
-        <span class="k">编码</span>
-        <input name="code" placeholder="例如 DEMO-CN" required autocomplete="off">
+        <span class="k">编码 <span class="req">必填</span></span>
+        <input name="code" value="{{ values.code if values else '' }}" placeholder="例如 DEMO-CN"
+               pattern="[A-Za-z0-9][A-Za-z0-9._-]{0,63}" maxlength="64"
+               title="字母或数字开头，只能包含字母、数字、点、下划线、连字符，最长 64"
+               aria-required="true"
+               {% if error %}autofocus{% endif %} required autocomplete="off">
+        <span class="field-hint">字母/数字/._-，最长 64</span>
       </label>
       <label>
-        <span class="k">名称</span>
-        <input name="name" placeholder="例如 演示产品" required autocomplete="off">
+        <span class="k">名称 <span class="req">必填</span></span>
+        <input name="name" value="{{ values.name if values else '' }}" placeholder="例如 演示产品"
+               aria-required="true" required autocomplete="off">
       </label>
       <label>
-        <span class="k">地址</span>
-        <input name="base_url" placeholder="例如 http://10.0.0.6:8080" autocomplete="off">
+        <span class="k">地址 <span class="opt">选填</span></span>
+        <input name="base_url" value="{{ values.base_url if values else '' }}" placeholder="例如 http://10.0.0.6:8080" autocomplete="off">
+        <span class="field-hint">以 http:// 或 https:// 开头；可留空</span>
       </label>
       <label>
-        <span class="k">说明</span>
-        <input name="description" placeholder="例如 中文站 · 登录与下单" autocomplete="off">
+        <span class="k">说明 <span class="opt">选填</span></span>
+        <input name="description" value="{{ values.description if values else '' }}" placeholder="例如 中文站 · 登录与下单" autocomplete="off">
       </label>
     </div>
 
     <details class="reg-ci">
-      <summary><span class="pm"></span>CI 配置（可选）</summary>
+      <summary><span class="pm"></span>CI 配置（选填）</summary>
       <div class="reg-grid">
         <label>
-          <span class="k">CI 类型</span>
+          <span class="k">CI 类型 <span class="opt">选填</span></span>
           <select name="ci_provider">
             <option value="">暂不配置</option>
-            <option value="jenkins">Jenkins</option>
-            <option value="gitlab">GitLab</option>
-            <option value="custom">自研</option>
+            <option value="jenkins" {% if values and values.ci_provider == "jenkins" %}selected{% endif %}>Jenkins</option>
+            <option value="gitlab" {% if values and values.ci_provider == "gitlab" %}selected{% endif %}>GitLab</option>
+            <option value="custom" {% if values and values.ci_provider == "custom" %}selected{% endif %}>自研</option>
           </select>
         </label>
         <label>
-          <span class="k">通知地址</span>
-          <input name="ci_webhook_url" placeholder="CI 回调地址（占位）" autocomplete="off">
+          <span class="k">通知地址 <span class="opt">选填</span></span>
+          <input name="ci_webhook_url" value="{{ values.ci_webhook_url if values else '' }}" placeholder="CI 回调地址（占位）" autocomplete="off">
         </label>
         <label class="wide">
-          <span class="k">回调密钥</span>
+          <span class="k">回调密钥 <span class="opt">选填</span></span>
           <input name="ci_secret" type="password" placeholder="可选，只保存不校验" autocomplete="new-password">
         </label>
       </div>

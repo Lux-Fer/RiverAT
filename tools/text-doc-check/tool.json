@@ -1,0 +1,47 @@
+{
+  "name": "text_doc_check",
+  "version": "1.0.0",
+  "description": "检查本地文本文档：存在、大小、编码、非空、是否包含指定文字。",
+  "entrypoint": {
+    "windows": ["python", "main.py"],
+    "linux": ["python", "main.py"]
+  },
+  "input_schema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "文本文档路径；相对路径基于 RIVERAT_DOCS_ROOT（默认 /app/backend/var/documents）"
+      },
+      "contains": {
+        "type": "string",
+        "description": "必须包含的文字；不填则不检查"
+      },
+      "encoding": {
+        "type": "string",
+        "enum": ["utf-8", "utf-8-sig", "gbk", "latin-1"],
+        "default": "utf-8",
+        "description": "按哪种编码读取"
+      },
+      "min_chars": {
+        "type": "integer",
+        "default": 1,
+        "description": "去掉首尾空白后的最少字符数"
+      },
+      "max_bytes": {
+        "type": "integer",
+        "default": 5000000,
+        "description": "文件最大字节数，避免误读大文件"
+      }
+    },
+    "required": ["path"]
+  },
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "cases": {"type": "array"}
+    },
+    "required": ["cases"]
+  },
+  "timeout_seconds": 30
+}

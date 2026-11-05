@@ -94,6 +94,7 @@ services:
       SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
       DATABASE_URL: postgresql+asyncpg://riverat:123456@db:5432/riverat
       REDIS_URL: redis://redis:6379/0
+      RIVERAT_DOCS_ROOT: /app/backend/var/documents
     depends_on:
       backend:
         condition: service_healthy

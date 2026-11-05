@@ -59,6 +59,9 @@ async def test_products_page_empty_keeps_form_open(session, client):
     assert "还没有产品" in page.text
     assert 'action="/products"' in page.text
     assert "注册产品" in page.text
+    assert "必填" in page.text
+    assert "选填" in page.text
+    assert 'aria-required="true"' in page.text
 
 
 async def test_products_form_creates_product(session, client):
@@ -79,3 +82,30 @@ async def test_products_form_creates_product(session, client):
     assert "FORM-1" in page.text
     assert "表单注册产品" in page.text
     assert "http://10.0.0.9:8080" in page.text
+
+
+async def test_products_form_error_is_inline_and_keeps_values(session, client):
+    response = await client.post(
+        "/products",
+        data={
+            "code": "BAD-1",
+            "name": "地址写错了",
+            "base_url": "10.0.0.9:8080",
+            "description": "保留我",
+            "ci_provider": "jenkins",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 422
+    text = response.text
+    assert "注册未完成" in text
+    assert "http://" in text
+    assert 'value="BAD-1"' in text
+    assert 'value="地址写错了"' in text
+    assert 'value="10.0.0.9:8080"' in text
+    assert 'value="保留我"' in text
+    assert "autofocus" in text
+    assert 'id="register"' in text
+    assert 'role="alert"' in text
+    assert "selected" in text

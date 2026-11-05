@@ -65,11 +65,13 @@ async def llm_settings_save(
     api_key: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     try:
+        current = await get_active(session)
+        key = api_key.strip() or (current.api_key if current else None)
         await save_config(
             session,
             base_url=base_url,
             model=model,
-            api_key=api_key or None,
+            api_key=key,
             actor=user,
         )
     except LlmError as exc:

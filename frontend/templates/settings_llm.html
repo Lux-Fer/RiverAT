@@ -1,46 +1,78 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261111">
+{% endblock %}
 {% block content %}
-  <h2 class="page-title">模型端点</h2>
-  <p class="page-lede">
-    平台通过 OpenAI 兼容协议调用模型。配置存在数据库里，key 加密保存、不显示。
-    当前来源：<b>{{ config.source if config else "未配置" }}</b>
-    {% if config %}· 模型 <code>{{ config.model }}</code> · <span class="mono">{{ config.base_url }}</span>{% endif %}
-  </p>
-
-  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
-  {% if message %}<p class="notice ok">{{ message }}</p>{% endif %}
-
-  {% if tested %}
-    {% if tested.ok %}
-    <p class="notice ok">连接成功：{{ tested.model }} · {{ tested.latency_ms }} ms · 回复「{{ tested.reply or "（无文本）" }}」</p>
+{% set source_label = {"database": "数据库", "env": "环境变量"}.get(config.source, "未配置") if config else "未配置" %}
+<div class="page-head">
+  <div>
+    <h1>模型</h1>
+  </div>
+  <div class="page-meta">
+    {% if config %}
+    {{ config.model }} · 来源 {{ source_label }}<br>
+    Key {% if config.api_key %}{{ "已保存" if config.source == "database" else "已配置" }}{% else %}未设置{% endif %}
     {% else %}
-    <p class="notice bad">连接失败：{{ tested.error }}</p>
+    未配置<br>Key 未设置
     {% endif %}
-  {% endif %}
+  </div>
+</div>
 
-  <div class="card">
-    <form method="post" action="/settings/llm">
+{% if error %}<p class="prod-error">{{ error }}</p>{% endif %}
+{% if message %}<p class="llm-ok">{{ message }}</p>{% endif %}
+{% if tested %}
+<p class="llm-test-result {{ 'ok' if tested.ok else 'bad' }}">
+  {% if tested.ok %}
+  连接成功 · {{ tested.model }} · {{ tested.latency_ms }} ms · 回复「{{ tested.reply or "（无文本）" }}」
+  {% else %}
+  连接失败 · {{ tested.error }}
+  {% endif %}
+</p>
+{% endif %}
+
+<div class="llm-panel">
+  <form method="post" action="/settings/llm">
 {% include "_csrf_input.html" %}
-      <div class="grid-2">
-        <input name="base_url" required
+    <div class="reg-grid llm-grid">
+      <label>
+        <span class="k">端点地址</span>
+        <input name="base_url" required autocomplete="off"
                value="{{ config.base_url if config else '' }}"
                placeholder="https://api.deepseek.com/v1">
-        <input name="model" required
+      </label>
+      <label>
+        <span class="k">模型</span>
+        <input name="model" required autocomplete="off"
                value="{{ config.model if config else '' }}"
                placeholder="deepseek-chat">
-        <input name="api_key" type="password" style="grid-column:1/-1;"
-               placeholder="{% if config and config.api_key %}留空表示不修改{% else %}API Key{% endif %}">
-      </div>
-      <p style="margin:14px 0 0;"><button type="submit" class="btn btn-primary">保存</button></p>
-    </form>
-  </div>
-
-  <form method="post" action="/settings/llm/test" style="margin-top:12px;">
-{% include "_csrf_input.html" %}
-    <button type="submit" class="btn">测试连接（真实调用一次模型）</button>
+      </label>
+      <label class="wide">
+        <span class="k">API Key</span>
+        <input name="api_key" type="password" autocomplete="new-password"
+               placeholder="{{ '留空表示不修改' if config and config.api_key else 'sk-...' }}">
+      </label>
+    </div>
+    <div class="llm-actions">
+      <button type="submit" class="act-primary">保存配置 →</button>
+      <span class="llm-hint">Key 加密保存，页面不回显</span>
+    </div>
   </form>
+</div>
 
-  <p class="muted" style="margin-top:20px; max-width:72ch;">
-    端点不可用时，平台仍可手动创建任务并执行；模型只影响"用自然语言提需求"这一个入口。
-  </p>
+<form method="post" action="/settings/llm/test" class="llm-test">
+{% include "_csrf_input.html" %}
+  <button type="submit" class="act">测试连接 →</button>
+  <span class="llm-test-hint">真实调用一次模型，会消耗 token</span>
+</form>
+
+<p class="llm-foot">
+  {% if config and config.source == "env" %}
+  当前来自环境变量；保存后写入数据库，并优先于环境变量。
+  {% elif config %}
+  当前来自数据库。端点不可用时，平台仍可手动创建任务并执行。
+  {% else %}
+  保存后助手可用；未配置时，平台仍可手动创建任务并执行。
+  {% endif %}
+</p>
 {% endblock %}

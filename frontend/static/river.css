@@ -920,3 +920,38 @@ body.river .tool-row .acts .quiet {
   body.river .tool-row .params { display: none; }
   body.river .tool-row .desc { white-space: normal; }
 }
+
+/* ---------------- model settings ---------------- */
+body.river .llm-ok { margin: 10px 0 0; color: var(--water); font-size: 12.5px; }
+body.river .llm-test-result {
+  margin: 12px 0 0; font-family: var(--mono); font-size: 11.5px; line-height: 1.7;
+}
+body.river .llm-test-result.ok { color: var(--water); }
+body.river .llm-test-result.bad { color: var(--red); }
+
+body.river .llm-panel {
+  border: 1px solid var(--rule-2); background: #fffdf7;
+  padding: 16px 18px 14px;
+}
+body.river .llm-grid { grid-template-columns: 1.5fr 1fr; }
+body.river .llm-actions {
+  display: flex; align-items: baseline; gap: 16px; margin-top: 16px;
+}
+body.river .llm-hint {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+body.river .llm-test {
+  display: flex; align-items: baseline; gap: 14px; margin-top: 14px;
+}
+body.river .llm-test-hint {
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+body.river .llm-foot {
+  margin: 24px 0 0; max-width: 72ch;
+  font-size: 11.5px; line-height: 1.8; color: var(--ink-3);
+}
+
+@media (max-width: 900px) {
+  body.river .llm-grid { grid-template-columns: 1fr; }
+  body.river .llm-test-hint, body.river .llm-hint { display: none; }
+}

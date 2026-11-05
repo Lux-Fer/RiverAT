@@ -10,6 +10,7 @@
 </head>
 <body class="{% block body_class %}{% endblock %}">
   {% set path = request.url.path %}
+  {% set readout = request.state.readout %}
   <header class="site">
     <div class="shell site-inner">
       <a class="brand" href="/"><span class="mark" aria-hidden="true"></span>RiverAT</a>
@@ -20,14 +21,46 @@
         <a href="/tasks" {% if path.startswith("/tasks") %}class="active" aria-current="page"{% endif %}>任务</a>
         <a href="/products" {% if path.startswith("/products") %}class="active" aria-current="page"{% endif %}>产品</a>
         <a href="/tools" {% if path.startswith("/tools") %}class="active" aria-current="page"{% endif %}>工具</a>
-        {% if user.role == "admin" %}
-        <a href="/settings/llm" {% if path.startswith("/settings") %}class="active" aria-current="page"{% endif %}>模型设置</a>
-        <a href="/users" {% if path.startswith("/users") %}class="active" aria-current="page"{% endif %}>用户</a>
-        <a href="/audit" {% if path.startswith("/audit") %}class="active" aria-current="page"{% endif %}>审计</a>
-        {% endif %}
       </nav>
+      {% if readout and user %}
+      <div class="site-status" role="status" aria-label="平台状态">
+        <span class="item">
+          <span class="dot {{ '' if readout.model_ready else 'off' }}" aria-hidden="true"></span>
+          {% if readout.model_ready %}
+          模型 <b>{{ readout.model }}</b>
+          {% elif user.role == "admin" %}
+          <a href="/settings">模型 <b>未配置 →</b></a>
+          {% else %}
+          模型 <b>未配置</b>
+          {% endif %}
+        </span>
+        {% if readout.draft %}
+        <span class="sep">·</span>
+        <span class="item warn">待确认 <b>{{ readout.draft }}</b></span>
+        {% endif %}
+        {% if readout.active %}
+        <span class="sep">·</span>
+        <span class="item">进行中 <b>{{ readout.active }}</b></span>
+        {% endif %}
+        {% if user.role == "admin" and readout.pending_tools %}
+        <span class="sep">·</span>
+        <span class="item warn">待审工具 <b>{{ readout.pending_tools }}</b></span>
+        {% endif %}
+      </div>
+      {% endif %}
       <div class="site-user">
         {% set role_label = {"viewer": "只读", "engineer": "工程师", "admin": "管理员"}.get(user.role, user.role) %}
+        {% if user.role == "admin" %}
+        <a class="settings-link{% if path.startswith('/settings') or path.startswith('/users') or path.startswith('/audit') %} active{% endif %}"
+           href="/settings" aria-label="设置" title="设置"
+           {% if path.startswith('/settings') or path.startswith('/users') or path.startswith('/audit') %}aria-current="page"{% endif %}>
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </a>
+        {% endif %}
         <span>{{ user.username }} · {{ role_label }}</span>
         <form method="post" action="/logout">
 {% include "_csrf_input.html" %}
@@ -37,30 +70,6 @@
       {% endif %}
     </div>
   </header>
-
-  {% set readout = request.state.readout %}
-  {% if readout and user %}
-  <div class="readout">
-    <div class="shell readout-row" role="status" aria-label="平台状态">
-      <span class="item">
-        <span class="dot {{ '' if readout.model_ready else 'off' }}" aria-hidden="true"></span>
-        {% if readout.model_ready %}
-        模型 <b>{{ readout.model }}</b>
-        {% elif user and user.role == "admin" %}
-        <a href="/settings/llm" style="color:var(--ink);">模型 <b>未配置 →</b></a>
-        {% else %}
-        模型 <b>未配置</b>
-        {% endif %}
-      </span>
-      <span class="item {{ 'warn' if readout.draft else '' }}">待确认 <b>{{ readout.draft }}</b></span>
-      <span class="item">进行中 <b>{{ readout.active }}</b></span>
-      <span class="item">已完成 <b>{{ readout.done }}</b></span>
-      {% if user and user.role == "admin" %}
-      <span class="item {{ 'warn' if readout.pending_tools else '' }}">待审工具 <b>{{ readout.pending_tools }}</b></span>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
 
   <main class="shell">
   {% block content %}{% endblock %}

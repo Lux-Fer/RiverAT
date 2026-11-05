@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261120">
+{% endblock %}
+{% block content %}
+{% set source_label = {"database": "数据库", "env": "环境变量"}.get(config.source, "未配置") if config else "未配置" %}
+<div class="page-head">
+  <div>
+    <h1>设置</h1>
+  </div>
+  <div class="page-meta">
+    模型 · 用户 · 审计<br>
+    仅管理员可见
+  </div>
+</div>
+
+<div class="settings-list">
+  <a class="settings-row" href="/settings/llm">
+    <span class="label">模型</span>
+    <span class="value">
+      {% if config %}
+      {{ config.model }} · 来源 {{ source_label }} ·
+      Key {% if config.api_key %}{{ "已保存" if config.source == "database" else "已配置" }}{% else %}未设置{% endif %}
+      {% else %}
+      未配置
+      {% endif %}
+    </span>
+    <span class="go">管理 →</span>
+  </a>
+
+  <a class="settings-row" href="/users">
+    <span class="label">用户</span>
+    <span class="value">{{ users | length }} 用户 · {{ admin_count }} 管理员 · {{ engineer_count }} 工程师 · {{ viewer_count }} 只读</span>
+    <span class="go">管理 →</span>
+  </a>
+
+  <a class="settings-row" href="/audit">
+    <span class="label">审计</span>
+    <span class="value">
+      {% if latest %}
+      {{ log_count }} 条 · 最近 {{ latest.created_at | localtime }} · {{ action_label(latest.action) }}
+      {% else %}
+      还没有审计记录
+      {% endif %}
+    </span>
+    <span class="go">查看 →</span>
+  </a>
+</div>
+
+<p class="settings-foot">模型、用户与审计只对管理员开放；产品与工具在工作区管理。</p>
+{% endblock %}

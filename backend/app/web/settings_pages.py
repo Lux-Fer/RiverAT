@@ -11,11 +11,39 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_admin
 from app.db.session import get_session
 from app.models import User
+from app.services.audit import action_label, list_logs
 from app.services.llm import LlmError, get_active, save_config, test_connection
+from app.services.users import list_users
 from app.web.csrf import require_csrf
 from app.web.templates import templates
 
 router = APIRouter(tags=["settings-pages"])
+
+
+@router.get("/settings", response_class=HTMLResponse)
+async def settings_index(
+    request: Request,
+    user: Annotated[User, Depends(require_admin)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> HTMLResponse:
+    config = await get_active(session)
+    users = await list_users(session)
+    logs = await list_logs(session, limit=200)
+    return templates.TemplateResponse(
+        request=request,
+        name="settings.html",
+        context={
+            "config": config,
+            "users": users,
+            "admin_count": sum(1 for item in users if item.role == "admin"),
+            "engineer_count": sum(1 for item in users if item.role == "engineer"),
+            "viewer_count": sum(1 for item in users if item.role == "viewer"),
+            "log_count": len(logs),
+            "latest": logs[0] if logs else None,
+            "action_label": action_label,
+            "user": user,
+        },
+    )
 
 
 async def _render(

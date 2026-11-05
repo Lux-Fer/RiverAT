@@ -1,8 +1,13 @@
 {% extends "base.html" %}
+{% block body_class %}river forbidden{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261116">
+{% endblock %}
 {% block content %}
-  <div class="card" style="max-width: 480px; margin: 2rem auto;">
-    <h2 style="font-size:1rem; margin:.2rem 0 .6rem;">没有权限</h2>
-    <p class="muted">{{ detail or "当前角色不能执行这个操作。" }}</p>
-    <p><a href="/">返回执行记录</a></p>
-  </div>
+<div class="forbidden-wrap">
+  <div class="forbidden-code">403</div>
+  <h1>没有权限</h1>
+  <p class="forbidden-detail">{{ detail or "当前角色不能执行这个操作。" }}</p>
+  <p class="forbidden-acts"><a class="act" href="/">返回工作台 →</a></p>
+</div>
 {% endblock %}

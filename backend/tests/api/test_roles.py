@@ -28,6 +28,18 @@ async def test_viewer_page_hides_create_form(session, client, login_as):
     assert "没有权限" in forbidden.text
 
 
+async def test_forbidden_page_has_way_back(session, client, login_as):
+    login_as("engineer")
+
+    page = await client.get("/users")
+
+    assert page.status_code == 403
+    assert "没有权限" in page.text
+    assert "需要管理员权限" in page.text
+    assert "返回工作台" in page.text
+    assert 'href="/"' in page.text
+
+
 async def test_engineer_can_create_but_not_manage_hosts(session, client, login_as):
     login_as("engineer")
 

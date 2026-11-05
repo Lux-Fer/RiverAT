@@ -1133,3 +1133,41 @@ body.river .audit-detail .dv {
   body.river .audit-detail { grid-template-columns: 1fr; }
   body.river .audit-detail .dk { text-align: left; }
 }
+
+/* ---------------- login ---------------- */
+body.river.login { min-height: 100vh; display: flex; flex-direction: column; }
+body.river.login main.shell {
+  flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;
+}
+body.river .login-wrap { width: min(380px, 100%); padding: 36px 0 54px; }
+body.river .login-kicker {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
+  color: var(--ink-3);
+}
+body.river .login-wrap h1 {
+  margin: 8px 0 28px; font-size: 46px; font-weight: 650;
+  letter-spacing: -0.045em; line-height: 1;
+}
+body.river .login-form label {
+  display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px;
+}
+body.river .login-form .k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; color: var(--ink-3);
+}
+body.river .login-form input {
+  width: 100%; border: 0; border-bottom: 1px solid var(--rule-2); border-radius: 0;
+  background: transparent; color: var(--ink);
+  font: 400 16px/1.5 var(--sans); padding: 7px 0;
+}
+body.river .login-form input:focus { outline: 0; border-bottom-color: var(--water-2); }
+body.river .login-error { margin: 0 0 16px; color: var(--red); font-size: 12.5px; }
+body.river .login-actions { margin-top: 20px; }
+body.river .login-foot {
+  margin: 28px 0 0; font-family: var(--mono); font-size: 10px;
+  line-height: 1.8; color: var(--ink-3);
+}
+
+@media (max-width: 900px) {
+  body.river .login-wrap { padding: 22px 0 40px; }
+  body.river .login-wrap h1 { font-size: 38px; }
+}

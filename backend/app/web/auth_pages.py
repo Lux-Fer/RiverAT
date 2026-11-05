@@ -52,7 +52,7 @@ async def login_submit(
             status_code=401,
         )
 
-    response = RedirectResponse("/products", status_code=303)
+    response = RedirectResponse("/", status_code=303)
     response.set_cookie(
         COOKIE_NAME,
         token,

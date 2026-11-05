@@ -1,23 +1,31 @@
 {% extends "base.html" %}
+{% block body_class %}river login{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261114">
+{% endblock %}
 {% block content %}
-  <div class="auth">
-    <div class="card">
-      <div class="brandbar"><span class="mark" aria-hidden="true"></span>RiverAT</div>
-      <h2 class="page-title" style="margin-bottom:16px;">登录</h2>
-      {% if error %}<p class="notice bad" role="alert">{{ error }}</p>{% endif %}
-      <form method="post" action="/login">
+<div class="login-wrap">
+  <div class="login-kicker">内网部署</div>
+  <h1>登录</h1>
+
+  {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
+
+  <form method="post" action="/login" class="login-form">
 {% include "_csrf_input.html" %}
-        <p style="margin:0 0 10px;">
-          <input name="username" placeholder="用户名" value="{{ username or '' }}" required
-                 autocomplete="username" style="width:100%;">
-        </p>
-        <p style="margin:0 0 14px;">
-          <input name="password" type="password" placeholder="密码" required
-                 autocomplete="current-password" style="width:100%;">
-        </p>
-        <button type="submit" class="btn btn-primary" style="width:100%; height:34px;">登录</button>
-      </form>
-      <p class="muted" style="margin:14px 0 0;">内网部署 · 账号由管理员分配</p>
+    <label>
+      <span class="k">用户名</span>
+      <input name="username" value="{{ username or '' }}" required
+             autocomplete="username" autofocus>
+    </label>
+    <label>
+      <span class="k">密码</span>
+      <input name="password" type="password" required autocomplete="current-password">
+    </label>
+    <div class="login-actions">
+      <button type="submit" class="act-primary">进入 →</button>
     </div>
-  </div>
+  </form>
+
+  <p class="login-foot">账号由管理员分配；忘记密码请联系管理员。</p>
+</div>
 {% endblock %}

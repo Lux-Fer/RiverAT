@@ -65,9 +65,9 @@ async def test_form_login_then_logout(session, client, real_auth):
         follow_redirects=False,
     )
     assert login.status_code == 303
-    assert login.headers["location"] == "/products"
+    assert login.headers["location"] == "/"
 
-    home = await client.get("/products")
+    home = await client.get("/")
     assert home.status_code == 200
     assert "alice" in home.text
 
@@ -79,9 +79,21 @@ async def test_form_login_then_logout(session, client, real_auth):
     assert after.status_code == 401
 
 
+async def test_login_page_has_form(session, client):
+    page = await client.get("/login")
+
+    assert page.status_code == 200
+    assert "内网部署" in page.text
+    assert 'action="/login"' in page.text
+    assert "用户名" in page.text
+    assert "密码" in page.text
+    assert "进入" in page.text
+
+
 async def test_bad_form_password_shows_error(session, client, real_auth):
     response = await client.post(
         "/login", data={"username": "alice", "password": "nope"}
     )
     assert response.status_code == 401
     assert "用户名或密码错误" in response.text
+    assert 'value="alice"' in response.text

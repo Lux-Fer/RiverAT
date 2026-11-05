@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261107">
+  <link rel="stylesheet" href="/static/river.css?v=20261108">
   {% if board.running_count %}<meta http-equiv="refresh" content="10">{% endif %}
 {% endblock %}
 {% block content %}
@@ -41,7 +41,7 @@
       <div class="tt">{{ row.task.title }}</div>
       <div class="sub">
         {% if row.product %}{{ row.product.code }} · {{ row.product.name }}{% else %}未关联产品{% endif %}
-        · <span class="stt {{ row.tone }}">{{ row.status }}</span>
+        · <span class="stt t-{{ row.tone }}">{{ row.status }}</span>
       </div>
       {% if row.step_marks %}
       <div class="prog">
@@ -85,7 +85,7 @@
     {% for row in board.done %}
     <a class="task-done" href="/tasks/{{ row.task.id }}">
       <span class="tm">{{ row.day }} {{ row.clock }}</span>
-      <span class="rs {{ row.tone }}">{{ row.status }}</span>
+      <span class="rs t-{{ row.tone }}">{{ row.status }}</span>
       <span class="tt">{{ row.task.title }}</span>
       <span class="pd">{% if row.product %}{{ row.product.code }}{% else %}—{% endif %}</span>
       <span class="du">{{ row.duration or "—" }}</span>

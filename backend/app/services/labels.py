@@ -17,7 +17,26 @@ STATUS_LABELS = {
 }
 
 
+STATUS_TONES = {
+    "passed": "p",
+    "failed": "f",
+    "error": "f",
+    "blocked": "f",
+    "skipped": "i",
+    "cancelled": "i",
+    "pending": "i",
+    "queued": "i",
+    "running": "run",
+    "draft": "w",
+    "cancelling": "w",
+}
+
+
 def status_label(value: str | None) -> str:
     if value is None:
         return "—"
     return STATUS_LABELS.get(value, value)
+
+
+def status_tone(value: str | None) -> str:
+    return STATUS_TONES.get(value or "", "i")

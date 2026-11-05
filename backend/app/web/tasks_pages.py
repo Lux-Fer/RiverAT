@@ -14,6 +14,7 @@ from app.api.deps import require_admin, require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
 from app.services.task_board import build_task_board
+from app.services.task_detail import build_task_detail
 from app.services.tasks import (
     TaskError,
     approve_task,
@@ -62,17 +63,13 @@ async def _render_detail(
     error: str | None = None,
 ) -> HTMLResponse:
     steps = await steps_for(session, task.id)
+    view = await build_task_detail(session, task, steps)
     return templates.TemplateResponse(
         request=request,
         name="task_detail.html",
         context={
             "task": task,
-            "steps": steps,
-            "cases": [
-                {"step": step, **case}
-                for step in steps
-                for case in (step.output or {}).get("cases", [])
-            ],
+            "view": view,
             "user": user,
             "error": error,
         },

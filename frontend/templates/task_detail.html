@@ -1,111 +1,130 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
 {% block head %}
-  {% if task.status in ("queued", "running", "cancelling") %}
-  <meta http-equiv="refresh" content="5">
-  {% endif %}
+  <link rel="stylesheet" href="/static/river.css?v=20261108">
+  {% if view.active %}<meta http-equiv="refresh" content="5">{% endif %}
 {% endblock %}
 {% block content %}
-  <h2 class="page-title" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    {{ task.title }}
-    <span class="badge {{ task.status if task.status in ('passed','failed','error','skipped') else 'queued' }}">{{ task.status }}</span>
-  </h2>
-  <p class="page-lede">
-    {% if task.request_text %}原始需求：{{ task.request_text }}{% endif %}
-    <span class="mono" style="margin-left:8px;">{{ task.created_at | localtime }}</span>
-  </p>
-
-  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
-
-  {% if task.status == "draft" %}
-  <p class="row" style="margin:0 0 16px;">
-    <form method="post" action="/tasks/{{ task.id }}/approve" style="display:inline;">
-{% include "_csrf_input.html" %}
-      <button type="submit" class="btn btn-primary">确认执行</button>
-    </form>
-    <form method="post" action="/tasks/{{ task.id }}/cancel" style="display:inline;">
-{% include "_csrf_input.html" %}
-      <button type="submit" class="btn">取消</button>
-    </form>
-  </p>
-  {% elif task.status in ("queued", "running") %}
-  <p class="row" style="margin:0 0 16px;">
-    <span class="muted">任务已排队/执行中，刷新页面看进度。</span>
-    <form method="post" action="/tasks/{{ task.id }}/cancel" style="display:inline;">
-{% include "_csrf_input.html" %}
-      <button type="submit" class="btn">取消</button>
-    </form>
-    <span class="muted">运行中取消会在当前步骤结束后生效。</span>
-  </p>
-  {% elif task.status == "cancelling" %}
-  <p class="muted">已请求取消，等当前步骤结束。</p>
-  {% elif steps %}
-  <p class="row" style="margin:0 0 16px;">
-    <form method="post" action="/tasks/{{ task.id }}/rerun" style="display:inline;">
-{% include "_csrf_input.html" %}
-      <button type="submit" class="btn">重跑（生成新草案）</button>
-    </form>
-  </p>
-  {% endif %}
-
-  <h3 class="section">步骤 <b>{{ steps | length }}</b></h3>
-  {% if steps %}
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>#</th><th>工具</th><th>参数</th><th>状态</th><th>退出码</th><th>错误</th></tr></thead>
-      <tbody>
-        {% for step in steps %}
-        <tr>
-          <td class="mono muted">{{ step.seq }}</td>
-          <td><strong class="mono">{{ step.tool_name }}</strong> <span class="muted">{{ step.tool_version }}</span></td>
-          <td>
-            {% if task.status == "draft" %}
-            <form method="post" action="/tasks/{{ task.id }}/steps/{{ step.id }}/args"
-                  class="row" style="gap:6px; align-items:flex-start;">
-{% include "_csrf_input.html" %}
-              <textarea name="args" rows="3" class="mono"
-                        style="min-width:280px; font-size:12px;">{{ step.args | tojson }}</textarea>
-              <button type="submit" class="btn">保存</button>
-            </form>
-            {% else %}
-            <span class="mono muted">{{ step.args | tojson }}</span>
-            {% endif %}
-          </td>
-          <td><span class="badge {{ step.status if step.status in ('passed','failed','error','skipped') else 'queued' }}">{{ step.status }}</span></td>
-          <td class="mono muted">{{ step.exit_code if step.exit_code is not none else "—" }}</td>
-          <td class="muted">{{ step.error or "—" }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+<div class="td-head">
+  <div class="td-main">
+    <a class="back" href="/tasks">← 任务</a>
+    <h1>{{ task.title }}</h1>
+    <div class="td-meta">
+      {% if view.product %}<a href="/products/{{ view.product.id }}">{{ view.product.code }} · {{ view.product.name }}</a> · {% endif %}
+      创建 {{ view.created }}{% if view.started and view.started != view.created %} · 开始 {{ view.started }}{% endif %}{% if view.finished %} · 结束 {{ view.finished }}{% endif %}
+    </div>
+    {% if task.request_text %}
+    <p class="td-req"><span class="k">原始需求</span>{{ task.request_text }}</p>
+    {% endif %}
   </div>
+  <div class="td-side">
+    <div class="td-status t-{{ view.tone }}">{{ view.status }}</div>
+    {% if view.clock %}<div class="td-clock{% if task.status == 'queued' %} wait{% endif %}">{{ view.clock }}</div>{% endif %}
+    <div class="td-acts">
+      {% if user.role in ("engineer", "admin") %}
+        {% if task.status == "draft" %}
+        <form method="post" action="/tasks/{{ task.id }}/approve">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act-primary">确认执行 →</button>
+        </form>
+        <form method="post" action="/tasks/{{ task.id }}/cancel">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">取消</button>
+        </form>
+        {% elif task.status in ("queued", "running") %}
+        <form method="post" action="/tasks/{{ task.id }}/cancel">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">取消</button>
+        </form>
+        {% elif view.is_terminal and view.steps %}
+        <form method="post" action="/tasks/{{ task.id }}/rerun">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">重跑 →</button>
+        </form>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</div>
+<div class="td-rule"></div>
+
+{% if error %}<p class="td-error">{{ error }}</p>{% endif %}
+{% if task.status == "cancelling" %}<p class="td-note">已请求取消，当前步骤结束后停止。</p>{% endif %}
+
+<section class="td-band" aria-label="步骤">
+  <div class="flow-title">步骤 <b>{{ view.steps | length }}</b><span>{{ view.step_text }}{% if view.summary %} · {{ view.summary }}{% endif %}</span></div>
+  {% if view.steps %}
+  <ol class="td-steps">
+    {% for row in view.steps %}
+    <li class="td-step t-{{ row.tone }}">
+      <span class="seq">{{ "%02d" | format(row.step.seq) }}</span>
+      <span class="node"></span>
+      <div class="body">
+        <div class="head">
+          <span class="tool">{{ row.step.tool_name }}</span>
+          <span class="ver">{{ row.step.tool_version }}</span>
+          <span class="st">{{ row.status }}</span>
+          <span class="du">{{ row.duration or "—" }}</span>
+        </div>
+        {% if row.step.exit_code is not none and row.step.exit_code != 0 or row.case_count %}
+        <div class="marks">
+          {% if row.step.exit_code is not none and row.step.exit_code != 0 %}<span class="exit">exit {{ row.step.exit_code }}</span>{% endif %}
+          {% if row.case_count %}<span>{{ row.case_count }} 条用例</span>{% endif %}
+        </div>
+        {% endif %}
+        {% if row.step.error %}<div class="err">{{ row.step.error }}</div>{% endif %}
+        <details class="td-more">
+          <summary{% if task.status == "draft" %} class="draft"{% endif %} title="{% if task.status == 'draft' %}修改这一步的参数{% else %}{{ row.args }}{% endif %}"><span class="pm"></span><span class="pv">{% if task.status == "draft" %}参数 {{ row.arg_count }} 项 / 改参数{% else %}{{ row.args }}{% endif %}</span></summary>
+          {% if task.status == "draft" %}
+          <form method="post" action="/tasks/{{ task.id }}/steps/{{ row.step.id }}/args">
+{% include "_csrf_input.html" %}
+            <textarea name="args" rows="3" spellcheck="false">{{ row.step.args | tojson(indent=2) }}</textarea>
+            <button type="submit" class="act">保存参数</button>
+          </form>
+          {% else %}
+          <pre>{{ row.args }}</pre>
+          {% endif %}
+        </details>
+        {% if row.stderr %}
+        <details class="td-more">
+          <summary><span class="pm"></span>stderr</summary>
+          <pre>{{ row.stderr }}</pre>
+        </details>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
   {% else %}
-  <p class="muted">这个任务没有工具调用。</p>
+  <p class="td-empty">这个任务没有工具调用。</p>
   {% endif %}
+</section>
 
-  {% if cases %}
-  <h3 class="section">用例结果 <b>{{ cases | length }}</b></h3>
-  <div class="table-scroll">
-    <table>
-      <thead><tr><th>用例</th><th>状态</th><th>耗时</th><th>原因</th><th>来自步骤</th></tr></thead>
-      <tbody>
-        {% for case in cases %}
-        <tr>
-          <td class="mono">{{ case.case_id or "—" }}</td>
-          <td><span class="badge {{ case.status if case.status in ('passed','failed','error','skipped') else 'queued' }}">{{ case.status }}</span></td>
-          <td class="mono muted">{{ case.duration_ms if case.duration_ms is not none else "—" }} ms</td>
-          <td class="muted">{{ case.reason or "—" }}</td>
-          <td class="muted">{{ case.step.seq }} · {{ case.step.tool_name }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{% if view.cases %}
+<section class="td-band" aria-label="用例结果">
+  <div class="flow-title">用例结果 <b>{{ view.cases | length }}</b><span>{{ view.case_summary }}</span></div>
+  <div class="td-cases">
+    {% for case in view.cases %}
+    <div class="td-case">
+      <span class="cid">{{ case.case_id }}</span>
+      <span class="cst t-{{ case.tone }}">{{ case.status }}</span>
+      <span class="crs" title="{{ case.reason }}">{{ case.reason }}</span>
+      <span class="cdr">{{ case.duration }}</span>
+      <span class="csrc">{{ case.source }}</span>
+    </div>
+    {% endfor %}
   </div>
-  {% endif %}
-
-  {% for step in steps if (step.output or {}).get("stderr") %}
-  <details>
-    <summary>步骤 {{ step.seq }} 的 stderr</summary>
-    <pre>{{ step.output.get("stderr") }}</pre>
-  </details>
-  {% endfor %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+{% if view.active %}
+<script>
+  document.querySelectorAll("details").forEach((item) => {
+    item.addEventListener("toggle", () => {
+      if (item.open) document.querySelector('meta[http-equiv="refresh"]')?.remove();
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

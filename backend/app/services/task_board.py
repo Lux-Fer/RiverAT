@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Task, TaskStep, WorkProduct
-from app.services.labels import status_label
+from app.services.labels import status_label, status_tone
 from app.services.tasks import list_tasks
 from app.services.work_products import list_products
 
@@ -121,20 +121,6 @@ def _ago(dt: datetime, now: datetime) -> str:
     return f"{hours // 24} 天前"
 
 
-def _tone(status: str) -> str:
-    if status == "passed":
-        return "p"
-    if status in {"failed", "error"}:
-        return "f"
-    if status == "running":
-        return "run"
-    if status in {"draft", "cancelling"}:
-        return "w"
-    if status == "queued":
-        return "i"
-    return "i"
-
-
 def _marks(steps: list[TaskStep]) -> list[str]:
     marks: list[str] = []
     for step in steps:
@@ -207,7 +193,7 @@ async def build_task_board(
                 clock=_short(started),
                 day=_day(started),
                 status=status_label(task.status),
-                tone=_tone(task.status),
+                tone=status_tone(task.status),
                 elapsed="等待" if waiting else _dur(started, now),
                 waiting=waiting,
                 step_done=sum(1 for mark in marks if mark == "d"),
@@ -239,7 +225,7 @@ async def build_task_board(
             clock=_short(task.finished_at),
             day=_day(task.finished_at),
             status=status_label(task.status),
-            tone=_tone(task.status),
+            tone=status_tone(task.status),
             duration=_dur(_started(task), task.finished_at),
         )
         for task in done_tasks[:DONE_PREVIEW]

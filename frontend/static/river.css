@@ -288,7 +288,9 @@ body.river .act-primary {
 body.river .act-primary:hover { color: var(--water-ink); border-bottom-color: var(--water-ink); }
 body.river .act-primary:disabled { color: var(--ink-3); border-bottom-color: var(--rule-2); cursor: not-allowed; }
 body.river .act {
-  display: inline-block; border-bottom: 1px solid var(--rule-2);
+  display: inline-block;
+  border: 0; border-bottom: 1px solid var(--rule-2); border-radius: 0;
+  background: transparent; box-shadow: none;
   color: var(--ink-2); padding: 0 0 2px; font: 400 12.5px/1.2 var(--sans);
 }
 body.river .act:hover { color: var(--ink); border-bottom-color: var(--ink); }
@@ -439,11 +441,11 @@ body.river .task-run .step {
   font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
   letter-spacing: 0.04em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-body.river .task-run .stt.p { color: var(--water); }
-body.river .task-run .stt.f { color: var(--red); }
-body.river .task-run .stt.w { color: var(--orange); }
-body.river .task-run .stt.i { color: var(--ink-3); }
-body.river .task-run .stt.run { color: var(--water); }
+body.river .task-run .stt.t-p { color: var(--water); }
+body.river .task-run .stt.t-f { color: var(--red); }
+body.river .task-run .stt.t-w { color: var(--orange); }
+body.river .task-run .stt.t-i { color: var(--ink-3); }
+body.river .task-run .stt.t-run { color: var(--water); }
 body.river .task-run .clock {
   font-family: var(--mono); font-size: 32px; letter-spacing: -0.045em;
   line-height: 1; text-align: right; color: var(--ink);
@@ -483,9 +485,9 @@ body.river .task-done {
 body.river .task-done:hover { background: linear-gradient(90deg, rgba(14, 91, 87, 0.04), transparent 70%); }
 body.river .task-done .tm { color: var(--ink-3); font-size: 10.5px; }
 body.river .task-done .rs { font-size: 9.5px; letter-spacing: 0.1em; }
-body.river .task-done .rs.p { color: var(--water); }
-body.river .task-done .rs.f { color: var(--red); }
-body.river .task-done .rs.i { color: var(--ink-3); }
+body.river .task-done .rs.t-p { color: var(--water); }
+body.river .task-done .rs.t-f { color: var(--red); }
+body.river .task-done .rs.t-i { color: var(--ink-3); }
 body.river .task-done .tt {
   font-family: var(--sans); font-size: 14px; color: var(--ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -514,4 +516,190 @@ body.river .task-stale form { justify-self: end; }
   body.river .task-done .pd { display: none; }
   body.river .task-stale { grid-template-columns: minmax(0, 1fr) 80px; }
   body.river .task-stale .sub { display: none; }
+}
+
+/* ---------------- task detail ---------------- */
+body.river .td-head {
+  display: grid; grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 36px; align-items: start; padding-top: 22px;
+}
+body.river .td-head .back {
+  display: inline-block;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em;
+  color: var(--ink-3);
+}
+body.river .td-head .back:hover { color: var(--ink); }
+body.river .td-head h1 {
+  margin: 8px 0 7px; max-width: 760px;
+  font-size: 38px; font-weight: 650; letter-spacing: -0.04em; line-height: 1.12;
+}
+body.river .td-meta {
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+  letter-spacing: 0.02em; line-height: 1.7;
+}
+body.river .td-meta a { color: var(--ink-2); border-bottom: 1px solid var(--rule-2); }
+body.river .td-meta a:hover { color: var(--ink); border-bottom-color: var(--ink); }
+body.river .td-req {
+  margin: 12px 0 0; max-width: 760px;
+  font-size: 13.5px; line-height: 1.75; color: var(--ink-2);
+}
+body.river .td-req .k {
+  margin-right: 10px; font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0.12em; color: var(--ink-3);
+}
+body.river .td-side { text-align: right; }
+body.river .td-status {
+  font-family: var(--mono); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.16em;
+}
+body.river .td-status.t-p { color: var(--water); }
+body.river .td-status.t-f { color: var(--red); }
+body.river .td-status.t-run { color: var(--water); }
+body.river .td-status.t-w { color: var(--orange); }
+body.river .td-status.t-i { color: var(--ink-3); }
+body.river .td-clock {
+  margin-top: 5px; font-family: var(--mono); font-size: 48px;
+  letter-spacing: -0.05em; line-height: 0.95; color: var(--ink);
+}
+body.river .td-clock.wait {
+  font-size: 13px; letter-spacing: 0.14em; color: var(--ink-3);
+  line-height: 3.2;
+}
+body.river .td-acts {
+  display: flex; gap: 20px; justify-content: flex-end;
+  margin-top: 11px; font-family: var(--mono); font-size: 11.5px;
+}
+body.river .td-acts form { display: inline; }
+body.river .td-rule { height: 2px; background: var(--ink); margin-top: 18px; }
+
+body.river .td-error { margin: 14px 0 0; color: var(--red); font-size: 12.5px; line-height: 1.7; }
+body.river .td-note { margin: 12px 0 0; color: var(--orange); font-size: 12px; }
+
+body.river .td-band { margin-top: 24px; }
+body.river .td-band .flow-title { margin-bottom: 2px; }
+
+body.river .td-steps {
+  position: relative; list-style: none;
+  margin: 6px 0 0; padding: 0 0 0 72px;
+}
+body.river .td-steps::before {
+  content: ""; position: absolute; left: 36px; top: 18px; bottom: 20px; width: 1px;
+  background: linear-gradient(180deg, transparent, var(--rule-2) 5%, var(--rule-2) 95%, transparent);
+}
+body.river .td-step { position: relative; padding: 15px 0 16px; }
+body.river .td-step .seq {
+  position: absolute; left: -72px; top: 17px; width: 26px; text-align: right;
+  font-family: var(--mono); font-size: 11px; color: var(--ink-3);
+}
+body.river .td-step .node {
+  position: absolute; left: -40px; top: 18px; width: 8px; height: 8px;
+  border-radius: 50%; background: var(--sheet); border: 1px solid var(--rule-2);
+  box-sizing: border-box;
+}
+body.river .td-step.t-p .node { background: var(--water); border-color: var(--water); }
+body.river .td-step.t-f .node { background: var(--red); border-color: var(--red); }
+body.river .td-step.t-run .node {
+  left: -42px; top: 16px; width: 12px; height: 12px;
+  background: var(--water); border: 0; box-shadow: 0 0 0 4px rgba(14, 91, 87, 0.13);
+}
+
+body.river .td-step .head { display: flex; align-items: baseline; gap: 8px; }
+body.river .td-step .tool { font-size: 15.5px; font-weight: 600; letter-spacing: -0.01em; }
+body.river .td-step .ver { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+body.river .td-step .st {
+  margin-left: 10px; font-family: var(--mono); font-size: 9.5px;
+  letter-spacing: 0.12em; color: var(--ink-3);
+}
+body.river .td-step.t-p .st { color: var(--water); }
+body.river .td-step.t-f .st { color: var(--red); }
+body.river .td-step.t-run .st { color: var(--water); }
+body.river .td-step .du {
+  margin-left: auto; width: 66px; text-align: right;
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
+}
+body.river .td-step .args {
+  margin-top: 4px; max-width: 760px;
+  font-family: var(--code); font-size: 10.5px; line-height: 1.55; color: var(--ink-3);
+  white-space: pre-wrap; word-break: break-all;
+}
+body.river .td-step .marks {
+  display: flex; gap: 16px; margin-top: 5px;
+  font-family: var(--mono); font-size: 9.5px; color: var(--ink-3);
+}
+body.river .td-step .marks .exit { color: var(--red); }
+body.river .td-step .err { margin-top: 4px; color: var(--red); font-size: 11.5px; line-height: 1.6; }
+
+body.river .td-more { margin-top: 8px; }
+body.river .td-more summary {
+  display: flex; align-items: baseline; gap: 8px; max-width: 760px;
+  list-style: none; cursor: pointer;
+  font-family: var(--code); font-size: 10.5px; line-height: 1.55; color: var(--ink-3);
+}
+body.river .td-more summary::-webkit-details-marker { display: none; }
+body.river .td-more summary .pv {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .td-more summary.draft {
+  font-family: var(--sans); font-size: 11px; letter-spacing: 0.02em;
+}
+body.river .td-more summary .pm {
+  flex: none; width: 9px; color: var(--ink-3);
+  font-family: var(--mono); font-size: 9px; line-height: 1.8;
+}
+body.river .td-more summary .pm::after { content: "+"; }
+body.river .td-more[open] summary .pm::after { content: "-"; }
+body.river .td-more summary:hover { color: var(--ink); }
+body.river .td-more form { margin-top: 8px; }
+body.river .td-more textarea {
+  display: block; width: min(100%, 620px); min-height: 76px; resize: vertical;
+  padding: 8px 10px; margin-bottom: 8px;
+  font: 400 11.5px/1.6 var(--code); color: var(--ink);
+  background: var(--sheet); border: 1px solid var(--rule-2); border-radius: 0;
+}
+body.river .td-more textarea:focus { outline: 0; border-color: var(--water-2); }
+body.river .td-more pre {
+  margin: 6px 0 0; max-height: 190px; overflow: auto;
+  font-family: var(--code); font-size: 11px; line-height: 1.6; color: var(--ink-2);
+  white-space: pre-wrap; word-break: break-all;
+}
+
+body.river .td-empty { padding: 10px 0; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+body.river .td-cases { margin-top: 4px; }
+body.river .td-case {
+  display: grid; grid-template-columns: 220px 44px minmax(0, 1fr) 70px 126px;
+  gap: 12px; align-items: baseline; padding: 6px 0;
+  font-family: var(--mono); font-size: 11.5px; color: var(--ink-2);
+}
+body.river .td-case:hover { background: linear-gradient(90deg, rgba(14, 91, 87, 0.04), transparent 72%); }
+body.river .td-case .cid {
+  font-family: var(--code); font-size: 10.5px; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .td-case .cst { font-size: 9.5px; letter-spacing: 0.1em; }
+body.river .td-case .cst.t-p { color: var(--water); }
+body.river .td-case .cst.t-f { color: var(--red); }
+body.river .td-case .crs {
+  font-family: var(--sans); font-size: 11.5px; color: var(--ink-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+body.river .td-case .cdr { font-size: 10.5px; color: var(--ink-3); text-align: right; }
+body.river .td-case .csrc {
+  font-size: 10px; color: var(--ink-3); text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  body.river .td-head { grid-template-columns: 1fr; gap: 16px; padding-top: 18px; }
+  body.river .td-side { text-align: left; }
+  body.river .td-acts { justify-content: flex-start; }
+  body.river .td-clock { font-size: 38px; }
+  body.river .td-head h1 { font-size: 31px; }
+  body.river .td-steps { padding-left: 52px; }
+  body.river .td-steps::before { left: 26px; }
+  body.river .td-step .seq { left: -52px; width: 20px; }
+  body.river .td-step .node { left: -30px; }
+  body.river .td-step.run .node { left: -32px; }
+  body.river .td-case { grid-template-columns: minmax(0, 1fr) 40px 60px; gap: 8px; }
+  body.river .td-case .crs, body.river .td-case .csrc { display: none; }
 }

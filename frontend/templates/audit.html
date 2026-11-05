@@ -1,51 +1,65 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261113">
+{% endblock %}
 {% block content %}
-  <h2 class="page-title">审计日志</h2>
-  <p class="page-lede">
-    只记录管理层动作（计划、用户、发布单、测试机），不记录执行本身；最多显示最近 200 条，导出上限 5000 条。
-  </p>
-
-  <form method="get" action="/audit" class="row" style="margin-bottom:14px;">
-    <input name="username" value="{{ filters.username }}" placeholder="操作人用户名" style="width:10rem;">
-    <select name="action">
-      <option value="">全部动作</option>
-      {% for value, label in actions %}
-      <option value="{{ value }}" {% if value == filters.action %}selected{% endif %}>{{ label }}</option>
-      {% endfor %}
-    </select>
-    <button type="submit" class="btn">筛选</button>
-    {% if filters.username or filters.action %}
-    <a href="/audit">清除筛选</a>
-    {% endif %}
-    <a class="btn" href="/api/v1/audit/export.csv?username={{ filters.username }}&action={{ filters.action }}">导出 CSV</a>
-  </form>
-
-  {% if logs %}
-  <div class="table-scroll">
-    <table>
-      <thead>
-        <tr><th>时间</th><th>操作人</th><th>动作</th><th>对象</th><th>详情</th></tr>
-      </thead>
-      <tbody>
-        {% for entry in logs %}
-        <tr>
-          <td class="mono muted">{{ entry.created_at | localtime }}</td>
-          <td>{{ entry.username }}</td>
-          <td>{{ action_label(entry.action) }}</td>
-          <td class="mono muted">
-            {{ entry.target_type }}{% if entry.target_id %} · {{ entry.target_id[:8] }}{% endif %}
-          </td>
-          <td class="muted">
-            {% for key, value in entry.detail.items() %}
-            <span>{{ key }}={{ value }}</span>{% if not loop.last %} · {% endif %}
-            {% endfor %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+{% set target_labels = {"task": "任务", "user": "用户", "tool": "工具", "work_product": "产品", "product": "产品", "release": "发布单", "host": "测试机", "plan": "计划"} %}
+<div class="page-head">
+  <div>
+    <h1>审计日志</h1>
   </div>
-  {% else %}
-  <p class="muted">没有匹配的审计记录。</p>
+  <div class="page-meta">
+    {{ logs | length }} 条{% if filters.username or filters.action %}匹配{% endif %} · 最近 200 条<br>
+    只记录管理动作
+  </div>
+</div>
+
+<form method="get" action="/audit" class="audit-filter">
+  <input name="username" value="{{ filters.username }}" placeholder="操作人用户名" autocomplete="off">
+  <select name="action">
+    <option value="">全部动作</option>
+    {% for value, label in actions %}
+    <option value="{{ value }}" {% if value == filters.action %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="act-primary">筛选 →</button>
+  {% if filters.username or filters.action %}
+  <a class="act" href="/audit">清除</a>
   {% endif %}
+  <a class="audit-export" href="/api/v1/audit/export.csv?username={{ filters.username | urlencode }}&action={{ filters.action | urlencode }}">导出 CSV →</a>
+</form>
+
+{% if logs %}
+<div class="audit-head">
+  <span>时间</span><span>操作人</span><span>动作</span><span>对象</span><span>详情</span><span></span>
+</div>
+<div class="audit-list">
+  {% for entry in logs %}
+  <details class="audit-item">
+    <summary class="audit-row">
+      <span class="time">{{ entry.created_at | localtime }}</span>
+      <span class="who{% if entry.username == 'system' %} system{% endif %}">{{ entry.username }}</span>
+      <span class="what">{{ action_label(entry.action) }}</span>
+      <span class="target">{{ target_labels.get(entry.target_type, entry.target_type) }}{% if entry.target_id %} · {{ entry.target_id[:8] }}{% endif %}</span>
+      <span class="detail">
+        {% for key, value in entry.detail.items() %}{{ key }}={{ value }}{% if not loop.last %} · {% endif %}{% else %}—{% endfor %}
+      </span>
+      <span class="more"><span class="pm"></span></span>
+    </summary>
+    <div class="audit-detail">
+      {% if entry.detail %}
+      {% for key, value in entry.detail.items() %}
+      <span class="dk">{{ key }}</span><span class="dv">{{ value }}</span>
+      {% endfor %}
+      {% else %}
+      <span class="dv">无详情</span>
+      {% endif %}
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">没有匹配的审计记录。</div>
+{% endif %}
 {% endblock %}

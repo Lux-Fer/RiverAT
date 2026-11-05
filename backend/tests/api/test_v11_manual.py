@@ -108,3 +108,22 @@ async def test_manual_task_page_invalid_json(session, client):
 async def test_viewer_cannot_open_manual_task_page(session, client, login_as):
     login_as("viewer")
     assert (await client.get("/tasks/new")).status_code == 403
+
+
+async def test_manual_task_page_shows_tool_schema(session, client):
+    await _approved_tool(client)
+
+    page = await client.get("/tasks/new")
+
+    assert page.status_code == 200
+    assert "查看工具参数" in page.text
+    assert "base_url" in page.text
+    assert "生成草案" in page.text
+
+
+async def test_manual_task_page_without_tools(session, client):
+    page = await client.get("/tasks/new")
+
+    assert page.status_code == 200
+    assert "还没有审核通过的工具" in page.text
+    assert 'action="/tasks/manual"' not in page.text

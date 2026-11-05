@@ -1,40 +1,86 @@
 {% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261115">
+{% endblock %}
 {% block content %}
-  <h2 class="page-title">手动创建任务</h2>
-  <p class="page-lede">
-    模型不可用或不想用模型时，直接选工具、填参数。生成的是<b>草案</b>，仍要确认后才会执行。
-  </p>
+<div class="page-head">
+  <div>
+    <h1>手动创建任务</h1>
+    <div class="page-sub">模型不可用时的降级入口；生成的是草案，仍需确认后执行。</div>
+  </div>
+  <div class="page-meta">
+    {{ tools | length }} 个可用工具<br>
+    {{ products | length }} 个产品
+  </div>
+</div>
 
-  {% if error %}<p class="notice bad">{{ error }}</p>{% endif %}
-  {% if not tools %}
-  <p class="notice bad">还没有审核通过的工具，先去 <a href="/tools">工具</a> 上传并让 admin 审核。</p>
-  {% endif %}
+{% if error %}<p class="prod-error">{{ error }}</p>{% endif %}
 
-  <div class="card">
-    <form method="post" action="/tasks/manual">
+{% if not tools %}
+<div class="manual-empty">还没有审核通过的工具。先去 <a href="/tools">工具</a> 上传并让 admin 审核。</div>
+{% else %}
+<div class="manual-panel">
+  <form method="post" action="/tasks/manual">
 {% include "_csrf_input.html" %}
-      <div class="grid-2">
+    <div class="reg-grid manual-grid">
+      <label>
+        <span class="k">被测产品</span>
         <select name="product_id">
-          <option value="">被测产品（可选）</option>
+          <option value="">不指定产品</option>
           {% for p in products %}
           <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
           {% endfor %}
         </select>
+      </label>
+      <label>
+        <span class="k">工具</span>
         <select name="tool_id" required>
           <option value="">选择工具</option>
           {% for t in tools %}
           <option value="{{ t.id }}">{{ t.name }} · {{ t.version }}</option>
           {% endfor %}
         </select>
-        <input name="title" placeholder="任务标题（可选，默认用工具名）" style="grid-column:1/-1;">
+      </label>
+      <label class="wide">
+        <span class="k">任务标题</span>
+        <input name="title" placeholder="可选，默认用工具名" autocomplete="off">
+      </label>
+    </div>
+
+    <div class="manual-args">
+      <div class="manual-args-head">
+        <span class="k">参数 JSON</span>
+        <span>按所选工具的 input_schema 校验</span>
       </div>
-      <p style="margin:12px 0 6px;" class="muted">参数（JSON，按工具的 input_schema 校验）：</p>
-      <textarea name="args" rows="5" class="mono" required
-                style="width:100%; font-size:12px;">{}</textarea>
-      <p class="row" style="margin:14px 0 0;">
-        <button type="submit" class="btn btn-primary">生成草案</button>
-        <a href="/tasks">返回任务</a>
-      </p>
-    </form>
+      <textarea name="args" rows="6" required spellcheck="false">{}</textarea>
+    </div>
+
+    <div class="manual-actions">
+      <button type="submit" class="act-primary">生成草案 →</button>
+      <a class="act" href="/tasks">返回任务</a>
+    </div>
+  </form>
+</div>
+
+<details class="manual-doc">
+  <summary><span class="pm"></span>查看工具参数</summary>
+  <div class="manual-doc-list">
+    {% for t in tools %}
+    {% set schema = (t.manifest or {}).get("input_schema", {}) %}
+    {% set props = schema.get("properties", {}) %}
+    {% set required = schema.get("required", []) %}
+    <div class="manual-doc-row">
+      <span class="tool">{{ t.name }} · {{ t.version }}</span>
+      <span class="schema">
+        {% if props %}
+        参数 {% for name in props %}{{ name }}{% if not loop.last %} · {% endif %}{% endfor %}
+        {% if required %}；必填 {{ required | join(" · ") }}{% endif %}
+        {% else %}无参数{% endif %}
+      </span>
+    </div>
+    {% endfor %}
   </div>
+</details>
+{% endif %}
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
-{% block head %}<link rel="stylesheet" href="/static/river.css?v=20261123">{% endblock %}
+{% block head %}<link rel="stylesheet" href="/static/river.css?v=20261127">{% endblock %}
 
 {% block content %}
 <div class="page-head">
@@ -60,12 +60,14 @@
       {% include "_csrf_input.html" %}
       <div class="brief-row">
         <span class="brief-label">产品</span>
-        <select name="product_id">
-          <option value="">不指定</option>
-          {% for p in products %}
-          <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
-          {% endfor %}
-        </select>
+        <div class="ui-select">
+          <select name="product_id" aria-label="产品">
+            <option value="">不指定</option>
+            {% for p in products %}
+            <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <textarea name="text" rows="3" required
                 placeholder="例如：用账号 tester 对 DEMO-CN 的登录做一次冒烟检查"></textarea>

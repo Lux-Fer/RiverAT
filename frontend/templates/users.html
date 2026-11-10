@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261120">
+  <link rel="stylesheet" href="/static/river.css?v=20261127">
 {% endblock %}
 {% block content %}
 {% set role_labels = {"admin": "管理员", "engineer": "工程师", "viewer": "只读"} %}
@@ -33,14 +33,16 @@
         <span class="k">显示名</span>
         <input name="display_name" placeholder="可选" autocomplete="off">
       </label>
-      <label>
+      <div class="ui-field">
         <span class="k">角色</span>
-        <select name="role">
-          <option value="viewer">只读</option>
-          <option value="engineer" selected>工程师</option>
-          <option value="admin">管理员</option>
-        </select>
-      </label>
+        <div class="ui-select">
+          <select name="role" aria-label="角色">
+            <option value="viewer">只读</option>
+            <option value="engineer" selected>工程师</option>
+            <option value="admin">管理员</option>
+          </select>
+        </div>
+      </div>
     </div>
     <div class="user-form-actions">
       <button type="submit" class="act-primary">新建用户 →</button>
@@ -71,21 +73,25 @@
           <span class="k">显示名</span>
           <input name="display_name" value="{{ u.display_name }}" autocomplete="off">
         </label>
-        <label>
+        <div class="ui-field">
           <span class="k">角色</span>
-          <select name="role">
-            {% for r in ["viewer", "engineer", "admin"] %}
-            <option value="{{ r }}" {% if r == u.role %}selected{% endif %}{% if u.id == user.id and r != "admin" %} disabled{% endif %}>{{ role_labels[r] }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>
+          <div class="ui-select">
+            <select name="role" aria-label="角色">
+              {% for r in ["viewer", "engineer", "admin"] %}
+              <option value="{{ r }}" {% if r == u.role %}selected{% endif %}{% if u.id == user.id and r != "admin" %} disabled{% endif %}>{{ role_labels[r] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="ui-field">
           <span class="k">状态</span>
-          <select name="is_active">
-            <option value="true" {% if u.is_active %}selected{% endif %}>启用</option>
-            <option value="false" {% if not u.is_active %}selected{% endif %}{% if u.id == user.id %} disabled{% endif %}>停用</option>
-          </select>
-        </label>
+          <div class="ui-select">
+            <select name="is_active" aria-label="状态">
+              <option value="true" {% if u.is_active %}selected{% endif %}>启用</option>
+              <option value="false" {% if not u.is_active %}selected{% endif %}{% if u.id == user.id %} disabled{% endif %}>停用</option>
+            </select>
+          </div>
+        </div>
         <label>
           <span class="k">重置密码</span>
           <input name="password" type="password" placeholder="留空不改" autocomplete="new-password">

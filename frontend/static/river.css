@@ -1332,3 +1332,75 @@ body.river .settings-foot {
   body.river .settings-row { grid-template-columns: 84px minmax(0, 1fr) 70px; gap: 12px; padding: 14px 0; }
   body.river .settings-row .label { font-size: 14px; }
 }
+
+/* ---------------- custom select ---------------- */
+body.river .ui-select { position: relative; min-width: 0; }
+body.river .ui-select.is-enhanced > select {
+  position: absolute; width: 1px; height: 1px;
+  opacity: 0; pointer-events: none; border: 0;
+}
+body.river .ui-select-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; border: 0; border-bottom: 1px solid var(--rule-2); border-radius: 0;
+  background: transparent; color: var(--ink);
+  font: 400 14.5px/1.5 var(--sans); padding: 6px 0;
+  text-align: left; cursor: pointer;
+}
+body.river .ui-select-trigger:hover { border-bottom-color: var(--ink-3); }
+body.river .ui-select-trigger:focus-visible { outline: 0; border-bottom-color: var(--water-2); }
+body.river .ui-select-trigger .caret {
+  width: 14px; height: 14px; flex: 0 0 auto; color: var(--ink-2);
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round; transition: transform .12s;
+}
+body.river .ui-select.is-open .ui-select-trigger { border-bottom-color: var(--water-2); }
+body.river .ui-select.is-open .ui-select-trigger .caret { transform: rotate(180deg); }
+body.river .ui-select.is-disabled .ui-select-trigger { opacity: .65; cursor: not-allowed; }
+body.river .ui-select.is-invalid .ui-select-trigger { border-bottom-color: var(--red); }
+
+body.river .ui-select-menu {
+  position: absolute; z-index: 60; left: 0; right: 0; top: calc(100% + 4px);
+  margin: 0; padding: 4px 0; list-style: none;
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 2px;
+  max-height: min(300px, 52vh); overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--rule-2) transparent;
+}
+body.river .ui-select-menu[hidden] { display: none; }
+body.river .ui-select-menu::-webkit-scrollbar { width: 6px; }
+body.river .ui-select-menu::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+body.river .ui-select-menu::-webkit-scrollbar-track { background: transparent; }
+body.river .ui-select-menu::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 3px; }
+body.river .ui-select-option {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; padding: 9px 12px; border: 0; background: transparent;
+  color: var(--ink-2); font: 400 13px/1.4 var(--sans);
+  text-align: left; cursor: pointer;
+}
+body.river .ui-select-option:hover,
+body.river .ui-select-option:focus-visible {
+  background: rgba(14, 91, 87, .06); color: var(--ink); outline: 0;
+}
+body.river .ui-select-option[aria-selected="true"] { color: var(--ink); font-weight: 600; }
+body.river .ui-select-option:disabled { color: var(--ink-3); cursor: not-allowed; opacity: .55; }
+body.river .ui-select-option .check {
+  width: 14px; height: 14px; flex: 0 0 auto; color: var(--water);
+  fill: none; stroke: currentColor; stroke-width: 1.6;
+  stroke-linecap: round; stroke-linejoin: round;
+  visibility: hidden;
+}
+body.river .ui-select-option[aria-selected="true"] .check { visibility: visible; }
+
+body.river .reg-grid .ui-field {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+body.river .reg-grid .ui-field.wide { grid-column: 1 / -1; }
+body.river .reg-grid .ui-field .k { margin-bottom: 0; }
+
+body.river .brief .ui-select-trigger { padding: 2px 0; font-size: 14px; }
+body.river .brief .ui-select-menu { top: calc(100% + 6px); }
+body.river .audit-filter .ui-select { width: 160px; }
+body.river .audit-filter .ui-select-trigger { padding: 5px 0; font-size: 13px; }
+
+@media (max-width: 900px) {
+  body.river .ui-select-menu { max-height: 46vh; }
+}

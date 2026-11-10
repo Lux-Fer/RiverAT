@@ -50,6 +50,8 @@ async def test_products_page_orders_running_before_idle(session, client):
     assert "1 进行" in text
     assert 'action="/products"' in text
     assert "注册产品" in text
+    assert 'class="ui-select"' in text
+    assert "ui-select.js" in text
 
 
 async def test_products_page_empty_keeps_form_open(session, client):

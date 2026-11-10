@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261122">
+  <link rel="stylesheet" href="/static/river.css?v=20261127">
 {% endblock %}
 {% block content %}
 <div class="page-head">
@@ -86,15 +86,17 @@
     <details class="reg-ci">
       <summary><span class="pm"></span>CI 配置（选填）</summary>
       <div class="reg-grid">
-        <label>
+        <div class="ui-field">
           <span class="k">CI 类型 <span class="opt">选填</span></span>
-          <select name="ci_provider">
-            <option value="">暂不配置</option>
-            <option value="jenkins" {% if values and values.ci_provider == "jenkins" %}selected{% endif %}>Jenkins</option>
-            <option value="gitlab" {% if values and values.ci_provider == "gitlab" %}selected{% endif %}>GitLab</option>
-            <option value="custom" {% if values and values.ci_provider == "custom" %}selected{% endif %}>自研</option>
-          </select>
-        </label>
+          <div class="ui-select">
+            <select name="ci_provider" aria-label="CI 类型">
+              <option value="">暂不配置</option>
+              <option value="jenkins" {% if values and values.ci_provider == "jenkins" %}selected{% endif %}>Jenkins</option>
+              <option value="gitlab" {% if values and values.ci_provider == "gitlab" %}selected{% endif %}>GitLab</option>
+              <option value="custom" {% if values and values.ci_provider == "custom" %}selected{% endif %}>自研</option>
+            </select>
+          </div>
+        </div>
         <label>
           <span class="k">通知地址 <span class="opt">选填</span></span>
           <input name="ci_webhook_url" value="{{ values.ci_webhook_url if values else '' }}" placeholder="CI 回调地址（占位）" autocomplete="off">

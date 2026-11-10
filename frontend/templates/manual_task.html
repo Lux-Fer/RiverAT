@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261120">
+  <link rel="stylesheet" href="/static/river.css?v=20261127">
 {% endblock %}
 {% block content %}
 <div class="page-head">
@@ -24,24 +24,28 @@
   <form method="post" action="/tasks/manual">
 {% include "_csrf_input.html" %}
     <div class="reg-grid manual-grid">
-      <label>
-        <span class="k">被测产品</span>
-        <select name="product_id">
-          <option value="">不指定产品</option>
-          {% for p in products %}
-          <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>
-        <span class="k">工具</span>
-        <select name="tool_id" required>
-          <option value="">选择工具</option>
-          {% for t in tools %}
-          <option value="{{ t.id }}">{{ t.name }} · {{ t.version }}</option>
-          {% endfor %}
-        </select>
-      </label>
+      <div class="ui-field">
+        <span class="k">被测产品 <span class="opt">选填</span></span>
+        <div class="ui-select">
+          <select name="product_id" aria-label="被测产品">
+            <option value="">不指定产品</option>
+            {% for p in products %}
+            <option value="{{ p.id }}">{{ p.code }} · {{ p.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="ui-field">
+        <span class="k">工具 <span class="req">必填</span></span>
+        <div class="ui-select">
+          <select name="tool_id" aria-label="工具" required>
+            <option value="">选择工具</option>
+            {% for t in tools %}
+            <option value="{{ t.id }}">{{ t.name }} · {{ t.version }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
       <label class="wide">
         <span class="k">任务标题</span>
         <input name="title" placeholder="可选，默认用工具名" autocomplete="off">

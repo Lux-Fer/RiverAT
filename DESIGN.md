@@ -95,6 +95,7 @@
 - 预览页：`/static/ui-kit.html`（不需要登录；开发服务器和 Docker 镜像都直接提供）。
 - 图标：24px viewBox，1.6 描边，圆角端点；统一用内联 SVG sprite，不引入位图或图标字体。
 - 组件：`.act-primary` / `.act` 文字动作；`.ui-input` / `.ui-textarea` 下划线输入；`.ui-select` 下划线触发器 + 纸面展开菜单（选中项水色 check）；`.ui-status` + `.ui-dot` 状态灯；`.ui-scroll` 与页面滚动条均为 6px、无上下三角按钮。
+- 落地：产品/手动任务/用户/审计/助手里的原生 `<select>` 统一由 `ui-select.js` 增强；原生 select 保留在 DOM 中负责表单提交，无 JS 时仍可用。
 - 资产页只做参考实现，不进入主导航；页面仍以纸面、墨色、水色和状态块为准。
 
 ## Do / Don't

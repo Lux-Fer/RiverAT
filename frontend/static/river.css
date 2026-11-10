@@ -23,6 +23,19 @@ body.river {
   font: 400 16px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Page scrollbar: 6px thumb, no native arrow buttons. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #bcc0b4 #f2efe6;
+}
+html::-webkit-scrollbar { width: 6px; height: 6px; }
+html::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+html::-webkit-scrollbar-track { background: #f2efe6; }
+html::-webkit-scrollbar-thumb {
+  background: #bcc0b4; border: 1px solid #f2efe6; border-radius: 3px;
+}
+html::-webkit-scrollbar-thumb:hover { background: #818e88; }
 body.river a { color: var(--water); text-decoration: none; }
 body.river a:hover { text-decoration: none; }
 body.river code, body.river pre { font-family: var(--code); }
@@ -431,6 +444,7 @@ body.river .flow-title b { font-size: 11px; color: var(--ink-3); font-weight: 40
 body.river .flow-title span { margin-left: auto; font-size: 9px; color: var(--ink-3); letter-spacing: 0.06em; }
 
 body.river .chat-thread::-webkit-scrollbar { width: 6px; }
+body.river .chat-thread::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
 body.river .chat-thread::-webkit-scrollbar-track { background: transparent; }
 body.river .chat-thread::-webkit-scrollbar-thumb { background: var(--rule-2); border-radius: 3px; }
 body.river .chat-thread:hover::-webkit-scrollbar-thumb { background: var(--ink-3); }

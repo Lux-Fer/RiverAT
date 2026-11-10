@@ -386,3 +386,6 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D150 | 产品注册校验失败改为**表单内错误**：`注册未完成：…` 红色 `role=alert` 紧跟注册标题；保留 code/name/base_url/description/ci_provider/webhook；错误时 code 自动聚焦；编码加 pattern/长度提示，地址加协议提示 | 用户连续 3 次 POST 422；原错误在页面顶部且清空表单，像“点了没反应” |
 | D151 | 产品注册字段标注 **必填 / 选填**：编码、名称橙色“必填”；地址、说明、CI 配置及 CI 子字段灰色“选填”；必填输入加 `aria-required` 和 hints | 用户要求明确哪些字段必填、哪些可选 |
 | D152 | 助手聊天记录改为 **DSH 会话式**：用户消息右对齐浅水色气泡，助手消息左侧圆形 R 头像 + 名称 + 平铺正文；时间退到消息行内；输入框移到对话下方，进入自动滚到最新；三反引号渲染为代码块 | 用户要求聊天记录效仿 DSH 会话，不再像时间/角色三栏台账 |
+| D153 | 新增 **UI 资产页** `/static/ui-kit.html`：36 枚 24px/1.6 内联 SVG 图标；文字动作、下划线输入、自定义下拉、checkbox/radio/switch、状态灯、6px 滚动条、tabs/progress/提示；全部继承纸面 Flow | 用户要求一套符合 RiverAT 审美的 UI 资产，覆盖页面必要组件与图标；输入沿用工作区下划线样式 |
+| D154 | 下拉展开态重做：不再用原生弹层；下划线触发器 + 纸面菜单（1px 硬边、无阴影），当前值用水色 check 标出，选项 hover 水色 6%，支持方向键/Home/End/Enter/Esc 与点外关闭 | 原生 select 展开后与纸面视觉断裂；菜单需要像 RiverAT 的一部分 |
+| D155 | 滚动条去掉上下三角按钮：`.ui-scroll` 与页面 `html` 都设 `::-webkit-scrollbar-button { display:none; width:0; height:0 }`；页面滚动条统一为 6px 纸面轨道与滑块 | 原生滚动条箭头与纸面视觉不一致，用户要求消除 |

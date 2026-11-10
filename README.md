@@ -1,62 +1,103 @@
-# RiverAT
+<div align="center">
 
-**承接多个被测产品的测试工作**：工程师配置模型、注册产品、安装工具；用一句话提出测试需求，
-平台生成**任务草案**，人确认后调用工具执行，并把工作流与结果（精确到用例）展示出来。
+# ■ RIVERAT
 
-- 平台不规定测试怎么写：工具由测试团队自己开发，包成 `tar.gz` 上传。
-- 平台不替人做主：任何有副作用的动作都要人确认（v1.1 不做自主执行）。
-- 平台不猜结果：工具返回结构化 JSON，平台只负责调度、执行、记录。
+**River + AT = AutoTest**
 
-## 现在能做什么
+把测试团队已有的能力，接成一条可见的工作流。
 
-| 能力 | 说明 |
-|---|---|
-| 模型配置 | OpenAI 兼容端点（云端 API 或本地服务）；key 加密存库 |
-| 产品注册 | 名称、编码、地址、CI 配置（v1.1 只保存占位） |
-| 工具安装 | 上传 `tar.gz` + `tool.json`；engineer 上传、admin 审核 |
-| 对话 → 草案 | 把请求转成工具调用草案，参数按 `input_schema` 校验 |
-| 人确认 → 执行 | 可改参数；确认后由 worker 执行；单步失败不中断后续步骤 |
-| 工作流 | 将进行 / 进行中 / 已完成；取消（含运行中）、重跑、手动创建 |
-| 结果 | 步骤状态、退出码、用例级结果、stderr；审计可查 |
-| 可靠性 | worker 心跳 + 卡死任务回收（启动自动、admin 手动） |
-| 界面 | 浅色/深色跟随系统；顶栏读数条常驻平台状态 |
+`v1.1`　`私有化 / 内网`　`FastAPI · PostgreSQL · Redis · arq`
 
-## 快速开始（Docker Compose）
+</div>
+
+---
+
+> 平台不规定测试怎么写；只规定三件事：工具如何被调用，工作如何被确认，结果如何被记录。
+
+RiverAT 面向 5–20 人的测试团队：一个团队要接多个产品，产品各有地址与 CI，测试能力散落在 pytest、Robot、自研脚本和手工工具里。
+
+RiverAT 不做用例管理，也不规定测试写法。它把团队已有的测试能力包成工具，让一句测试需求变成**可确认、可执行、可追溯**的工作流。
+
+---
+
+## 一条工作流
+
+```text
+                    一句话需求
+                        │
+                        ▼
+                  任务草案（工具 + 参数）
+                        │
+                  人确认 / 改参数
+                        │
+                        ▼
+   tar.gz 工具 ──► arq worker ──► 工具进程 ──► 用例结果
+                        │
+             超时 / 退出码 / stderr / 证据
+```
+
+**人在环**是产品约束，不是提示语：AI 只负责理解与建议，任何有副作用的动作都要人确认。
+
+## 快速开始
+
+需要 Docker Compose。模型端点可选：不配时仍可用「手动创建任务」；要对话生成草案，再在「设置」里配。
 
 ```bash
-# 1) 必改：会话签名与凭据加密都依赖它
+# 1) 会话签名与凭据加密都依赖它；必须用 shell 变量传入
 export SECRET_KEY="$(openssl rand -hex 32)"
-# 2) 首次启动自动建管理员（库里没有用户时才生效）
+# 首次启动、库里没有用户时，用它创建 admin
 export ADMIN_PASSWORD="your-strong-password"
 
-# 3) 模型端点：写进 backend/.env，compose 会注入容器
+# 2) 模型端点（可跳过；登录后在「设置」里填）
 cat > backend/.env <<'EOF'
 RIVERAT_LLM_BASE_URL=https://api.deepseek.com
 RIVERAT_LLM_MODEL=deepseek-flash
 RIVERAT_LLM_API_KEY=sk-你的key
 EOF
 
+# 3) 启动 PostgreSQL、Redis、backend、worker
 docker compose up -d --build
-curl http://127.0.0.1:8000/health     # {"status":"ok","env":"prod"}
+curl http://127.0.0.1:8000/health
 ```
 
 打开 `http://<服务器>:8000/login`，用 `admin` / `ADMIN_PASSWORD` 登录。
 
-> 模型也可以不写 `.env`：登录后到「模型设置」页填 base_url / model / key，保存后以数据库配置为准。
+> `SECRET_KEY` 和 `ADMIN_PASSWORD` 必须由 shell 传入：compose 里的 `${...}` 优先级高于 `backend/.env`。写进 `.env` 会被默认值覆盖。
 
-## 走一遍完整链路
+<details>
+<summary>Windows PowerShell</summary>
 
-1. **模型设置**（admin）→ 填端点 → 「测试连接」真实调用一次模型。
-2. **产品** → 注册被测产品（编码、名称、地址）。
-3. **工具** → 上传 `tar.gz` → admin 在「工具」页点「通过」。
-4. **助手** → 选产品，说一句"用账号 tester 对 DEMO 的登录做冒烟检查" → 生成草案。
-5. 草案里可以**改参数**（JSON 文本域）→ 点「确认执行」。
-6. **任务** → 「已完成」里点进去看步骤与用例结果；「审计」里看谁确认、谁改过参数。
-7. 模型不可用时：**任务 → 手动创建任务**，直接选工具填参数（同样走草案与确认）。
+```powershell
+$env:SECRET_KEY = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+$env:ADMIN_PASSWORD = "your-strong-password"
 
-## 工具契约（摘要）
+$envText = @'
+RIVERAT_LLM_BASE_URL=https://api.deepseek.com
+RIVERAT_LLM_MODEL=deepseek-flash
+RIVERAT_LLM_API_KEY=sk-你的key
+'@
+[IO.File]::WriteAllText("backend/.env", $envText, [Text.UTF8Encoding]::new($false))
 
-工具 = 一个 `tar.gz`，根目录含 `tool.json`：
+docker compose up -d --build
+```
+
+</details>
+
+默认端口：`8000` Web，`5433` PostgreSQL，`6379` Redis。生产环境只暴露 `8000`，并在前面加反向代理。
+
+## 第一次使用
+
+1. 登录 → 右上角齿轮「设置」→ 打开模型页，填端点并测试连接。
+2. 产品 → 注册被测产品。编码、名称必填；地址可留空，填写时必须以 `http://` 或 `https://` 开头。
+3. 工具 → 上传 `tar.gz`，由 admin 审核通过。示例工具见 [tools/text-doc-check](tools/text-doc-check/README.md)。
+4. 助手 → 选择产品，说一句要测什么，点「发送」。
+5. 在「最新草案」里检查工具与参数，必要时展开任务详情改参数，确认执行。
+6. 任务 → 查看步骤、退出码和用例结果；审计在「设置」里查。
+7. 模型不可用或不想用模型时：任务 → 手动创建任务，直接选工具填参数，同样走确认流程。
+
+## 工具契约
+
+工具是一个 `tar.gz`，根目录包含 `tool.json` 和入口脚本：
 
 ```json
 {
@@ -73,51 +114,66 @@ curl http://127.0.0.1:8000/health     # {"status":"ok","env":"prod"}
 }
 ```
 
-平台通过 **stdin 传 JSON**（`{"args": ..., "product": ...}`），工具往 **stdout 写 JSON**（含 `cases[]`），
-退出码非 0 记 `failed`，超时终止进程树。完整字段、示例与限制见 [docs/tool-contract.md](docs/tool-contract.md)。
+平台通过 **stdin** 传入：
 
-## 目录
+```json
+{"args": {"base_url": "http://10.0.0.6:8080"}, "product": {"code": "DEMO"}}
+```
 
+工具向 **stdout** 返回：
+
+```json
+{"cases": [{"case_id": "login-1", "status": "passed", "duration_ms": 11, "reason": ""}]}
 ```
-backend/app
-  api/v1/         # REST：assistant / tasks / tools / work-products / llm-config / audit
-  services/       # 业务：llm、tasks、tool_exec、tools、work_products、audit、readout
-  web/            # 服务端渲染页面：助手 / 任务 / 产品 / 工具 / 设置 / 用户 / 审计
-  worker/         # arq worker：执行任务、启动时回收卡死任务
-frontend/         # Jinja2 模板 + 静态资源（无 Node 构建）
-docs/             # 部署、契约、决策记录、v1.1 设计
-backend/migrations# Alembic（12 个，启动自动 upgrade head）
+
+退出码非 0 记 `failed`；超时会杀掉整个进程树。完整字段、平台注入的环境变量和限制见 [docs/tool-contract.md](docs/tool-contract.md)。
+
+## 架构
+
+```text
+Browser
+  │  Jinja2 SSR + HTMX（无 Node 构建）
+  ▼
+FastAPI backend ────────────── PostgreSQL
+  │                                │
+  │                                └─ 用户 / 产品 / 工具 / 任务 / 审计
+  ▼
+Redis ── arq worker ── 工具进程（tar.gz 解压执行）
 ```
+
+`backend` 与 `worker` 共用同一个镜像；worker 只负责执行和回收卡死任务。数据库与 Redis 默认落在 Docker named volume，工具包留在宿主机的 `backend/var/tools/`。
 
 ## 开发
 
 ```bash
 cd backend
 uv sync
-uv run pytest                 # 需要本地 PostgreSQL/Redis；见 tests/conftest.py
-uv run ruff check app tests
 uv run alembic upgrade head
+uv run uvicorn app.main:app --host 127.0.0.1 --port 8010
 ```
 
-前端是服务端渲染，改模板/CSS 后重启 backend 即可（Docker 部署需重建镜像）。
+本地测试需要 PostgreSQL 与 Redis：
 
-## 文档
+```bash
+uv run pytest
+uv run ruff check app tests
+```
 
-| 文件 | 内容 |
-|---|---|
-| [docs/deploy.md](docs/deploy.md) | 部署、环境变量、备份、离线安装、升级 |
-| [docs/tool-contract.md](docs/tool-contract.md) | 工具契约 v2：包结构、JSON 输入输出、限制 |
-| [docs/design-v1.1.md](docs/design-v1.1.md) | v1.1 设计：数据模型、流程、里程碑 |
-| [docs/decisions-riverat-requirements.md](docs/decisions-riverat-requirements.md) | 决策记录 D1–D109（含 v1.1 转向） |
-| [tools/text-doc-check](tools/text-doc-check/README.md) | 示例工具：本地文本文档检查 |
-| [PRODUCT.md](PRODUCT.md) | 产品定位、用户、原则 |
-| [DESIGN.md](DESIGN.md) | 视觉系统：精密仪表、token、组件 |
+前端是服务端渲染。改模板或 `river.css` 后刷新即可；Docker 部署需要重建镜像。开发时只启动一个 worker：要么用 `uv run python -m app.worker`，要么用容器 `riverat-worker`，不要同时启动，避免重复消费队列。
 
-## 已知限制（v1.1 如实说明）
+## 已知限制
 
-- 单机 Docker Compose；**没有 HTTPS/反向代理、监控告警、自动备份**，内网试点可，直接公网不行。
-- 工具以**服务进程权限**在 RiverAT 主机运行，**没有沙箱**：只安装可信工具。
-- 工具可在 `tool.json` 里声明 `runtime.setup`，首次执行前安装依赖并缓存；离线环境把 wheel 放进包里。
-- 不回收工具产物文件（只收 stdout JSON 与 stderr）；工具工作目录不会自动清理。
-- 只支持本地执行（无远程 runner / WinRM）；CI webhook 只有配置占位。
+- 单机 Docker Compose；没有 HTTPS / 反向代理 / 监控告警 / 自动备份，内网试点可以，直接公网不行。
+- 工具以服务进程权限在 RiverAT 主机运行，没有沙箱；只安装可信工具。
+- 只支持本地执行，没有远程 runner / WinRM。
+- 工具产物文件不回收，工具工作目录不会自动清理。
+- CI 通知在 v1.1 只保存配置占位，不实际收发。
 - v1.0 遗留 API（`/api/v1/plans`、`/runs`、`/releases` 等）仍挂载但已冻结，页面已下线，不要在其上开发。
+
+---
+
+<div align="center">
+
+<sub>RiverAT v1.1 · 人在环 · 工具即能力 · 工作流可见</sub>
+
+</div>

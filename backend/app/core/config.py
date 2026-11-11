@@ -50,3 +50,23 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+INSECURE_SECRET_KEYS = frozenset(
+    {"", "change-me", "change-me-in-production", "your-secret-key"}
+)
+
+
+def validate_production_settings(settings: Settings | None = None) -> None:
+    """生产启动前拒绝明显不安全的配置，避免默认值直接上线。"""
+
+    current = settings or get_settings()
+    if current.app_env != "prod":
+        return
+    if current.secret_key in INSECURE_SECRET_KEYS or len(current.secret_key) < 16:
+        raise RuntimeError(
+            "生产环境 SECRET_KEY 不安全：请用 openssl rand -hex 32 生成，"
+            "并通过 shell 或项目根目录 .env 注入；不要使用默认值"
+        )
+    if current.debug:
+        raise RuntimeError("生产环境 DEBUG 必须为 false")

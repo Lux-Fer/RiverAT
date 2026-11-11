@@ -393,3 +393,4 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D157 | 队列自愈：worker 启动时把超过 30 秒仍在 `queued` 的任务重新入队并审计；`execute_task_by_id` 用 `UPDATE ... WHERE status='queued'` **原子认领**，重复 job 只有一个执行；任务详情给 queued 任务提供“重新入队 →” | 现网出现批准后 5 天仍 queued、Arq 队列却为空的静默丢失；只回收 running 不够 |
 | D158 | 产品生命周期：详情页可编辑名称/地址/说明/CI；`status=active/archived`，归档后从总览/API 列表隐藏但详情和历史保留，可恢复；归档产品不能再创建任务 | 地址填错只能改库；产品下线不能删除历史 |
 | D159 | 工具生命周期：approved ↔ disabled；停用后不再出现在可用工具/任务参数校验中，已有任务执行时提示“工具已停用”；页面给 admin 停用/启用动作 | 工具换版本或下线时不能只靠删除，需保留历史任务引用 |
+| D160 | 生产安全基线：启动拒绝默认/过短 `SECRET_KEY` 与 `DEBUG=true`；PostgreSQL/Redis 端口只绑 `127.0.0.1`；提供 Caddy 反代示例、`scripts/backup.sh` / `restore.sh`（14 天本地保留） | 当前生产容器仍用默认 SECRET_KEY、数据库端口对宿主机全开；上线前需要最低安全门槛 |

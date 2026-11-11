@@ -163,7 +163,8 @@ uv run ruff check app tests
 
 ## 已知限制
 
-- 单机 Docker Compose；没有 HTTPS / 反向代理 / 监控告警 / 自动备份，内网试点可以，直接公网不行。
+- 单机 Docker Compose；默认不启动 HTTPS，仓库提供 `deploy/Caddyfile` 示例；没有监控告警 / 自动备份服务，内网试点可以，直接公网不行。
+- 生产启动会拒绝默认/过短的 `SECRET_KEY` 和 `DEBUG=true`；首次部署务必用 `openssl rand -hex 32` 生成。
 - 工具以服务进程权限在 RiverAT 主机运行，没有沙箱；只安装可信工具。
 - 只支持本地执行，没有远程 runner / WinRM。
 - 工具产物文件不回收，工具工作目录不会自动清理。

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import api_router
-from app.core.config import get_settings
+from app.core.config import get_settings, validate_production_settings
 from app.db.session import dispose_engine, get_sessionmaker
 from app.services.auth import ensure_bootstrap_admin
 from app.web.assistant_pages import router as assistant_pages_router
@@ -79,7 +79,8 @@ async def _bootstrap_admin() -> None:
 
 def create_app() -> FastAPI:
     settings = get_settings()
-    app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan)
+    validate_production_settings(settings)
+    app = FastAPI(title=settings.app_name, version="0.1.1", lifespan=lifespan)
 
     @app.middleware("http")
     async def readout_middleware(request, call_next):

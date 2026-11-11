@@ -1,0 +1,8 @@
+# RiverAT 前面的 Caddy 反向代理（生产示例）。
+# 用法：把此文件交给已有 Caddy；RIVERAT_DOMAIN 由环境变量提供。
+# Caddy 与 backend 同机时，127.0.0.1:8000 即可。
+
+{$RIVERAT_DOMAIN} {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8000
+}

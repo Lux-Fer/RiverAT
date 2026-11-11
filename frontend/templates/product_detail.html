@@ -5,7 +5,7 @@
 <div class="flow-head">
   <div>
     <a class="back" href="/">← 总览</a>
-    <div class="pname">{{ detail.product.name }}</div>
+    <div class="pname">{{ detail.product.name }}{% if detail.product.status == "archived" %}<span class="archived-mark">已归档</span>{% endif %}</div>
     <div class="pmeta">
       {{ detail.product.code }}
       {% if detail.product.description %} · {{ detail.product.description }}{% endif %}
@@ -89,4 +89,64 @@
     <a class="more" href="/tasks">全部任务 →</a>
   </div>
 </div>
+
+{% if error %}<p class="prod-error">保存未完成：{{ error }}</p>{% endif %}
+
+{% if user.role in ("engineer", "admin") %}
+<details class="prod-reg prod-edit"{% if error %} open{% endif %}>
+  <summary class="prod-add"><span class="pm"></span>产品设置</summary>
+  <form method="post" action="/products/{{ detail.product.id }}">
+{% include "_csrf_input.html" %}
+    <div class="reg-grid">
+      <label>
+        <span class="k">编码</span>
+        <input value="{{ detail.product.code }}" disabled>
+      </label>
+      <label>
+        <span class="k">名称 <span class="req">必填</span></span>
+        <input name="name" value="{{ values.get('name', detail.product.name) if values else detail.product.name }}" required autocomplete="off">
+      </label>
+      <label>
+        <span class="k">地址 <span class="opt">选填</span></span>
+        <input name="base_url" value="{{ values.get('base_url', detail.product.base_url) if values else detail.product.base_url }}" placeholder="例如 http://10.0.0.6:8080" autocomplete="off">
+      </label>
+      <label>
+        <span class="k">说明 <span class="opt">选填</span></span>
+        <input name="description" value="{{ values.get('description', detail.product.description) if values else detail.product.description }}" autocomplete="off">
+      </label>
+    </div>
+    <div class="reg-grid" style="margin-top:12px">
+      <div class="ui-field">
+        <span class="k">CI 类型 <span class="opt">选填</span></span>
+        <div class="ui-select">
+          {% set provider = values.get('ci_provider', detail.product.ci_provider) if values else detail.product.ci_provider %}
+          <select name="ci_provider" aria-label="CI 类型">
+            <option value="" {% if not provider %}selected{% endif %}>暂不配置</option>
+            <option value="jenkins" {% if provider == "jenkins" %}selected{% endif %}>Jenkins</option>
+            <option value="gitlab" {% if provider == "gitlab" %}selected{% endif %}>GitLab</option>
+            <option value="custom" {% if provider == "custom" %}selected{% endif %}>自研</option>
+          </select>
+        </div>
+      </div>
+      <label>
+        <span class="k">通知地址 <span class="opt">选填</span></span>
+        <input name="ci_webhook_url" value="{{ values.get('ci_webhook_url', detail.product.ci_webhook_url) if values else detail.product.ci_webhook_url }}" placeholder="CI 回调地址（占位）" autocomplete="off">
+      </label>
+      <label>
+        <span class="k">回调密钥 <span class="opt">选填</span></span>
+        <input name="ci_secret" type="password" placeholder="{{ '留空不修改' if detail.product.ci_secret_enc else '可选，只保存不校验' }}" autocomplete="new-password">
+      </label>
+    </div>
+    <div class="reg-actions">
+      <button type="submit" class="act-primary">保存修改 →</button>
+      {% if detail.product.status == "archived" %}
+      <button type="submit" class="act" formaction="/products/{{ detail.product.id }}/restore" formnovalidate>恢复产品</button>
+      {% else %}
+      <button type="submit" class="act" formaction="/products/{{ detail.product.id }}/archive" formnovalidate>归档产品</button>
+      {% endif %}
+      <span class="reg-hint">归档后不出现在总览，历史任务保留</span>
+    </div>
+  </form>
+</details>
+{% endif %}
 {% endblock %}

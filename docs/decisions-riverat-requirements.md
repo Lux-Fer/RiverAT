@@ -391,3 +391,5 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D155 | 滚动条去掉上下三角按钮：`.ui-scroll` 与页面 `html` 都设 `::-webkit-scrollbar-button { display:none; width:0; height:0 }`；页面滚动条统一为 6px 纸面轨道与滑块 | 原生滚动条箭头与纸面视觉不一致，用户要求消除 |
 | D156 | UI 资产落地到真实页面：`ui-select.js` 增强产品 CI、手动任务、用户、审计、助手共 7 个原生 `<select>`；原生控件保留负责提交/无 JS 降级，自定义菜单负责展示；表单必填在 JS 侧校验并聚焦触发器 | 让资产页的自定义下拉真正进入工作流，而不是只停留在预览页 |
 | D157 | 队列自愈：worker 启动时把超过 30 秒仍在 `queued` 的任务重新入队并审计；`execute_task_by_id` 用 `UPDATE ... WHERE status='queued'` **原子认领**，重复 job 只有一个执行；任务详情给 queued 任务提供“重新入队 →” | 现网出现批准后 5 天仍 queued、Arq 队列却为空的静默丢失；只回收 running 不够 |
+| D158 | 产品生命周期：详情页可编辑名称/地址/说明/CI；`status=active/archived`，归档后从总览/API 列表隐藏但详情和历史保留，可恢复；归档产品不能再创建任务 | 地址填错只能改库；产品下线不能删除历史 |
+| D159 | 工具生命周期：approved ↔ disabled；停用后不再出现在可用工具/任务参数校验中，已有任务执行时提示“工具已停用”；页面给 admin 停用/启用动作 | 工具换版本或下线时不能只靠删除，需保留历史任务引用 |

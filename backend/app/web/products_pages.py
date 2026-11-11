@@ -17,6 +17,10 @@ from app.services.product_detail import build_detail
 from app.services.work_products import (
     ProductError,
     create_product,
+    get_product,
+    list_products,
+    set_product_status,
+    update_product,
 )
 from app.web.csrf import require_csrf
 from app.web.templates import templates
@@ -31,11 +35,42 @@ async def _render(
     error: str | None = None,
     values: dict[str, str] | None = None,
 ) -> HTMLResponse:
+    archived = [
+        item
+        for item in await list_products(session, include_archived=True)
+        if item.status == "archived"
+    ]
     return templates.TemplateResponse(
         request=request,
         name="work_products.html",
         context={
             "overview": await build_overview(session),
+            "archived": archived,
+            "user": user,
+            "error": error,
+            "values": values,
+        },
+        status_code=422 if error else 200,
+    )
+
+
+async def _render_detail(
+    request: Request,
+    session: AsyncSession,
+    user: User,
+    product_id: UUID,
+    *,
+    error: str | None = None,
+    values: dict[str, str] | None = None,
+) -> HTMLResponse:
+    detail = await build_detail(session, product_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    return templates.TemplateResponse(
+        request=request,
+        name="product_detail.html",
+        context={
+            "detail": detail,
             "user": user,
             "error": error,
             "values": values,
@@ -64,14 +99,90 @@ async def product_detail_page(
     user: Annotated[User, Depends(require_user)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> HTMLResponse:
-    detail = await build_detail(session, product_id)
-    if detail is None:
+    return await _render_detail(request, session, user, product_id)
+
+
+@router.post(
+    "/products/{product_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def update_product_form(
+    request: Request,
+    product_id: UUID,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    name: Annotated[str, Form()],
+    base_url: Annotated[str, Form()] = "",
+    description: Annotated[str, Form()] = "",
+    ci_provider: Annotated[str, Form()] = "",
+    ci_webhook_url: Annotated[str, Form()] = "",
+    ci_secret: Annotated[str, Form()] = "",
+) -> HTMLResponse:
+    product = await get_product(session, product_id)
+    if product is None:
         raise HTTPException(status_code=404, detail="产品不存在")
-    return templates.TemplateResponse(
-        request=request,
-        name="product_detail.html",
-        context={"detail": detail, "user": user},
-    )
+
+    values = {
+        "name": name,
+        "base_url": base_url,
+        "description": description,
+        "ci_provider": ci_provider,
+        "ci_webhook_url": ci_webhook_url,
+    }
+    try:
+        await update_product(
+            session,
+            product,
+            name=name,
+            base_url=base_url,
+            description=description,
+            ci_provider=ci_provider,
+            ci_webhook_url=ci_webhook_url,
+            ci_secret=ci_secret,
+            actor=user,
+        )
+    except ProductError as exc:
+        return await _render_detail(
+            request, session, user, product_id, error=str(exc), values=values
+        )
+
+    await session.commit()
+    return RedirectResponse(f"/products/{product_id}", status_code=303)
+
+
+@router.post(
+    "/products/{product_id}/archive",
+    dependencies=[Depends(require_csrf)],
+)
+async def archive_product_form(
+    product_id: UUID,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RedirectResponse:
+    product = await get_product(session, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    await set_product_status(session, product, "archived", actor=user)
+    await session.commit()
+    return RedirectResponse("/products", status_code=303)
+
+
+@router.post(
+    "/products/{product_id}/restore",
+    dependencies=[Depends(require_csrf)],
+)
+async def restore_product_form(
+    product_id: UUID,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RedirectResponse:
+    product = await get_product(session, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="产品不存在")
+    await set_product_status(session, product, "active", actor=user)
+    await session.commit()
+    return RedirectResponse(f"/products/{product_id}", status_code=303)
 
 
 @router.get("/products", response_class=HTMLResponse)

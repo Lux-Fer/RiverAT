@@ -17,6 +17,8 @@ from app.services.work_products import (
     create_product,
     get_product,
     list_products,
+    set_product_status,
+    update_product,
 )
 
 router = APIRouter(prefix="/work-products", tags=["work-products"])
@@ -30,6 +32,16 @@ class ProductCreate(BaseModel):
     ci_provider: str = ""
     ci_webhook_url: str = ""
     ci_secret: str = ""
+
+
+class ProductUpdate(BaseModel):
+    name: str | None = None
+    base_url: str | None = None
+    description: str | None = None
+    ci_provider: str | None = None
+    ci_webhook_url: str | None = None
+    ci_secret: str | None = None
+    status: str | None = None
 
 
 def _to_dict(row) -> dict:
@@ -89,4 +101,29 @@ async def read(
     row = await get_product(session, product_id)
     if row is None:
         raise HTTPException(status_code=404, detail="产品不存在")
+    return _to_dict(row)
+
+
+@router.patch("/{product_id}")
+async def update(
+    product_id: UUID,
+    payload: ProductUpdate,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_engineer)],
+) -> dict:
+    row = await get_product(session, product_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="产品不存在")
+
+    changes = payload.model_dump(exclude_unset=True)
+    status = changes.pop("status", None)
+    try:
+        if changes:
+            row = await update_product(session, row, actor=user, **changes)
+        if status:
+            row = await set_product_status(session, row, status, actor=user)
+    except ProductError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    await session.commit()
     return _to_dict(row)

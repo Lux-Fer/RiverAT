@@ -753,6 +753,12 @@ body.river .td-case .csrc {
 
 /* ---------------- products ---------------- */
 body.river .prod-error { margin: 10px 0 0; color: var(--red); font-size: 12.5px; }
+body.river .prod-archive { margin-top: 28px; }
+body.river .prod-edit { margin-top: 24px; }
+body.river .archived-mark {
+  margin-left: 10px; font-family: var(--mono); font-size: 10px;
+  letter-spacing: .08em; color: var(--ink-3); font-weight: 400;
+}
 
 body.river .prod-list { margin-top: 2px; }
 body.river .prod-row {

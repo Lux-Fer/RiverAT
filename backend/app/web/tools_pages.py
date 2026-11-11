@@ -19,13 +19,14 @@ from app.services.tools import (
     list_tools,
     register_tool,
     reject_tool,
+    set_tool_status,
 )
 from app.web.csrf import require_csrf
 from app.web.templates import templates
 
 router = APIRouter(tags=["tool-pages"])
 
-TOOL_RANK = {"pending": 0, "approved": 1, "rejected": 2}
+TOOL_RANK = {"pending": 0, "approved": 1, "disabled": 2, "rejected": 3}
 
 
 async def _render(
@@ -48,6 +49,7 @@ async def _render(
             "tools": tools,
             "pending_count": sum(1 for tool in tools if tool.status == "pending"),
             "approved_count": sum(1 for tool in tools if tool.status == "approved"),
+            "disabled_count": sum(1 for tool in tools if tool.status == "disabled"),
             "user": user,
             "error": error,
         },
@@ -105,6 +107,31 @@ async def approve_tool_form(
         await reject_tool(session, tool, actor=admin)
     else:
         await approve_tool(session, tool, actor=admin)
+
+    await session.commit()
+    return RedirectResponse("/tools", status_code=303)
+
+
+@router.post(
+    "/tools/{tool_id}/state",
+    response_class=HTMLResponse,
+    dependencies=[Depends(require_csrf)],
+)
+async def set_tool_state_form(
+    tool_id: UUID,
+    admin: Annotated[User, Depends(require_admin)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    decision: Annotated[str, Form()] = "disable",
+) -> HTMLResponse:
+    tool = await get_tool(session, tool_id)
+    if tool is None:
+        raise HTTPException(status_code=404, detail="工具不存在")
+
+    target = "approved" if decision == "enable" else "disabled"
+    try:
+        await set_tool_status(session, tool, target, actor=admin)
+    except ToolError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     await session.commit()
     return RedirectResponse("/tools", status_code=303)

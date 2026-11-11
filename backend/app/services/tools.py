@@ -158,5 +158,29 @@ async def reject_tool(
     return tool
 
 
+async def set_tool_status(
+    session: AsyncSession, tool: Tool, status: str, *, actor: User | None
+) -> Tool:
+    if status not in ("approved", "disabled"):
+        raise ToolError(f"工具状态不合法：{status}")
+    if tool.status not in ("approved", "disabled"):
+        raise ToolError("只有已审核工具可以启用或停用")
+
+    tool.status = status
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="tool.enable" if status == "approved" else "tool.disable",
+        target_type="tool",
+        target_id=str(tool.id),
+        detail={"name": tool.name, "version": tool.version, "status": status},
+    )
+    return tool
+
+
 async def available_tools(session: AsyncSession) -> list[Tool]:
     return await list_tools(session, status="approved")

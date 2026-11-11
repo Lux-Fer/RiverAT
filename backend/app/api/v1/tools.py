@@ -19,6 +19,7 @@ from app.services.tools import (
     list_tools,
     register_tool,
     reject_tool,
+    set_tool_status,
 )
 
 router = APIRouter(prefix="/tools", tags=["tools"])
@@ -96,5 +97,35 @@ async def reject(
 ) -> dict:
     tool = await _load(session, tool_id)
     await reject_tool(session, tool, actor=admin)
+    await session.commit()
+    return _to_dict(tool)
+
+
+@router.post("/{tool_id}/disable")
+async def disable(
+    tool_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_admin)],
+) -> dict:
+    tool = await _load(session, tool_id)
+    try:
+        await set_tool_status(session, tool, "disabled", actor=admin)
+    except ToolError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    await session.commit()
+    return _to_dict(tool)
+
+
+@router.post("/{tool_id}/enable")
+async def enable(
+    tool_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    admin: Annotated[User, Depends(require_admin)],
+) -> dict:
+    tool = await _load(session, tool_id)
+    try:
+        await set_tool_status(session, tool, "approved", actor=admin)
+    except ToolError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     await session.commit()
     return _to_dict(tool)

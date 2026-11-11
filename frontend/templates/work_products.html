@@ -51,6 +51,23 @@
 </div>
 {% endif %}
 
+{% if archived %}
+<div class="prod-archive">
+  <div class="flow-title">已归档 <b>{{ archived | length }}</b><span>只读</span></div>
+  {% for p in archived %}
+  <a class="prod-row idle" href="/products/{{ p.id }}">
+    <div class="main">
+      <div class="code">{{ p.code }}</div>
+      <div class="name">{{ p.name }}</div>
+      <div class="addr">{{ p.base_url or p.description or "—" }}</div>
+    </div>
+    <div class="side"><div class="quiet">已归档 · 打开可恢复</div></div>
+    <div class="chev">→</div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+
 {% if user.role in ("engineer", "admin") %}
 <details class="prod-reg" id="register"{% if error or not overview.lanes %} open{% endif %}>
   <summary class="prod-add"><span class="pm"></span>注册产品</summary>

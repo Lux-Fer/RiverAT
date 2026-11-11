@@ -16,6 +16,11 @@ from app.models import AuditLog, User
 ACTION_LABELS = {
     "plan.create": "创建计划",
     "plan.update": "编辑计划",
+    "product.update": "编辑产品",
+    "product.archive": "归档产品",
+    "product.restore": "恢复产品",
+    "tool.disable": "停用工具",
+    "tool.enable": "启用工具",
     "user.create": "新建用户",
     "user.update": "修改用户",
     "release.create": "新建发布单",

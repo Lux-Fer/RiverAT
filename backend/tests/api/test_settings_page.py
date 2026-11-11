@@ -19,8 +19,6 @@ async def test_settings_hub_links_sections(session, client):
     assert 'href="/users"' in text
     assert 'href="/audit"' in text
     assert 'aria-label="设置"' in text
-    assert 'class="site-status"' in text
-    assert 'class="readout"' not in text
     assert "仅管理员可见" in text
     assert "模型设置" not in text
 

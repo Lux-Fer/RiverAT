@@ -9,7 +9,7 @@
     <h1>工具</h1>
   </div>
   <div class="page-meta">
-    {{ tools | length }} 工具 · {{ pending_count }} 待审 · {{ approved_count }} 可用
+    {{ tools | length }} 工具 · {{ pending_count }} 待审 · {{ approved_count }} 可用{% if disabled_count %} · {{ disabled_count }} 停用{% endif %}
   </div>
 </div>
 
@@ -74,6 +74,18 @@
       </form>
       {% elif t.status == "pending" %}
       <span class="quiet">等 admin 审核</span>
+      {% elif user.role == "admin" and t.status == "approved" %}
+      <form method="post" action="/tools/{{ t.id }}/state">
+{% include "_csrf_input.html" %}
+        <input type="hidden" name="decision" value="disable">
+        <button type="submit" class="act">停用</button>
+      </form>
+      {% elif user.role == "admin" and t.status == "disabled" %}
+      <form method="post" action="/tools/{{ t.id }}/state">
+{% include "_csrf_input.html" %}
+        <input type="hidden" name="decision" value="enable">
+        <button type="submit" class="act">启用</button>
+      </form>
       {% else %}
       <span class="quiet">—</span>
       {% endif %}

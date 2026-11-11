@@ -35,12 +35,14 @@ STATUS_TONES = {
 TOOL_STATUS_LABELS = {
     "pending": "待审",
     "approved": "可用",
+    "disabled": "已停用",
     "rejected": "已拒绝",
 }
 
 TOOL_STATUS_TONES = {
     "pending": "w",
     "approved": "p",
+    "disabled": "i",
     "rejected": "f",
 }
 

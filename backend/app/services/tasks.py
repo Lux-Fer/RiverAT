@@ -129,6 +129,8 @@ async def propose_task(
         raise TaskError("还没有审核通过的工具，先去「工具」上传并审核")
 
     product = await session.get(WorkProduct, product_id) if product_id else None
+    if product is not None and product.status != "active":
+        raise TaskError("产品已归档，不能再创建任务")
     if product is None:
         context = "未指定被测产品。"
     else:
@@ -284,8 +286,14 @@ async def create_manual_task(
     if problems:
         raise TaskError("；".join(problems))
 
+    product = await session.get(WorkProduct, product_id) if product_id else None
+    if product_id and product is None:
+        raise TaskError("产品不存在")
+    if product is not None and product.status != "active":
+        raise TaskError("产品已归档，不能再创建任务")
+
     task = Task(
-        product_id=product_id,
+        product_id=product.id if product else None,
         title=(title.strip() or f"手动：{tool.name}")[:200],
         request_text="手动创建（不经过模型）",
         status="draft",
@@ -448,8 +456,8 @@ async def update_step_args(
         raise TaskError("步骤不存在")
 
     tool = await session.get(Tool, step.tool_id) if step.tool_id else None
-    if tool is None:
-        raise TaskError("工具不存在或已被删除")
+    if tool is None or tool.status != "approved":
+        raise TaskError("工具不存在或已停用")
 
     problems = validate_args((tool.manifest or {}).get("input_schema", {}), args)
     if problems:
@@ -668,13 +676,13 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
             await session.flush()
 
             tool = await session.get(Tool, step.tool_id) if step.tool_id else None
-            if tool is None:
+            if tool is None or tool.status != "approved":
                 result = {
                     "status": "error",
                     "exit_code": None,
                     "output": {},
                     "stderr": "",
-                    "error": "工具不存在或已被删除",
+                    "error": "工具不存在或已停用",
                 }
             else:
                 try:

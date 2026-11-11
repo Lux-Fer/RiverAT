@@ -20,6 +20,7 @@ from app.services.tasks import (
     get_task,
     list_tasks,
     recover_task,
+    requeue_task,
     rerun_task,
     steps_for,
 )
@@ -94,6 +95,27 @@ async def approve(
         raise HTTPException(status_code=404, detail="任务不存在")
     try:
         await approve_task(session, task, actor=user)
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await session.commit()
+    await get_task_dispatcher(request).dispatch(task.id, session)
+    await session.commit()
+    return _detail(task, await steps_for(session, task.id))
+
+
+@router.post("/{task_id}/requeue")
+async def requeue(
+    task_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_engineer)],
+) -> dict:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        await requeue_task(session, task, actor=user)
     except TaskError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

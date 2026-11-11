@@ -94,3 +94,63 @@ async def test_viewer_does_not_see_stale_section(session, client, login_as):
 
     assert page.status_code == 200
     assert "疑似卡住" not in page.text
+
+
+async def test_claim_queued_task_is_atomic(session, client):
+    from app.services.tasks import claim_queued_task
+
+    draft = await _draft_task(client, "原子认领")
+    task = await session.get(Task, UUID(draft["id"]))
+    task.status = "queued"
+    await session.commit()
+
+    assert await claim_queued_task(session, task.id) is True
+    await session.refresh(task)
+    assert task.status == "running"
+    assert await claim_queued_task(session, task.id) is False
+
+
+async def test_startup_requeues_old_queued_tasks(session, client):
+    from app.services.tasks import requeue_queued_tasks
+
+    class FakePool:
+        def __init__(self):
+            self.jobs = []
+
+        async def enqueue_job(self, name, *args):
+            self.jobs.append((name, args))
+            return object()
+
+    draft = await _draft_task(client, "启动补队列")
+    task = await session.get(Task, UUID(draft["id"]))
+    task.status = "queued"
+    task.approved_at = datetime.now(UTC) - timedelta(minutes=5)
+    await session.commit()
+
+    pool = FakePool()
+    count = await requeue_queued_tasks(session, pool)
+    await session.commit()
+
+    assert count == 1
+    assert pool.jobs == [("execute_task_task", (draft["id"],))]
+    logs = (await client.get("/api/v1/audit?action=task.requeue")).json()
+    assert logs and logs[0]["target_id"] == draft["id"]
+    assert logs[0]["detail"]["source"] == "worker_startup"
+
+
+async def test_requeue_queued_task_via_page(session, client):
+    draft = await _draft_task(client, "手动重新入队")
+    task = await session.get(Task, UUID(draft["id"]))
+    task.status = "queued"
+    task.approved_at = datetime.now(UTC) - timedelta(minutes=5)
+    await session.commit()
+
+    page = await client.get(f"/tasks/{draft['id']}")
+    assert "重新入队" in page.text
+
+    response = await client.post(f"/tasks/{draft['id']}/requeue", follow_redirects=False)
+
+    assert response.status_code == 303
+    logs = (await client.get("/api/v1/audit?action=task.requeue")).json()
+    assert logs and logs[0]["target_id"] == draft["id"]
+    assert logs[0]["detail"]["source"] == "manual"

@@ -23,6 +23,7 @@ ACTION_LABELS = {
     "host.create": "注册测试机",
     "task.create": "新建任务",
     "task.approve": "确认任务",
+    "task.requeue": "重新入队",
     "task.cancel": "取消任务",
     "task.edit": "编辑任务参数",
     "task.rerun": "重跑任务",

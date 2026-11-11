@@ -31,7 +31,16 @@
 {% include "_csrf_input.html" %}
           <button type="submit" class="act">取消</button>
         </form>
-        {% elif task.status in ("queued", "running") %}
+        {% elif task.status == "queued" %}
+        <form method="post" action="/tasks/{{ task.id }}/requeue">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">重新入队 →</button>
+        </form>
+        <form method="post" action="/tasks/{{ task.id }}/cancel">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">取消</button>
+        </form>
+        {% elif task.status == "running" %}
         <form method="post" action="/tasks/{{ task.id }}/cancel">
 {% include "_csrf_input.html" %}
           <button type="submit" class="act">取消</button>

@@ -10,7 +10,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ChatMessage, Task, TaskStep, Tool, User, WorkProduct
@@ -538,6 +538,69 @@ async def recover_stale_tasks(session: AsyncSession) -> int:
     return recovered
 
 
+QUEUE_STALE_AFTER = timedelta(seconds=30)
+
+
+async def requeue_task(
+    session: AsyncSession, task: Task, *, actor: User | None = None
+) -> Task:
+    """手动重入队：不改变 queued 状态，由路由负责再次 dispatch。"""
+
+    if task.status != "queued":
+        raise TaskError(f"只有 queued 任务可以重新入队，当前状态：{task.status}")
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.requeue",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"title": task.title[:120], "source": "manual"},
+    )
+    return task
+
+
+async def requeue_queued_tasks(session: AsyncSession, pool) -> int:
+    """worker 启动时补齐丢失的 queued job；30 秒内的任务交给正常 dispatch。"""
+
+    from app.services.audit import record
+
+    cutoff = datetime.now(UTC) - QUEUE_STALE_AFTER
+    rows = await session.execute(
+        select(Task).where(Task.status == "queued").order_by(Task.created_at)
+    )
+    requeued = 0
+    for task in rows.scalars().all():
+        reference = task.approved_at or task.created_at
+        if reference is not None and reference >= cutoff:
+            continue
+        await pool.enqueue_job("execute_task_task", str(task.id))
+        await record(
+            session,
+            actor=None,
+            action="task.requeue",
+            target_type="task",
+            target_id=str(task.id),
+            detail={"title": task.title[:120], "source": "worker_startup"},
+        )
+        requeued += 1
+    return requeued
+
+
+async def claim_queued_task(session: AsyncSession, task_id: UUID) -> bool:
+    """原子认领：多个重复 job 只有一个能把 queued 改成 running。"""
+
+    result = await session.execute(
+        update(Task)
+        .where(Task.id == task_id, Task.status == "queued")
+        .values(status="running", heartbeat_at=datetime.now(UTC))
+    )
+    await session.commit()
+    return result.rowcount == 1
+
+
 async def _heartbeat_loop(task_id: UUID, stop: asyncio.Event) -> None:
     """独立会话每 30s 刷新一次心跳，避免长步骤被误判为僵尸（D109）。"""
 
@@ -656,8 +719,10 @@ async def execute_task_by_id(task_id: UUID) -> None:
     from app.db.session import get_sessionmaker
 
     async with get_sessionmaker()() as session:
+        if not await claim_queued_task(session, task_id):
+            return
         task = await get_task(session, task_id)
-        if task is None or task.status not in ("queued", "running"):
+        if task is None:
             return
         await execute_task(session, task)
         await session.commit()

@@ -22,6 +22,7 @@ from app.services.tasks import (
     create_manual_task,
     get_task,
     recover_task,
+    requeue_task,
     rerun_task,
     stale_tasks,
     steps_for,
@@ -156,6 +157,30 @@ async def approve_task_form(
         raise HTTPException(status_code=404, detail="任务不存在")
     try:
         await approve_task(session, task, actor=user)
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await session.commit()
+    await get_task_dispatcher(request).dispatch(task.id, session)
+    await session.commit()
+    return RedirectResponse(f"/tasks/{task.id}", status_code=303)
+
+
+@router.post(
+    "/tasks/{task_id}/requeue",
+    dependencies=[Depends(require_csrf)],
+)
+async def requeue_task_form(
+    task_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RedirectResponse:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        await requeue_task(session, task, actor=user)
     except TaskError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 

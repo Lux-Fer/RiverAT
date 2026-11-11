@@ -10,7 +10,11 @@ from arq.connections import RedisSettings
 from app.core.config import get_settings
 from app.db.session import get_sessionmaker
 from app.services.runs import execute_run_by_id
-from app.services.tasks import execute_task_by_id, recover_stale_tasks
+from app.services.tasks import (
+    execute_task_by_id,
+    recover_stale_tasks,
+    requeue_queued_tasks,
+)
 
 
 async def execute_run_task(ctx, run_id: str) -> None:
@@ -22,10 +26,11 @@ async def execute_task_task(ctx, task_id: str) -> None:
 
 
 async def startup(ctx) -> None:
-    """启动时回收上次崩溃留下的僵尸任务（D109）。"""
+    """启动时回收僵尸任务，并补齐丢失的 queued job（D157）。"""
 
     async with get_sessionmaker()() as session:
         await recover_stale_tasks(session)
+        await requeue_queued_tasks(session, ctx["redis"])
         await session.commit()
 
 

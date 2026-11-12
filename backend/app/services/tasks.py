@@ -13,6 +13,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models import ChatMessage, Task, TaskStep, Tool, User, WorkProduct
 from app.services import llm
 from app.services.redaction import redact_text
@@ -687,7 +688,7 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
         statuses: list[str] = []
         cancelled = False
 
-        for step in steps:
+        for index, step in enumerate(steps):
             # 运行中取消（D107）：步骤之间检查，当前步骤跑完为止
             await session.refresh(task)
             if task.status == "cancelling":
@@ -736,9 +737,27 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
             statuses.append(step.status)
             await session.flush()
 
+            # Agent 恢复开启时失败即停：把剩余步骤标为跳过，模型只观察已发生的失败（D166）。
+            if step.status in ("failed", "error") and get_settings().agent_recovery_enabled:
+                now = datetime.now(UTC)
+                for later in steps[index + 1 :]:
+                    if later.status == "pending":
+                        later.status = "skipped"
+                        later.finished_at = now
+                        later.error = "前置步骤失败，未执行"
+                await session.flush()
+                break
+
+        if not cancelled:
+            await session.refresh(task)
+            if task.status == "cancelling":
+                cancelled = True
+
         task.status = "cancelled" if cancelled else _aggregate(statuses)
         task.finished_at = datetime.now(UTC)
         await session.flush()
+        # 先让终态可见，再调用模型；模型慢/失败不能拖住任务页面（D165）。
+        await session.commit()
 
         if task.status == "passed":
             try:

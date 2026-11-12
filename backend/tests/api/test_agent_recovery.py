@@ -14,6 +14,7 @@ from app.services.agent_recovery import (
     mark_recovery_resolved,
     maybe_recover_task,
 )
+from app.services.tasks import execute_task
 
 
 async def _failed_task(session) -> tuple[Task, Tool]:
@@ -206,3 +207,62 @@ def test_observation_is_redacted_and_capped():
     assert "super-secret" not in text
     assert "abc123" not in text
     assert len(text) <= MAX_OBSERVATION_CHARS + 20
+
+
+async def test_agent_failure_stops_following_steps(session, monkeypatch):
+    monkeypatch.setattr(get_settings(), "agent_recovery_enabled", True)
+    task, tool = await _failed_task(session)
+    task.status = "running"
+    first = (
+        await session.execute(
+            select(TaskStep).where(TaskStep.task_id == task.id)
+        )
+    ).scalar_one()
+    first.status = "pending"
+    first.output = {}
+    first.exit_code = None
+    first.error = None
+    second = TaskStep(
+        task_id=task.id,
+        seq=2,
+        tool_id=tool.id,
+        tool_name=tool.name,
+        tool_version=tool.version,
+        args={"base_url": "http://second:8080"},
+        status="pending",
+    )
+    session.add(second)
+    await session.flush()
+
+    calls: list[str] = []
+
+    async def fake_run_tool(tool, *, args, product, task_id):
+        calls.append(str(args.get("n", 0)))
+        return {
+            "status": "failed",
+            "exit_code": 3,
+            "output": {"stderr": "first failed", "cases": []},
+            "stderr": "first failed",
+            "error": "工具退出码 3",
+        }
+
+    called_recovery: list[str] = []
+
+    async def fake_recovery(session, failed_task):
+        called_recovery.append(str(failed_task.id))
+
+    monkeypatch.setattr("app.services.tool_exec.run_tool", fake_run_tool)
+    monkeypatch.setattr(
+        "app.services.agent_recovery.maybe_recover_task", fake_recovery
+    )
+
+    await execute_task(session, task)
+    await session.commit()
+
+    await session.refresh(first)
+    await session.refresh(second)
+    assert first.status == "failed"
+    assert second.status == "skipped"
+    assert second.error == "前置步骤失败，未执行"
+    assert len(calls) == 1
+    assert called_recovery == [str(task.id)]

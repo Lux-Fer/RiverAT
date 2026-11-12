@@ -407,6 +407,11 @@ class Task(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # worker 每步刷新；长时间不刷新 = 疑似卡死，可被回收（D109）
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # V0.1.2：失败任务可由后续修复任务解决，但保留原始失败历史（D163）
+    resolved_by_task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("task.id", ondelete="SET NULL"), index=True
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TaskStep(Base):

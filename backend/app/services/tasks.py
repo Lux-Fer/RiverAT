@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ChatMessage, Task, TaskStep, Tool, User, WorkProduct
 from app.services import llm
+from app.services.redaction import redact_text
 from app.services.tools import available_tools
 
 SYSTEM_PROMPT = """你是 RiverAT 的测试任务助手。
@@ -136,13 +137,22 @@ async def propose_task(
     else:
         context = (
             f"被测产品：{product.code} · {product.name}"
-            f"（地址 {product.base_url or '未填写'}）。"
+            f"（地址 {redact_text(product.base_url) or '未填写'}）。"
         )
 
-    messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": f"{context}\n\n需求：{text}"},
-    ]
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    history = await list_messages(
+        session, limit=6, actor_id=actor.id if actor else None
+    )
+    for message in history:
+        content = (message.content or "").strip()
+        if content:
+            messages.append(
+                {"role": message.role, "content": redact_text(content)[:1200]}
+            )
+    messages.append(
+        {"role": "user", "content": f"{context}\n\n需求：{text}"}
+    )
     answer = await llm.chat(session, messages, tools=specs, max_tokens=1024)
 
     calls = answer.get("tool_calls") or []
@@ -201,7 +211,12 @@ async def propose_task(
         step.task_id = task.id
         session.add(step)
 
-    session.add(ChatMessage(task_id=task.id, role="user", content=text))
+    now = datetime.now(UTC)
+    session.add(
+        ChatMessage(
+            task_id=task.id, role="user", content=text, created_at=now
+        )
+    )
     fallback = (
         f"已生成草案，共 {len(steps)} 个工具调用。" if steps else "没有生成工具调用。"
     )
@@ -210,26 +225,35 @@ async def propose_task(
             task_id=task.id,
             role="assistant",
             content=reply or fallback,
+            created_at=now + timedelta(microseconds=1),
         )
     )
     await session.flush()
     return task
 
 
-async def list_messages(session: AsyncSession, *, limit: int = 30) -> list[ChatMessage]:
-    rows = await session.execute(
-        select(ChatMessage).order_by(ChatMessage.created_at.desc()).limit(limit)
+async def list_messages(
+    session: AsyncSession, *, limit: int = 30, actor_id: UUID | None = None
+) -> list[ChatMessage]:
+    stmt = (
+        select(ChatMessage)
+        .join(Task, ChatMessage.task_id == Task.id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(limit)
     )
+    if actor_id is not None:
+        stmt = stmt.where(Task.created_by == actor_id)
+    rows = await session.execute(stmt)
     return list(reversed(rows.scalars().all()))
 
 
-async def latest_draft(session: AsyncSession) -> Task | None:
-    return await session.scalar(
-        select(Task)
-        .where(Task.status == "draft")
-        .order_by(Task.created_at.desc())
-        .limit(1)
-    )
+async def latest_draft(
+    session: AsyncSession, *, actor_id: UUID | None = None
+) -> Task | None:
+    stmt = select(Task).where(Task.status == "draft")
+    if actor_id is not None:
+        stmt = stmt.where(Task.created_by == actor_id)
+    return await session.scalar(stmt.order_by(Task.created_at.desc()).limit(1))
 
 
 async def steps_for(session: AsyncSession, task_id: UUID) -> list[TaskStep]:
@@ -715,6 +739,31 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
         task.status = "cancelled" if cancelled else _aggregate(statuses)
         task.finished_at = datetime.now(UTC)
         await session.flush()
+
+        if task.status == "passed":
+            try:
+                from app.services.agent_recovery import mark_recovery_resolved
+
+                await mark_recovery_resolved(session, task)
+            except Exception as exc:  # noqa: BLE001 - 结算失败不能覆盖执行结果
+                draft = dict(task.draft or {})
+                draft["resolution_error"] = exc.__class__.__name__
+                task.draft = draft
+                await session.flush()
+
+        if task.status in ("failed", "error"):
+            try:
+                from app.services.agent_recovery import maybe_recover_task
+
+                await maybe_recover_task(session, task)
+            except Exception as exc:  # noqa: BLE001 - 修复规划失败不能覆盖执行结果
+                draft = dict(task.draft or {})
+                draft["agent_recovery"] = {
+                    "status": "no_plan",
+                    "reply": f"修复规划异常：{exc.__class__.__name__}",
+                }
+                task.draft = draft
+                await session.flush()
         return task
     finally:
         stop.set()

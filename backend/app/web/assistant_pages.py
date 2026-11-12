@@ -36,14 +36,14 @@ async def _render(
     *,
     error: str | None = None,
 ) -> HTMLResponse:
-    draft = await latest_draft(session)
+    draft = await latest_draft(session, actor_id=user.id)
     products = await list_products(session)
     tools = await available_tools(session)
     return templates.TemplateResponse(
         request=request,
         name="assistant.html",
         context={
-            "messages": await list_messages(session, limit=14),
+            "messages": await list_messages(session, limit=14, actor_id=user.id),
             "draft": draft,
             "steps": await steps_for(session, draft.id) if draft else [],
             "products": products,

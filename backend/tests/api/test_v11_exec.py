@@ -127,6 +127,33 @@ async def test_tool_failure_marks_task_failed(session, client, monkeypatch):
     assert approved["steps"][0]["exit_code"] == 3
 
 
+async def test_failed_task_calls_agent_recovery(session, client, monkeypatch):
+    from app.core.config import get_settings
+
+    await _upload_and_approve(client, _echo_bundle(exit_code=3))
+    monkeypatch.setattr(
+        "app.services.llm.chat", _draft_chat({"base_url": "http://target:8080"})
+    )
+    draft = (
+        await client.post("/api/v1/assistant/messages", json={"text": "失败后观察"})
+    ).json()
+
+    called: list[str] = []
+
+    async def fake_recovery(session, task):
+        called.append(str(task.id))
+
+    monkeypatch.setattr(get_settings(), "agent_recovery_enabled", True)
+    monkeypatch.setattr(
+        "app.services.agent_recovery.maybe_recover_task", fake_recovery
+    )
+
+    approved = (await client.post(f"/api/v1/tasks/{draft['id']}/approve")).json()
+
+    assert approved["status"] == "failed"
+    assert called == [draft["id"]]
+
+
 async def test_invalid_json_output_marks_error(session, client, monkeypatch):
     await _upload_and_approve(client, _echo_bundle(output="not json"))
     monkeypatch.setattr(

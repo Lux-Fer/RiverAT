@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     riverat_llm_base_url: str = ""
     riverat_llm_model: str = ""
     riverat_llm_api_key: str = ""
+    # V0.1.2：任务失败后让模型观察结果并生成“修复草案”（仍需人确认）
+    agent_recovery_enabled: bool = True
+    agent_recovery_max_steps: int = 3
+    agent_replan_limit: int = 2
 
 
 @lru_cache

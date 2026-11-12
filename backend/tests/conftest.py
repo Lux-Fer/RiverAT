@@ -157,6 +157,15 @@ async def session(engine):
 
 
 @pytest.fixture(scope="session", autouse=True)
+def disable_agent_recovery():
+    """测试默认不调用真实模型；恢复测试自己打开开关并 mock LLM。"""
+
+    from app.core.config import get_settings
+
+    get_settings().agent_recovery_enabled = False
+
+
+@pytest.fixture(scope="session", autouse=True)
 def clean_uploaded_tool_bundles():
     """测试上传的工具包只属于测试库；session 结束删除新增文件，避免 var/tools 堆积。"""
 

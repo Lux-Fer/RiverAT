@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import json
+import uuid
+from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 
 import pytest
 
+from app.api.deps import require_user
+from app.models import ChatMessage, Task
 from app.services.tasks import task_title
 from tests.api.test_v11 import _tool_bundle
 
@@ -45,6 +50,73 @@ def _fake_chat(arguments: dict, *, name: str = "login_smoke", content: str = "�
         }
 
     return fake_chat
+
+
+async def test_assistant_receives_recent_conversation(
+    session, client, app, monkeypatch
+):
+    await _approved_tool(client)
+    actor = SimpleNamespace(
+        id=uuid.uuid4(), username="history-user", display_name="", role="admin"
+    )
+    app.dependency_overrides[require_user] = lambda: actor
+    previous = Task(
+        title="上一轮登录检查",
+        request_text="登录地址是 10.0.0.6",
+        status="passed",
+        created_by=actor.id,
+    )
+    session.add(previous)
+    await session.flush()
+    session.add_all(
+        [
+            ChatMessage(
+                task_id=previous.id,
+                role="user",
+                content="登录地址是 10.0.0.6",
+                created_at=datetime.now(UTC) - timedelta(seconds=2),
+            ),
+            ChatMessage(
+                task_id=previous.id,
+                role="assistant",
+                content="收到，用这个地址",
+                created_at=datetime.now(UTC) - timedelta(seconds=1),
+            ),
+        ]
+    )
+    await session.flush()
+
+    seen: list[list[dict]] = []
+
+    async def fake_chat(session, messages, *, tools=None, max_tokens=1024, timeout=60.0):
+        seen.append(messages)
+        return {
+            "content": "继续用上一轮地址",
+            "tool_calls": [
+                {
+                    "id": "call-history",
+                    "type": "function",
+                    "function": {
+                        "name": "login_smoke",
+                        "arguments": json.dumps(
+                            {"base_url": "http://10.0.0.6:8080", "user": "tester"}
+                        ),
+                    },
+                }
+            ],
+        }
+
+    monkeypatch.setattr("app.services.llm.chat", fake_chat)
+
+    response = await client.post(
+        "/api/v1/assistant/messages", json={"text": "用刚才那个地址再跑一次"}
+    )
+
+    assert response.status_code == 201, response.text
+    contents = [message["content"] for message in seen[0]]
+    assert "登录地址是 10.0.0.6" in contents
+    assert any("用刚才那个地址再跑一次" in content for content in contents)
+    assert [message["role"] for message in seen[0]][:3] == ["system", "user", "assistant"]
 
 
 async def test_assistant_creates_draft(session, client, monkeypatch):

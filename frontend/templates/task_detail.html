@@ -58,7 +58,32 @@
 <div class="td-rule"></div>
 
 {% if error %}<p class="td-error">{{ error }}</p>{% endif %}
+{% if task.status == "draft" and (task.draft or {}).get("reply") %}
+<p class="td-note">{{ task.draft.get("reply") }}</p>
+{% endif %}
 {% if task.status == "cancelling" %}<p class="td-note">已请求取消，当前步骤结束后停止。</p>{% endif %}
+
+{% if task.resolved_by_task_id %}
+<p class="td-note">已由后续修复任务解决：<a href="/tasks/{{ task.resolved_by_task_id }}">查看修复任务 →</a></p>
+{% endif %}
+
+{% set recovery = (task.draft or {}).get("agent_recovery") %}
+{% if recovery %}
+<section class="td-band" aria-label="Agent 修复建议">
+  <div class="flow-title">Agent 修复建议 <b>{{ "DRAFT" if recovery.get("task_id") else "NONE" }}</b>
+    <span>模型观察失败后生成，仍需人确认</span>
+  </div>
+  {% if recovery.get("task_id") %}
+  <p class="td-note">
+    {{ recovery.get("reply") or "已生成修复草案。" }}
+    共 {{ recovery.get("step_count", 0) }} 个工具步骤，第 {{ recovery.get("replan_count", 1) }} 次重规划。
+  </p>
+  <a class="act-primary" href="/tasks/{{ recovery.task_id }}">查看修复草案 →</a>
+  {% else %}
+  <p class="td-note">{{ recovery.get("reply") or "没有生成可执行的修复草案。" }}</p>
+  {% endif %}
+</section>
+{% endif %}
 
 <section class="td-band" aria-label="步骤">
   <div class="flow-title">步骤 <b>{{ view.steps | length }}</b><span>{{ view.step_text }}{% if view.summary %} · {{ view.summary }}{% endif %}</span></div>

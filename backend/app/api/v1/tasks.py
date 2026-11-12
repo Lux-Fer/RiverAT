@@ -37,6 +37,10 @@ def _summary(task) -> dict:
         "product_id": str(task.product_id) if task.product_id else None,
         "created_at": task.created_at.isoformat() if task.created_at else None,
         "finished_at": task.finished_at.isoformat() if task.finished_at else None,
+        "resolved_by_task_id": (
+            str(task.resolved_by_task_id) if task.resolved_by_task_id else None
+        ),
+        "resolved_at": task.resolved_at.isoformat() if task.resolved_at else None,
     }
 
 

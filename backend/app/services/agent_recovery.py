@@ -15,6 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models import Task, TaskStep
 from app.services import llm
+from app.services.knowledge_base import (
+    format_knowledge,
+    record_event,
+    record_retrieval,
+    search_knowledge,
+)
 from app.services.redaction import redact_text, redact_value
 from app.services.tools import available_tools
 
@@ -116,6 +122,26 @@ async def maybe_recover_task(session: AsyncSession, task: Task) -> Task | None:
     from app.services.tasks import steps_for, task_title, validate_args
 
     steps = await steps_for(session, task.id)
+    observations = _observations(task, steps)
+    failed_step = next(
+        (step for step in steps if step.status in ("failed", "error")), None
+    )
+    failure_hint = ""
+    if failed_step is not None:
+        failure_hint = " ".join(
+            [
+                str(failed_step.error or ""),
+                str((failed_step.output or {}).get("stderr") or "")[:300],
+            ]
+        )
+    knowledge_items = await search_knowledge(
+        session,
+        f"{task.title}\n{failure_hint}"[:800],
+        product_id=task.product_id,
+        limit=3,
+        exclude_task_id=task.id,
+    )
+    knowledge_text = format_knowledge(knowledge_items)
     messages = [
         {
             "role": "system",
@@ -126,12 +152,20 @@ async def maybe_recover_task(session: AsyncSession, task: Task) -> Task | None:
         {
             "role": "user",
             "content": (
-                _observations(task, steps)
+                (knowledge_text + "\n\n" if knowledge_text else "")
+                + observations
                 + "\n\n请提出修复草案。无法修复时返回空 tool_calls。"
             ),
         },
     ]
 
+    await record_retrieval(
+        session,
+        consumer="recovery",
+        task_id=task.id,
+        product_id=task.product_id,
+        items=knowledge_items,
+    )
     try:
         answer = await llm.chat(session, messages, tools=specs, max_tokens=1024)
     except llm.LlmError as exc:
@@ -200,6 +234,21 @@ async def maybe_recover_task(session: AsyncSession, task: Task) -> Task | None:
     )
     session.add(child)
     await session.flush()
+    await record_event(
+        session,
+        event_key=f"task.created:{child.id}",
+        kind="task.created",
+        product_id=child.product_id,
+        task_id=child.id,
+        actor_id=child.created_by,
+        payload={
+            "title": child.title,
+            "request": child.request_text,
+            "recovery_of": str(task.id),
+            "agent_generated": True,
+        },
+        source="agent",
+    )
 
     for seq, item in enumerate(proposed, start=1):
         tool = item["tool"]
@@ -241,6 +290,20 @@ async def maybe_recover_task(session: AsyncSession, task: Task) -> Task | None:
             "replan_count": count + 1,
         },
     )
+    await record_event(
+        session,
+        event_key=f"task.recovery:{child.id}",
+        kind="task.recovery",
+        product_id=task.product_id,
+        task_id=child.id,
+        payload={
+            "parent": str(task.id),
+            "steps": len(proposed),
+            "replan_count": count + 1,
+            "reply": reply[:1200],
+        },
+        source="agent",
+    )
     return child
 
 
@@ -281,6 +344,15 @@ async def mark_recovery_resolved(session: AsyncSession, task: Task) -> int:
                 target_type="task",
                 target_id=str(parent.id),
                 detail={"resolved_by": str(task.id)},
+            )
+            await record_event(
+                session,
+                event_key=f"task.resolved:{parent.id}:{task.id}",
+                kind="task.resolved",
+                product_id=parent.product_id,
+                task_id=parent.id,
+                payload={"resolved_by": str(task.id)},
+                source="agent",
             )
             resolved += 1
         parent_id = (parent.draft or {}).get("recovery_of")

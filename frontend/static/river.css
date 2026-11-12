@@ -622,6 +622,20 @@ body.river .td-rule { height: 2px; background: var(--ink); margin-top: 18px; }
 body.river .td-error { margin: 14px 0 0; color: var(--red); font-size: 12.5px; line-height: 1.7; }
 body.river .td-note { margin: 12px 0 0; color: var(--orange); font-size: 12px; }
 
+body.river .td-knowledge { display: grid; gap: 0; margin-top: 2px; }
+body.river .td-kn { padding: 10px 0 11px; border-top: 1px solid var(--rule); }
+body.river .td-kn-head {
+  display: flex; justify-content: space-between; gap: 16px;
+  font: 9.5px/1.4 var(--mono); color: var(--ink-3); letter-spacing: .06em;
+}
+body.river .td-kn-head .kind { color: var(--water); }
+body.river .td-kn-title { margin-top: 4px; font-size: 13px; }
+body.river .td-kn-body {
+  margin-top: 4px; color: var(--ink-3); font-size: 11px; line-height: 1.65;
+  white-space: pre-wrap; max-height: 68px; overflow: hidden;
+}
+body.river .td-kn-meta { margin-top: 5px; font: 9.5px/1.4 var(--mono); color: var(--ink-3); }
+
 body.river .td-band { margin-top: 24px; }
 body.river .td-band .flow-title { margin-bottom: 2px; }
 

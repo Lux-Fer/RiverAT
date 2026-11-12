@@ -147,8 +147,9 @@ async def session(engine):
     async with maker() as session:
         await session.execute(
             text(
-                "TRUNCATE task_step, chat_message, task, llm_config, tool, work_product, audit_log, run_step, run, plan, version_component, "
-                'product_version, product, host, "user" RESTART IDENTITY CASCADE'
+                "TRUNCATE task_step, chat_message, task, llm_config, tool, work_product, audit_log, "
+                "knowledge_item_source, knowledge_item, knowledge_event, "
+                'run_step, run, plan, version_component, product_version, product, host, "user" RESTART IDENTITY CASCADE'
             )
         )
         await session.commit()

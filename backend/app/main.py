@@ -80,7 +80,7 @@ async def _bootstrap_admin() -> None:
 def create_app() -> FastAPI:
     settings = get_settings()
     validate_production_settings(settings)
-    app = FastAPI(title=settings.app_name, version="0.1.2", lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version="0.2.0", lifespan=lifespan)
 
     @app.middleware("http")
     async def readout_middleware(request, call_next):

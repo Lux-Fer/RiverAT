@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,6 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models import ChatMessage, Task, TaskStep, Tool, User, WorkProduct
 from app.services import llm
+from app.services.knowledge_base import (
+    format_knowledge,
+    index_task_outcome,
+    record_event,
+    record_retrieval,
+    search_knowledge,
+)
 from app.services.redaction import redact_text
 from app.services.tools import available_tools
 
@@ -154,6 +161,19 @@ async def propose_task(
     messages.append(
         {"role": "user", "content": f"{context}\n\n需求：{text}"}
     )
+
+    knowledge_items = await search_knowledge(
+        session,
+        f"{context}\n{text}",
+        product_id=product_id,
+        limit=4,
+    )
+    knowledge_text = format_knowledge(knowledge_items)
+    if knowledge_text:
+        messages[-1]["content"] = (
+            f"{context}\n\n{knowledge_text}\n\n需求：{text}"
+        )
+
     answer = await llm.chat(session, messages, tools=specs, max_tokens=1024)
 
     calls = answer.get("tool_calls") or []
@@ -207,6 +227,31 @@ async def propose_task(
     )
     session.add(task)
     await session.flush()
+
+    await record_event(
+        session,
+        event_key=f"task.created:{task.id}",
+        kind="task.created",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=task.created_by,
+        payload={
+            "title": task.title,
+            "request": task.request_text[:2000],
+            "draft": {
+                "reply": reply[:1000],
+                "tool_calls": calls[:5],
+                "errors": errors,
+            },
+        },
+    )
+    await record_retrieval(
+        session,
+        consumer="plan",
+        task_id=task.id,
+        product_id=task.product_id,
+        items=knowledge_items,
+    )
 
     for step in steps:
         step.task_id = task.id
@@ -331,6 +376,20 @@ async def create_manual_task(
     )
     session.add(task)
     await session.flush()
+    await record_event(
+        session,
+        event_key=f"task.created:{task.id}",
+        kind="task.created",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=task.created_by,
+        payload={
+            "title": task.title,
+            "request": task.request_text,
+            "tool": tool.name,
+            "args": args,
+        },
+    )
     session.add(
         TaskStep(
             task_id=task.id,
@@ -366,6 +425,16 @@ async def approve_task(
     task.approved_by = actor.id if actor else None
     task.approved_at = datetime.now(UTC)
     await session.flush()
+    await record_event(
+        session,
+        event_key=f"task.approved:{task.id}",
+        kind="task.approved",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=actor.id if actor else None,
+        payload={"title": task.title, "steps": len(await steps_for(session, task.id))},
+        source="human",
+    )
 
     from app.services.audit import record
 
@@ -394,6 +463,16 @@ async def cancel_task(
     if previous != "running":
         task.finished_at = datetime.now(UTC)
     await session.flush()
+    await record_event(
+        session,
+        event_key=f"task.cancel_requested:{task.id}",
+        kind="task.cancel_requested",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=actor.id if actor else None,
+        payload={"from": previous, "to": task.status},
+        source="human",
+    )
 
     from app.services.audit import record
 
@@ -431,6 +510,20 @@ async def rerun_task(
     )
     session.add(new_task)
     await session.flush()
+    await record_event(
+        session,
+        event_key=f"task.created:{new_task.id}",
+        kind="task.created",
+        product_id=new_task.product_id,
+        task_id=new_task.id,
+        actor_id=new_task.created_by,
+        payload={
+            "title": new_task.title,
+            "request": new_task.request_text,
+            "rerun_of": str(task.id),
+        },
+        source="human",
+    )
 
     for step in steps:
         session.add(
@@ -488,8 +581,25 @@ async def update_step_args(
     if problems:
         raise TaskError("；".join(problems))
 
+    before = dict(step.args or {})
     step.args = args
     await session.flush()
+    await record_event(
+        session,
+        event_key=f"human.edited_args:{step.id}:{uuid4()}",
+        kind="human.edited_args",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=actor.id if actor else None,
+        payload={
+            "step_id": str(step.id),
+            "step": step.seq,
+            "tool": step.tool_name,
+            "before": before,
+            "after": args,
+        },
+        source="human",
+    )
 
     from app.services.audit import record
 
@@ -736,6 +846,26 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
             step.finished_at = datetime.now(UTC)
             statuses.append(step.status)
             await session.flush()
+            await record_event(
+                session,
+                event_key=f"step.finished:{step.id}",
+                kind="step.finished",
+                product_id=task.product_id,
+                task_id=task.id,
+                payload={
+                    "step_id": str(step.id),
+                    "seq": step.seq,
+                    "tool": step.tool_name,
+                    "version": step.tool_version,
+                    "status": step.status,
+                    "exit_code": step.exit_code,
+                    "args": step.args,
+                    "error": step.error,
+                    "stderr": (step.output or {}).get("stderr", "")[:1200],
+                    "cases": (step.output or {}).get("cases", [])[:5],
+                },
+                source="worker",
+            )
 
             # Agent 恢复开启时失败即停：把剩余步骤标为跳过，模型只观察已发生的失败（D166）。
             if step.status in ("failed", "error") and get_settings().agent_recovery_enabled:
@@ -756,8 +886,37 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
         task.status = "cancelled" if cancelled else _aggregate(statuses)
         task.finished_at = datetime.now(UTC)
         await session.flush()
+        await record_event(
+            session,
+            event_key=f"task.finished:{task.id}",
+            kind="task.finished",
+            product_id=task.product_id,
+            task_id=task.id,
+            payload={
+                "status": task.status,
+                "finished_at": task.finished_at.isoformat(),
+                "steps": [
+                    {
+                        "seq": step.seq,
+                        "tool": step.tool_name,
+                        "status": step.status,
+                        "exit_code": step.exit_code,
+                    }
+                    for step in steps
+                ],
+            },
+            source="worker",
+        )
         # 先让终态可见，再调用模型；模型慢/失败不能拖住任务页面（D165）。
         await session.commit()
+
+        try:
+            await index_task_outcome(session, task, steps)
+        except Exception as exc:  # noqa: BLE001 - 知识入库失败不能覆盖执行结果
+            draft = dict(task.draft or {})
+            draft["knowledge_error"] = exc.__class__.__name__
+            task.draft = draft
+            await session.flush()
 
         if task.status == "passed":
             try:

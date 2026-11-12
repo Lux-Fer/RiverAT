@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import require_admin, require_engineer, require_user
 from app.db.session import get_session
 from app.models import User
+from app.services.knowledge_base import related_for_task
 from app.services.task_board import build_task_board
 from app.services.task_detail import build_task_detail
 from app.services.tasks import (
@@ -65,6 +66,7 @@ async def _render_detail(
 ) -> HTMLResponse:
     steps = await steps_for(session, task.id)
     view = await build_task_detail(session, task, steps)
+    related = await related_for_task(session, task, limit=3)
     return templates.TemplateResponse(
         request=request,
         name="task_detail.html",
@@ -73,6 +75,7 @@ async def _render_detail(
             "view": view,
             "user": user,
             "error": error,
+            "related": related,
         },
         status_code=422 if error else 200,
     )

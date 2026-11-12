@@ -7,7 +7,7 @@
 
 | 容器 | 镜像 | 说明 |
 |---|---|---|
-| `riverat-backend` | `riverat-backend:0.1.2`（本地构建） | FastAPI + 服务端渲染页面；启动时自动跑 `alembic upgrade head` |
+| `riverat-backend` | `riverat-backend:0.2.0`（本地构建） | FastAPI + 服务端渲染页面；启动时自动跑 `alembic upgrade head` |
 | `riverat-worker` | 同上镜像 | arq worker，执行任务；启动时回收卡死任务、补发丢失的 queued job |
 | `riverat-db` | `postgres:17` | 数据卷 `pgdata` |
 | `riverat-redis` | `redis:7` | 会话与队列；数据卷 `redisdata`（可丢） |
@@ -61,6 +61,9 @@ RIVERAT_LLM_API_KEY=sk-...
 V0.1.2 的失败恢复有三个开关：`AGENT_RECOVERY_ENABLED`（默认 `true`）、
 `AGENT_RECOVERY_MAX_STEPS`（默认 `3`）、`AGENT_REPLAN_LIMIT`（默认 `2`）。
 关闭后失败任务只记录结果，不调用模型生成修复草案。
+
+V0.2.0 的 `knowledge_event` / `knowledge_item` 随常规迁移创建，不需要额外配置；
+知识检索使用 PostgreSQL `pg_trgm`，不依赖外部向量服务。
 
 ## 3. 首次启动
 
@@ -127,7 +130,7 @@ worker 重启时会自动回收上次崩溃留下的卡死任务（心跳超 10 
 
 ```bash
 docker compose build
-docker save riverat-backend:0.1.2 postgres:17 redis:7 -o riverat-images.tar
+docker save riverat-backend:0.2.0 postgres:17 redis:7 -o riverat-images.tar
 tar czf riverat-src.tar.gz docker-compose.yml backend frontend docs
 ```
 

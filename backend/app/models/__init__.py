@@ -20,6 +20,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -268,6 +269,87 @@ class KnowledgeChunk(Base):
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KnowledgeEvent(Base):
+    """V0.2.0：全量输入/输出事件（append-only）。"""
+
+    __tablename__ = "knowledge_event"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    event_key: Mapped[str] = mapped_column(String(240), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(64), index=True)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("work_product.id", ondelete="SET NULL"), index=True
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("task.id", ondelete="SET NULL"), index=True
+    )
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    source: Mapped[str] = mapped_column(String(64), default="riverat")
+    payload: Mapped[dict] = mapped_column(JSONB, default=dict)
+    sensitivity: Mapped[str] = mapped_column(String(32), default="internal")
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class KnowledgeItem(Base):
+    """V0.2.0：从事件中提炼的可复用知识。"""
+
+    __tablename__ = "knowledge_item"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    item_key: Mapped[str] = mapped_column(String(240), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    body: Mapped[str] = mapped_column(Text)
+    product_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("work_product.id", ondelete="SET NULL"), index=True
+    )
+    tool_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tool.id", ondelete="SET NULL"), index=True
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("task.id", ondelete="SET NULL"), index=True
+    )
+    confidence: Mapped[float] = mapped_column(Float, default=0.5)
+    status: Mapped[str] = mapped_column(String(32), default="tentative", index=True)
+    tags: Mapped[list] = mapped_column(JSONB, default=list)
+    valid_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class KnowledgeItemSource(Base):
+    """V0.2.0：知识到事件的溯源。"""
+
+    __tablename__ = "knowledge_item_source"
+    __table_args__ = (
+        UniqueConstraint("item_id", "event_id", name="uq_knowledge_item_source"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("knowledge_item.id", ondelete="CASCADE"), index=True
+    )
+    event_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("knowledge_event.id", ondelete="CASCADE"), index=True
     )
 
 

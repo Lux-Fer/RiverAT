@@ -12,7 +12,7 @@ import json
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, or_, select, text
+from sqlalchemy import and_, case, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -280,6 +280,243 @@ async def related_for_task(
         limit=limit,
         exclude_task_id=task.id,
     )
+
+
+def _console_visible(user_id: UUID):
+    return or_(
+        KnowledgeItem.scope == "global",
+        KnowledgeItem.scope == "product",
+        and_(
+            KnowledgeItem.scope == "user",
+            KnowledgeItem.owner_id == user_id,
+        ),
+    )
+
+
+async def console_counts(session: AsyncSession, *, user_id: UUID) -> dict:
+    visible = _console_visible(user_id)
+    rows = (
+        await session.execute(
+            select(KnowledgeItem.status, func.count())
+            .where(visible)
+            .group_by(KnowledgeItem.status)
+        )
+    ).all()
+    by_status = {status: count for status, count in rows}
+    expired = await session.scalar(
+        select(func.count())
+        .select_from(KnowledgeItem)
+        .where(
+            visible,
+            KnowledgeItem.status.in_(("tentative", "approved")),
+            KnowledgeItem.valid_until.is_not(None),
+            KnowledgeItem.valid_until <= datetime.now(UTC),
+        )
+    )
+    return {
+        "total": sum(by_status.values()),
+        "tentative": by_status.get("tentative", 0),
+        "approved": by_status.get("approved", 0),
+        "archived": by_status.get("archived", 0),
+        "expired": expired or 0,
+    }
+
+
+async def console_items(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    query: str = "",
+    scope: str = "",
+    status: str = "",
+    kind: str = "",
+    product_id: UUID | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    visible = _console_visible(user_id)
+    stmt = (
+        select(KnowledgeItem)
+        .where(visible)
+        .order_by(KnowledgeItem.created_at.desc())
+        .limit(limit)
+    )
+    if query.strip():
+        pattern = f"%{query.strip()}%"
+        stmt = stmt.where(
+            or_(
+                KnowledgeItem.title.ilike(pattern),
+                KnowledgeItem.body.ilike(pattern),
+            )
+        )
+    if scope:
+        stmt = stmt.where(KnowledgeItem.scope == scope)
+    if status:
+        stmt = stmt.where(KnowledgeItem.status == status)
+    if kind:
+        stmt = stmt.where(KnowledgeItem.kind == kind)
+    if product_id is not None:
+        stmt = stmt.where(KnowledgeItem.product_id == product_id)
+
+    items = list((await session.execute(stmt)).scalars().all())
+    if not items:
+        return []
+
+    ids = [item.id for item in items]
+    feedback_rows = (
+        await session.execute(
+            select(
+                KnowledgeFeedback.item_id,
+                func.count(),
+                func.sum(case((KnowledgeFeedback.helpful.is_(True), 1), else_=0)),
+            )
+            .where(KnowledgeFeedback.item_id.in_(ids))
+            .group_by(KnowledgeFeedback.item_id)
+        )
+    ).all()
+    feedback = {
+        item_id: {"count": int(count), "helpful": int(helpful or 0)}
+        for item_id, count, helpful in feedback_rows
+    }
+
+    source_rows = (
+        await session.execute(
+            select(
+                KnowledgeItemSource.item_id,
+                KnowledgeEvent.kind,
+                KnowledgeEvent.task_id,
+                KnowledgeEvent.occurred_at,
+            )
+            .join(KnowledgeEvent, KnowledgeEvent.id == KnowledgeItemSource.event_id)
+            .where(KnowledgeItemSource.item_id.in_(ids))
+            .order_by(KnowledgeEvent.occurred_at.desc())
+        )
+    ).all()
+    sources: dict[UUID, list[dict]] = {}
+    for item_id, event_kind, task_id, occurred_at in source_rows:
+        bucket = sources.setdefault(item_id, [])
+        if len(bucket) < 3:
+            bucket.append(
+                {
+                    "kind": event_kind,
+                    "task_id": task_id,
+                    "occurred_at": occurred_at,
+                }
+            )
+
+    product_ids = {item.product_id for item in items if item.product_id}
+    products = {}
+    if product_ids:
+        products = {
+            row.id: row
+            for row in (
+                await session.execute(
+                    select(WorkProduct).where(WorkProduct.id.in_(product_ids))
+                )
+            ).scalars()
+        }
+
+    return [
+        {
+            "item": item,
+            "product": products.get(item.product_id),
+            "feedback": feedback.get(item.id, {"count": 0, "helpful": 0}),
+            "sources": sources.get(item.id, []),
+            "expired": bool(
+                item.valid_until and item.valid_until <= datetime.now(UTC)
+            ),
+        }
+        for item in items
+    ]
+
+
+async def set_knowledge_status(
+    session: AsyncSession, item: KnowledgeItem, status: str, *, actor
+) -> KnowledgeItem:
+    if status not in ("tentative", "approved", "archived"):
+        raise ValueError("知识状态不合法")
+    item.status = status
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="knowledge.review",
+        target_type="knowledge_item",
+        target_id=str(item.id),
+        detail={"status": status, "title": item.title[:120]},
+    )
+    await record_event(
+        session,
+        event_key=f"knowledge.review:{item.id}:{uuid4()}",
+        kind="knowledge.review",
+        product_id=item.product_id,
+        task_id=item.task_id,
+        actor_id=actor.id,
+        payload={"status": status, "title": item.title},
+        source="human",
+    )
+    return item
+
+
+async def expire_knowledge(session: AsyncSession, *, actor=None, limit: int = 500) -> int:
+    rows = (
+        await session.execute(
+            select(KnowledgeItem)
+            .where(
+                KnowledgeItem.status.in_(("tentative", "approved")),
+                KnowledgeItem.valid_until.is_not(None),
+                KnowledgeItem.valid_until <= datetime.now(UTC),
+            )
+            .limit(limit)
+        )
+    ).scalars().all()
+
+    from app.services.audit import record
+
+    for item in rows:
+        item.status = "archived"
+        await session.flush()
+        await record(
+            session,
+            actor=actor,
+            action="knowledge.expire",
+            target_type="knowledge_item",
+            target_id=str(item.id),
+            detail={"title": item.title[:120], "valid_until": item.valid_until.isoformat() if item.valid_until else None},
+        )
+        await record_event(
+            session,
+            event_key=f"knowledge.expired:{item.id}:{uuid4()}",
+            kind="knowledge.expired",
+            product_id=item.product_id,
+            task_id=item.task_id,
+            actor_id=actor.id if actor else None,
+            payload={"title": item.title, "valid_until": item.valid_until.isoformat() if item.valid_until else None},
+            source="system",
+        )
+    return len(rows)
+
+
+async def console_products(session: AsyncSession) -> list[WorkProduct]:
+    return list(
+        (await session.execute(select(WorkProduct).order_by(WorkProduct.code)))
+        .scalars()
+        .all()
+    )
+
+
+async def console_kinds(session: AsyncSession, *, user_id: UUID) -> list[str]:
+    rows = (
+        await session.execute(
+            select(KnowledgeItem.kind)
+            .where(_console_visible(user_id))
+            .distinct()
+            .order_by(KnowledgeItem.kind)
+        )
+    ).scalars().all()
+    return list(rows)
 
 
 def _step_text(step: TaskStep) -> str:

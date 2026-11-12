@@ -18,6 +18,7 @@ from app.web.assistant_pages import router as assistant_pages_router
 from app.web.audit_pages import router as audit_pages_router
 from app.web.auth_pages import router as auth_pages_router
 from app.web.csrf import csrf_cookie_middleware
+from app.web.knowledge_pages import router as knowledge_pages_router
 from app.web.products_pages import router as products_pages_router
 from app.web.settings_pages import router as settings_pages_router
 from app.web.tasks_pages import router as tasks_pages_router
@@ -80,7 +81,7 @@ async def _bootstrap_admin() -> None:
 def create_app() -> FastAPI:
     settings = get_settings()
     validate_production_settings(settings)
-    app = FastAPI(title=settings.app_name, version="0.2.1", lifespan=lifespan)
+    app = FastAPI(title=settings.app_name, version="0.2.2", lifespan=lifespan)
 
     @app.middleware("http")
     async def readout_middleware(request, call_next):
@@ -140,6 +141,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_pages_router)
     app.include_router(assistant_pages_router)
     app.include_router(tasks_pages_router)
+    app.include_router(knowledge_pages_router)
     app.include_router(products_pages_router)
     app.include_router(tools_pages_router)
     app.include_router(settings_pages_router)

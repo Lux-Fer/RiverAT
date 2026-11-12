@@ -405,3 +405,5 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D169 | M2：规划和修复前检索同产品知识并注入 prompt，标注不可信，写 `knowledge.retrieved` 事件；任务详情显示“相关知识” | 知识只有进入决策才有价值；不做知识页面先把闭环跑通 |
 | D170 | V0.2.1 记忆作用域：知识带 `scope=global/product/user` + `owner_id`，检索按当前产品/用户过滤；失败知识 TTL 30 天、成功方案 90 天；team 暂缓到有团队实体 | 没有作用域的知识会串产品或串用户；没有有效期会把旧经验当永久事实 |
 | D171 | 任务内知识反馈：有用 +0.1 并 approved，不相关 -0.05（低于 0.2 归档）；同一 item/task/user 唯一；同时写 feedback 表、`knowledge.feedback` 事件和审计 | 人工采纳/拒绝是比模型自评更可信的信号；先做最小反馈回路，不自动生成新知识 |
+| D172 | V0.2.2 新增 `/knowledge` 控制台：global/product/自己的 user 可见，支持关键词/类型/作用域/状态/产品筛选；展开显示正文、来源事件、反馈统计；admin 可确认/归档 | 知识没有可操作面就只能靠 SQL 看；审核和反馈是两种不同信号 |
+| D173 | 控制台提供显式“归档过期知识”：`valid_until <= now()` 的 tentative/approved 改为 archived，逐条写审计和事件；不做后台定时任务 | TTL 先靠检索过滤保证不生效，清理做成可观察的显式动作，后续再交给 worker 定时 |

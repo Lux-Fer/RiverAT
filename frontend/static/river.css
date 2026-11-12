@@ -1431,6 +1431,63 @@ body.river .brief .ui-select-menu { top: calc(100% + 6px); }
 body.river .audit-filter .ui-select { width: 160px; }
 body.river .audit-filter .ui-select-trigger { padding: 5px 0; font-size: 13px; }
 
+/* knowledge console */
+body.river .kn-toolbar {
+  display: flex; justify-content: space-between; align-items: flex-end; gap: 18px;
+  margin-top: 18px; padding: 12px 0 14px; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule);
+}
+body.river .kn-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px; }
+body.river .kn-q { display: flex; flex-direction: column; gap: 4px; min-width: 210px; }
+body.river .kn-filters .k { font: 9px/1.3 var(--mono); letter-spacing: .1em; color: var(--ink-3); }
+body.river .kn-q input {
+  border: 0; border-bottom: 1px solid var(--rule-2); background: transparent;
+  padding: 5px 0; font: 12px/1.5 var(--sans); color: var(--ink); outline: none;
+}
+body.river .kn-q input:focus { border-bottom-color: var(--water); }
+body.river .kn-filters .ui-select { width: 126px; }
+body.river .kn-filters .ui-select-trigger { padding: 5px 0; font-size: 12px; }
+body.river .kn-actions { display: flex; align-items: baseline; gap: 12px; }
+body.river .kn-actions button { border: 0; background: none; padding: 0; color: var(--water); font: 11px/1.5 var(--sans); cursor: pointer; }
+body.river .kn-actions a { font-size: 11px; color: var(--ink-3); }
+body.river .kn-expire button { border: 0; background: none; padding: 0; color: var(--orange); font: 10px/1.5 var(--mono); cursor: pointer; }
+
+body.river .kn-list { margin-top: 4px; }
+body.river .kn-row { border-bottom: 1px solid var(--rule); }
+body.river .kn-row summary {
+  display: grid; grid-template-columns: 128px minmax(0, 1fr) 76px 66px 52px;
+  gap: 12px; align-items: baseline; padding: 11px 0; cursor: pointer; list-style: none;
+}
+body.river .kn-row summary::-webkit-details-marker { display: none; }
+body.river .kn-row summary:hover { background: rgba(14, 91, 87, 0.03); }
+body.river .kn-kind, body.river .kn-scope, body.river .kn-conf {
+  font: 9.5px/1.5 var(--mono); color: var(--ink-3); letter-spacing: .03em;
+}
+body.river .kn-title { font-size: 12.5px; color: var(--ink); }
+body.river .kn-status { font: 9.5px/1.5 var(--mono); }
+body.river .kn-status.st-approved { color: var(--water); }
+body.river .kn-status.st-tentative { color: var(--orange); }
+body.river .kn-status.st-archived { color: var(--ink-3); }
+body.river .kn-body { padding: 0 0 14px 140px; }
+body.river .kn-meta { display: flex; flex-wrap: wrap; gap: 16px; font: 9.5px/1.5 var(--mono); color: var(--ink-3); }
+body.river .kn-meta .warn { color: var(--orange); }
+body.river .kn-body pre {
+  margin: 9px 0 0; padding: 10px 12px; background: rgba(16, 32, 29, 0.035);
+  white-space: pre-wrap; overflow-wrap: anywhere; font: 10.5px/1.65 var(--code); color: var(--ink-2);
+}
+body.river .kn-sources { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 9px; font: 9.5px/1.5 var(--mono); color: var(--ink-3); }
+body.river .kn-sources .k { color: var(--water); letter-spacing: .1em; }
+body.river .kn-sources a { color: var(--water); }
+body.river .kn-review { margin-top: 8px; }
+body.river .kn-review button { border: 0; background: none; padding: 0; margin-right: 16px; color: var(--water); font: 10px/1.5 var(--sans); cursor: pointer; }
+
+@media (max-width: 900px) {
+  body.river .kn-toolbar { flex-direction: column; align-items: stretch; }
+  body.river .kn-row summary { grid-template-columns: 90px minmax(0, 1fr) 60px; }
+  body.river .kn-scope, body.river .kn-conf { display: none; }
+  body.river .kn-body { padding-left: 0; }
+}
+
+
 @media (max-width: 900px) {
   body.river .ui-select-menu { max-height: 46vh; }
 }

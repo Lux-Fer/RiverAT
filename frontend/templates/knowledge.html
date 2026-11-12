@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block body_class %}river{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="/static/river.css?v=20261214">
+{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>知识</h1>
+  </div>
+  <div class="page-meta">
+    {{ counts.total }} 条 · {{ counts.approved }} 已确认 · {{ counts.tentative }} 待确认{% if counts.expired %} · {{ counts.expired }} 过期{% endif %}
+  </div>
+</div>
+
+{% if saved %}<p class="prod-error">已记录。</p>{% endif %}
+
+<div class="kn-toolbar">
+  <form method="get" action="/knowledge" class="kn-filters">
+    <label class="kn-q">
+      <span class="k">搜索</span>
+      <input type="search" name="q" value="{{ q }}" placeholder="标题或正文" autocomplete="off">
+    </label>
+    <div class="ui-field">
+      <span class="k">类型</span>
+      <div class="ui-select">
+        <select name="kind" aria-label="知识类型">
+          <option value="">全部</option>
+          {% for value in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ value }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="ui-field">
+      <span class="k">作用域</span>
+      <div class="ui-select">
+        <select name="scope" aria-label="知识作用域">
+          <option value="">全部</option>
+          <option value="global" {% if scope == "global" %}selected{% endif %}>global</option>
+          <option value="product" {% if scope == "product" %}selected{% endif %}>product</option>
+          <option value="user" {% if scope == "user" %}selected{% endif %}>user</option>
+        </select>
+      </div>
+    </div>
+    <div class="ui-field">
+      <span class="k">状态</span>
+      <div class="ui-select">
+        <select name="status" aria-label="知识状态">
+          <option value="">全部</option>
+          <option value="tentative" {% if status == "tentative" %}selected{% endif %}>待确认</option>
+          <option value="approved" {% if status == "approved" %}selected{% endif %}>已确认</option>
+          <option value="archived" {% if status == "archived" %}selected{% endif %}>已归档</option>
+        </select>
+      </div>
+    </div>
+    <div class="ui-field">
+      <span class="k">产品</span>
+      <div class="ui-select">
+        <select name="product" aria-label="产品">
+          <option value="">全部</option>
+          {% for p in products %}<option value="{{ p.id }}" {% if product == (p.id | string) %}selected{% endif %}>{{ p.code }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="kn-actions">
+      <button type="submit" class="act-primary">筛选 →</button>
+      <a href="/knowledge">清空</a>
+    </div>
+  </form>
+
+  {% if user.role == "admin" %}
+  <form method="post" action="/knowledge/expire" class="kn-expire">
+{% include "_csrf_input.html" %}
+    <button type="submit" class="act">归档过期知识</button>
+  </form>
+  {% endif %}
+</div>
+
+{% if items %}
+<div class="kn-list">
+  {% for row in items %}
+  {% set item = row.item %}
+  <details class="kn-row">
+    <summary>
+      <span class="kn-kind">{{ item.kind }}</span>
+      <span class="kn-title">{{ item.title }}</span>
+      <span class="kn-status st-{{ item.status }}">{{ item.status }}</span>
+      <span class="kn-scope">{{ item.scope }}</span>
+      <span class="kn-conf">{{ "%.2f" | format(item.confidence) }}</span>
+    </summary>
+    <div class="kn-body">
+      <div class="kn-meta">
+        <span>{{ row.product.code if row.product else "—" }}</span>
+        <span>有效至 {{ (item.valid_until | localtime) if item.valid_until else "永久" }}</span>
+        {% if row.feedback.count %}<span>反馈 {{ row.feedback.helpful }} / {{ row.feedback.count }} 有用</span>{% endif %}
+        {% if row.expired %}<span class="warn">已过期</span>{% endif %}
+      </div>
+      <pre>{{ item.body }}</pre>
+      {% if row.sources %}
+      <div class="kn-sources">
+        <span class="k">来源</span>
+        {% for source in row.sources %}
+        <span>{{ source.kind }} · {{ source.occurred_at | localtime }}{% if source.task_id %} · <a href="/tasks/{{ source.task_id }}">任务</a>{% endif %}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if user.role == "admin" %}
+      <div class="kn-review">
+        <form method="post" action="/knowledge/{{ item.id }}/status">
+{% include "_csrf_input.html" %}
+          <button type="submit" name="status" value="approved" class="act">确认</button>
+          <button type="submit" name="status" value="archived" class="act">归档</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+  </details>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">没有匹配的知识。先跑几次任务，知识会从任务结果中自动提炼。</div>
+{% endif %}
+{% endblock %}

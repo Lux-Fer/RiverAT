@@ -22,6 +22,7 @@
         <a href="/tasks" {% if path.startswith("/tasks") %}class="active" aria-current="page"{% endif %}>任务</a>
         <a href="/products" {% if path.startswith("/products") %}class="active" aria-current="page"{% endif %}>产品</a>
         <a href="/tools" {% if path.startswith("/tools") %}class="active" aria-current="page"{% endif %}>工具</a>
+        <a href="/knowledge" {% if path.startswith("/knowledge") %}class="active" aria-current="page"{% endif %}>知识</a>
       </nav>
       {% if readout and user %}
       <div class="site-status" role="status" aria-label="平台状态">
@@ -77,7 +78,7 @@
   </main>
 
   <footer class="site-foot shell">
-    <span>RiverAT V0.2.1 · 承接测试工作的平台</span>
+    <span>RiverAT V0.2.2 · 承接测试工作的平台</span>
     <span>人在环 · 工具即能力 · 工作流可见</span>
   </footer>
   {% block scripts %}{% endblock %}

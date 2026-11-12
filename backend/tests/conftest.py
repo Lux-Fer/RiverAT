@@ -164,6 +164,8 @@ def disable_agent_recovery():
     from app.core.config import get_settings
 
     get_settings().agent_recovery_enabled = False
+    get_settings().agent_step_review_enabled = False
+    get_settings().agent_step_repair_enabled = False
 
 
 @pytest.fixture(scope="session", autouse=True)

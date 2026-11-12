@@ -16,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.models import ChatMessage, Task, TaskStep, Tool, User, WorkProduct
 from app.services import llm
+from app.services.agent_repair import propose_step_repair
+from app.services.agent_step import review_after_step
 from app.services.knowledge_base import (
     format_knowledge,
     index_task_outcome,
@@ -456,7 +458,7 @@ async def approve_task(
 async def cancel_task(
     session: AsyncSession, task: Task, *, actor: User | None = None
 ) -> Task:
-    if task.status not in ("draft", "queued", "running"):
+    if task.status not in ("draft", "queued", "running", "paused"):
         raise TaskError(f"只能取消未完成的任务，当前状态：{task.status}")
     previous = task.status
     # 运行中不硬杀进程：标成 cancelling，worker 在步骤之间停下（D107）
@@ -488,8 +490,139 @@ async def cancel_task(
     return task
 
 
-async def rerun_task(
+async def resume_repaired_task(
     session: AsyncSession, task: Task, *, actor: User | None = None
+) -> TaskStep:
+    """人确认单步修复：替换失败步骤并重新入队，同任务继续执行。"""
+
+    if task.status != "paused":
+        raise TaskError(f"只有等待修复的任务可以继续，当前状态：{task.status}")
+    repair = (task.draft or {}).get("repair")
+    if not isinstance(repair, dict):
+        raise TaskError("没有待确认的修复草案")
+
+    try:
+        step = await session.get(TaskStep, UUID(str(repair.get("step_id"))))
+        tool = await session.get(Tool, UUID(str(repair.get("tool_id"))))
+    except (TypeError, ValueError):
+        raise TaskError("修复草案格式不合法") from None
+    if step is None or step.task_id != task.id:
+        raise TaskError("修复步骤不存在")
+    if tool is None or tool.status != "approved":
+        raise TaskError("修复工具不存在或已停用")
+    args = repair.get("args")
+    if not isinstance(args, dict):
+        raise TaskError("修复参数不合法")
+    problems = validate_args((tool.manifest or {}).get("input_schema", {}), args)
+    if problems:
+        raise TaskError("修复参数不完整：" + "；".join(problems))
+
+    step.tool_id = tool.id
+    step.tool_name = tool.name
+    step.tool_version = tool.version
+    step.args = args
+    step.status = "pending"
+    step.output = {}
+    step.exit_code = None
+    step.error = None
+    step.started_at = None
+    step.finished_at = None
+
+    draft = dict(task.draft or {})
+    draft.pop("repair", None)
+    task.draft = draft
+    task.status = "queued"
+    task.finished_at = None
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.resume",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"step": step.seq, "tool": tool.name},
+    )
+    await record_event(
+        session,
+        event_key=f"task.resume:{task.id}:{uuid4()}",
+        kind="task.resume",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=actor.id if actor else None,
+        payload={"step": step.seq, "tool": tool.name},
+        source="human",
+    )
+    return step
+
+
+async def resume_incomplete_task(
+    session: AsyncSession, task: Task, *, actor: User | None = None
+) -> list[int]:
+    """错误任务断点续跑：保留 passed/skipped，重置未完成步骤后重新入队。"""
+
+    if task.status != "error":
+        raise TaskError(f"只有 error 任务可以断点续跑，当前状态：{task.status}")
+    steps = await steps_for(session, task.id)
+    if not steps:
+        raise TaskError("任务没有步骤，无法续跑")
+
+    draft = dict(task.draft or {})
+    attempts = list(draft.get("resume_attempts") or [])
+    resumed: list[int] = []
+    for step in steps:
+        if step.status not in ("running", "failed", "error"):
+            continue
+        attempts.append(
+            {
+                "step": step.seq,
+                "status": step.status,
+                "error": redact_text(step.error or "")[:300],
+                "tool": step.tool_name,
+            }
+        )
+        step.status = "pending"
+        step.output = {}
+        step.exit_code = None
+        step.error = None
+        step.started_at = None
+        step.finished_at = None
+        resumed.append(step.seq)
+    if not resumed:
+        raise TaskError("没有可续跑的步骤")
+
+    draft["resume_attempts"] = attempts[-8:]
+    task.draft = draft
+    task.status = "queued"
+    task.finished_at = None
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=actor,
+        action="task.resume",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"mode": "checkpoint", "steps": resumed},
+    )
+    await record_event(
+        session,
+        event_key=f"task.resume:{task.id}:{uuid4()}",
+        kind="task.resume",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=actor.id if actor else None,
+        payload={"mode": "checkpoint", "steps": resumed},
+        source="human",
+    )
+    return resumed
+
+
+async def rerun_task(    session: AsyncSession, task: Task, *, actor: User | None = None
 ) -> Task:
     """复制一个任务的步骤，生成新的草案（D107）：不偷偷重跑，仍要人确认。"""
 
@@ -806,6 +939,11 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
                 cancelled = True
                 break
 
+            # 同任务恢复：已经完成的步骤不重跑。
+            if step.status in ("passed", "skipped"):
+                statuses.append(step.status)
+                continue
+
             task.heartbeat_at = datetime.now(UTC)
             step.status = "running"
             step.started_at = datetime.now(UTC)
@@ -867,6 +1005,49 @@ async def execute_task(session: AsyncSession, task: Task) -> Task:
                 },
                 source="worker",
             )
+
+            if step.status == "passed" and index + 1 < len(steps):
+                decision = await review_after_step(session, task, steps, index)
+                if decision is not None and decision["action"] == "stop":
+                    now = datetime.now(UTC)
+                    for later in steps[index + 1 :]:
+                        if later.status == "pending":
+                            later.status = "skipped"
+                            later.finished_at = now
+                            later.error = "Agent 判断目标已达成，未执行"
+                    await session.flush()
+                    break
+
+            # 单步失败：若模型能提出可信替换，暂停任务等待人确认；否则按旧策略失败即停。
+            if step.status in ("failed", "error"):
+                repair = await propose_step_repair(session, task, steps, index)
+                if repair is not None:
+                    task.status = "paused"
+                    task.draft = {
+                        **(task.draft or {}),
+                        "repair": repair,
+                        "repair_count": repair["repair_count"],
+                    }
+                    await session.flush()
+                    await record_event(
+                        session,
+                        event_key=(
+                            f"task.paused:{task.id}:{step.id}:"
+                            f"{repair['repair_count']}"
+                        ),
+                        kind="task.paused",
+                        product_id=task.product_id,
+                        task_id=task.id,
+                        payload={
+                            "step": step.seq,
+                            "tool": step.tool_name,
+                            "repair_tool": repair["tool_name"],
+                            "repair_count": repair["repair_count"],
+                        },
+                        source="agent",
+                    )
+                    await session.commit()
+                    return task
 
             # Agent 恢复开启时失败即停：把剩余步骤标为跳过，模型只观察已发生的失败（D166）。
             if step.status in ("failed", "error") and get_settings().agent_recovery_enabled:

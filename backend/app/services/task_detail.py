@@ -19,7 +19,7 @@ from app.services.labels import status_label, status_tone
 from app.services.work_products import get_product
 
 LOCAL = ZoneInfo("Asia/Shanghai")
-RUNNING = {"queued", "running", "cancelling"}
+RUNNING = {"queued", "running", "cancelling", "paused"}
 DONE = {"passed", "failed", "error", "skipped", "cancelled"}
 STEP_ORDER = ["passed", "failed", "error", "skipped", "running", "pending", "cancelled"]
 
@@ -142,6 +142,8 @@ async def build_task_detail(
 
     if task.status == "queued":
         clock = "等待"
+    elif task.status == "paused":
+        clock = "等待修复确认"
     elif task.finished_at:
         clock = duration_between(task.approved_at, task.finished_at)
     elif task.approved_at:

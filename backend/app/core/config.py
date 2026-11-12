@@ -52,6 +52,12 @@ class Settings(BaseSettings):
     # V0.2.1：知识有效期；失败模式比成功方案衰减更快
     knowledge_failure_ttl_days: int = 30
     knowledge_success_ttl_days: int = 90
+    # V0.3.0：每步执行后由模型判断继续/停止（不自动执行新工具）
+    agent_step_review_enabled: bool = True
+    agent_step_review_limit: int = 4
+    # V0.3.0：单步失败后提出一个同任务修复，人确认后继续
+    agent_step_repair_enabled: bool = True
+    agent_step_repair_limit: int = 2
 
 
 @lru_cache

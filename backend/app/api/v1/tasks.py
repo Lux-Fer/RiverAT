@@ -22,6 +22,8 @@ from app.services.tasks import (
     recover_task,
     requeue_task,
     rerun_task,
+    resume_incomplete_task,
+    resume_repaired_task,
     steps_for,
 )
 from app.worker.task_dispatch import get_task_dispatcher
@@ -145,6 +147,32 @@ async def cancel(
 
     await session.commit()
     return _summary(task)
+
+@router.post("/{task_id}/resume")
+async def resume(
+    task_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_session)],
+    user: Annotated[User, Depends(require_engineer)],
+) -> dict:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        if task.status == "paused":
+            await resume_repaired_task(session, task, actor=user)
+        elif task.status == "error":
+            await resume_incomplete_task(session, task, actor=user)
+        else:
+            raise TaskError(f"当前任务不能续跑：{task.status}")
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await session.commit()
+    await get_task_dispatcher(request).dispatch(task.id, session)
+    await session.commit()
+    return _detail(task, await steps_for(session, task.id))
+
 
 @router.post("/{task_id}/rerun", status_code=201)
 async def rerun(

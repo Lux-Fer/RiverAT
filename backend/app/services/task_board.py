@@ -21,10 +21,10 @@ from app.services.tasks import list_tasks
 from app.services.work_products import list_products
 
 LOCAL = ZoneInfo("Asia/Shanghai")
-RUNNING = {"queued", "running", "cancelling"}
+RUNNING = {"queued", "running", "cancelling", "paused"}
 UPCOMING = {"draft"}
 DONE = {"passed", "failed", "error", "skipped", "cancelled"}
-RUN_ORDER = {"running": 0, "cancelling": 1, "queued": 2}
+RUN_ORDER = {"running": 0, "cancelling": 1, "paused": 2, "queued": 3}
 DONE_PREVIEW = 30
 
 
@@ -133,6 +133,8 @@ def _current(steps: list[TaskStep], task: Task) -> str:
             return step.tool_name
     if task.status == "queued":
         return "等待执行"
+    if task.status == "paused":
+        return "等待修复确认"
     if task.status == "cancelling":
         return "当前步骤结束后取消"
     return "准备中"
@@ -175,7 +177,7 @@ async def build_task_board(
         steps = steps_by_task.get(task.id, [])
         marks = _marks(steps)
         started = _started(task).astimezone(LOCAL)
-        waiting = task.status == "queued"
+        waiting = task.status in ("queued", "paused")
         running.append(
             RunRow(
                 task=task,

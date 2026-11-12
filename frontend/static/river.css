@@ -646,6 +646,20 @@ body.river .td-kn-feedback button {
 }
 body.river .td-kn-feedback button:hover { text-decoration: underline; }
 
+body.river .td-decisions { margin-top: 6px; }
+body.river .td-decision {
+  display: grid; grid-template-columns: 70px 36px minmax(0,1fr); gap: 10px;
+  padding: 7px 0; border-top: 1px solid var(--rule);
+  font: 10.5px/1.55 var(--sans); color: var(--ink-3);
+}
+body.river .td-decision b { color: var(--water); font-weight: 500; }
+body.river .td-repair { margin-top: 8px; font: 10.5px/1.7 var(--mono); color: var(--ink-3); }
+body.river .td-repair .k { color: var(--water); margin-right: 8px; }
+body.river .td-repair pre {
+  margin: 6px 0 0; padding: 8px 10px; background: rgba(16,32,29,.035);
+  white-space: pre-wrap; font: 10px/1.6 var(--code); color: var(--ink-2);
+}
+
 body.river .td-band { margin-top: 24px; }
 body.river .td-band .flow-title { margin-bottom: 2px; }
 

@@ -7,14 +7,18 @@ import json
 from sqlalchemy import select
 
 from app.core.config import get_settings
-from app.models import AuditLog, Task, TaskStep, Tool, User
+from app.models import AuditLog, KnowledgeEvent, Task, TaskStep, Tool, User
 from app.services.agent_recovery import (
     MAX_OBSERVATION_CHARS,
     _observations,
     mark_recovery_resolved,
     maybe_recover_task,
 )
-from app.services.tasks import execute_task
+from app.services.tasks import (
+    execute_task,
+    resume_incomplete_task,
+    resume_repaired_task,
+)
 
 
 async def _failed_task(session) -> tuple[Task, Tool]:
@@ -266,3 +270,199 @@ async def test_agent_failure_stops_following_steps(session, monkeypatch):
     assert second.error == "前置步骤失败，未执行"
     assert len(calls) == 1
     assert called_recovery == [str(task.id)]
+
+
+async def test_step_review_can_stop_after_success(session, monkeypatch):
+    monkeypatch.setattr(get_settings(), "agent_step_review_enabled", True)
+    task, tool = await _failed_task(session)
+    task.status = "running"
+    first = (
+        await session.execute(
+            select(TaskStep).where(TaskStep.task_id == task.id)
+        )
+    ).scalar_one()
+    first.status = "pending"
+    first.output = {}
+    first.exit_code = None
+    first.error = None
+    second = TaskStep(
+        task_id=task.id,
+        seq=2,
+        tool_id=tool.id,
+        tool_name=tool.name,
+        tool_version=tool.version,
+        args={"base_url": "http://second:8080"},
+        status="pending",
+    )
+    session.add(second)
+    await session.flush()
+
+    async def fake_run_tool(tool, *, args, product, task_id):
+        return {
+            "status": "passed",
+            "exit_code": 0,
+            "output": {"cases": [{"case_id": "one", "status": "passed"}]},
+            "stderr": "",
+            "error": None,
+        }
+
+    async def fake_chat(session, messages, *, tools=None, max_tokens=1024, timeout=60.0):
+        return {
+            "content": '{"action":"stop","reason":"目标已经在第一步完成"}',
+            "tool_calls": [],
+        }
+
+    monkeypatch.setattr("app.services.tool_exec.run_tool", fake_run_tool)
+    monkeypatch.setattr("app.services.llm.chat", fake_chat)
+
+    await execute_task(session, task)
+    await session.commit()
+
+    await session.refresh(first)
+    await session.refresh(second)
+    assert first.status == "passed"
+    assert second.status == "skipped"
+    assert second.error == "Agent 判断目标已达成，未执行"
+    assert task.status == "passed"
+    assert task.draft["step_decisions"][0]["action"] == "stop"
+    events = (
+        await session.execute(
+            select(KnowledgeEvent).where(KnowledgeEvent.kind == "agent.step_decision")
+        )
+    ).scalars().all()
+    assert events
+
+
+async def test_failed_step_can_be_repaired_in_same_task(session, monkeypatch):
+    import json
+
+    monkeypatch.setattr(get_settings(), "agent_step_repair_enabled", True)
+    monkeypatch.setattr(get_settings(), "agent_recovery_enabled", False)
+    task, _tool = await _failed_task(session)
+    task.status = "running"
+    step = (
+        await session.execute(
+            select(TaskStep).where(TaskStep.task_id == task.id)
+        )
+    ).scalar_one()
+    step.status = "pending"
+    step.args = {"base_url": "http://bad.example"}
+    step.output = {}
+    step.exit_code = None
+    step.error = None
+    await session.flush()
+
+    async def fake_chat(session, messages, *, tools=None, max_tokens=1024, timeout=60.0):
+        return {
+            "content": "把地址改成 good 后重试",
+            "tool_calls": [
+                {
+                    "id": "repair-1",
+                    "type": "function",
+                    "function": {
+                        "name": "login_smoke",
+                        "arguments": json.dumps(
+                            {"base_url": "http://good.example:8080"}
+                        ),
+                    },
+                }
+            ],
+        }
+
+    calls: list[str] = []
+
+    async def fake_run_tool(tool, *, args, product, task_id):
+        calls.append(str(args.get("base_url")))
+        if len(calls) == 1:
+            return {
+                "status": "failed",
+                "exit_code": 3,
+                "output": {"stderr": "bad host", "cases": []},
+                "stderr": "bad host",
+                "error": "退出码 3",
+            }
+        return {
+            "status": "passed",
+            "exit_code": 0,
+            "output": {"cases": [{"case_id": "retry", "status": "passed"}]},
+            "stderr": "",
+            "error": None,
+        }
+
+    monkeypatch.setattr("app.services.llm.chat", fake_chat)
+    monkeypatch.setattr("app.services.tool_exec.run_tool", fake_run_tool)
+
+    await execute_task(session, task)
+    await session.commit()
+
+    assert task.status == "paused"
+    assert task.finished_at is None
+    assert task.draft["repair"]["tool_name"] == "login_smoke"
+    assert step.status == "failed"
+
+    await resume_repaired_task(session, task)
+    await session.commit()
+    assert task.status == "queued"
+    assert step.status == "pending"
+    assert "repair" not in task.draft
+
+    await execute_task(session, task)
+    await session.commit()
+
+    assert task.status == "passed"
+    assert step.status == "passed"
+    assert calls == ["http://bad.example", "http://good.example:8080"]
+
+
+async def test_error_task_can_resume_from_checkpoint(session, monkeypatch):
+    task, tool = await _failed_task(session)
+    task.status = "error"
+    first = (
+        await session.execute(
+            select(TaskStep).where(TaskStep.task_id == task.id)
+        )
+    ).scalar_one()
+    first.status = "passed"
+    first.output = {"cases": []}
+    first.error = None
+    second = TaskStep(
+        task_id=task.id,
+        seq=2,
+        tool_id=tool.id,
+        tool_name=tool.name,
+        tool_version=tool.version,
+        args={"base_url": "http://second:8080"},
+        status="running",
+    )
+    session.add(second)
+    await session.flush()
+
+    calls: list[str] = []
+
+    async def fake_run_tool(tool, *, args, product, task_id):
+        calls.append(str(args.get("base_url")))
+        return {
+            "status": "passed",
+            "exit_code": 0,
+            "output": {"cases": []},
+            "stderr": "",
+            "error": None,
+        }
+
+    monkeypatch.setattr("app.services.tool_exec.run_tool", fake_run_tool)
+
+    resumed = await resume_incomplete_task(session, task)
+    await session.commit()
+
+    assert resumed == [2]
+    assert task.status == "queued"
+    assert second.status == "pending"
+    assert first.status == "passed"
+
+    await execute_task(session, task)
+    await session.commit()
+
+    assert task.status == "passed"
+    assert first.status == "passed"
+    assert second.status == "passed"
+    assert calls == ["http://second:8080"]

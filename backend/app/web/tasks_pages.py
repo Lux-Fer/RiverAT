@@ -28,6 +28,8 @@ from app.services.tasks import (
     recover_task,
     requeue_task,
     rerun_task,
+    resume_incomplete_task,
+    resume_repaired_task,
     stale_tasks,
     steps_for,
     update_step_args,
@@ -116,6 +118,35 @@ async def task_detail_page(
     if task is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     return await _render_detail(request, session, user, task)
+
+
+@router.post(
+    "/tasks/{task_id}/resume",
+    dependencies=[Depends(require_csrf)],
+)
+async def resume_task_form(
+    task_id: UUID,
+    request: Request,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> RedirectResponse:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    try:
+        if task.status == "paused":
+            await resume_repaired_task(session, task, actor=user)
+        elif task.status == "error":
+            await resume_incomplete_task(session, task, actor=user)
+        else:
+            raise TaskError(f"当前任务不能续跑：{task.status}")
+    except TaskError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    await session.commit()
+    await get_task_dispatcher(request).dispatch(task.id, session)
+    await session.commit()
+    return RedirectResponse(f"/tasks/{task.id}", status_code=303)
 
 
 @router.post(

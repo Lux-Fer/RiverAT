@@ -11,6 +11,7 @@ STATUS_LABELS = {
     "queued": "排队中",
     "running": "运行中",
     "draft": "待确认",
+    "paused": "等待修复确认",
     "cancelling": "取消中",
     "cancelled": "已取消",
     "pending": "等待",
@@ -28,6 +29,7 @@ STATUS_TONES = {
     "queued": "i",
     "running": "run",
     "draft": "w",
+    "paused": "w",
     "cancelling": "w",
 }
 

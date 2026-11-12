@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261215">
+  <link rel="stylesheet" href="/static/river.css?v=20261218">
   {% if view.active %}<meta http-equiv="refresh" content="5">{% endif %}
 {% endblock %}
 {% block content %}
@@ -19,7 +19,7 @@
   </div>
   <div class="td-side">
     <div class="td-status t-{{ view.tone }}">{{ view.status }}</div>
-    {% if view.clock %}<div class="td-clock{% if task.status == 'queued' %} wait{% endif %}">{{ view.clock }}</div>{% endif %}
+    {% if view.clock %}<div class="td-clock{% if task.status in ('queued', 'paused') %} wait{% endif %}">{{ view.clock }}</div>{% endif %}
     <div class="td-acts">
       {% if user.role in ("engineer", "admin") %}
         {% if task.status == "draft" %}
@@ -45,7 +45,22 @@
 {% include "_csrf_input.html" %}
           <button type="submit" class="act">取消</button>
         </form>
+        {% elif task.status == "paused" %}
+        <form method="post" action="/tasks/{{ task.id }}/resume">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act-primary">确认修复 →</button>
+        </form>
+        <form method="post" action="/tasks/{{ task.id }}/cancel">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">放弃</button>
+        </form>
         {% elif view.is_terminal and view.steps %}
+        {% if task.status == "error" %}
+        <form method="post" action="/tasks/{{ task.id }}/resume">
+{% include "_csrf_input.html" %}
+          <button type="submit" class="act">断点续跑 →</button>
+        </form>
+        {% endif %}
         <form method="post" action="/tasks/{{ task.id }}/rerun">
 {% include "_csrf_input.html" %}
           <button type="submit" class="act">重跑 →</button>
@@ -82,6 +97,36 @@
   {% else %}
   <p class="td-note">{{ recovery.get("reply") or "没有生成可执行的修复草案。" }}</p>
   {% endif %}
+</section>
+{% endif %}
+
+{% set repair = (task.draft or {}).get("repair") %}
+{% if repair %}
+<section class="td-band" aria-label="Agent 单步修复建议">
+  <div class="flow-title">Agent 单步修复 <b>PAUSED</b><span>同任务替换失败步骤，仍需人确认</span></div>
+  <p class="td-note">{{ repair.get("reason") or "模型提出了一个替换步骤。" }}</p>
+  <div class="td-repair">
+    <div><span class="k">失败步骤</span> 第 {{ repair.get("step_seq") }} 步</div>
+    <div><span class="k">替换工具</span> {{ repair.get("tool_name") }}@{{
+      repair.get("tool_version") }}</div>
+    <pre>{{ repair.get("args") | tojson(indent=2) }}</pre>
+  </div>
+</section>
+{% endif %}
+
+{% set decisions = (task.draft or {}).get("step_decisions") %}
+{% if decisions %}
+<section class="td-band" aria-label="Agent 执行判断">
+  <div class="flow-title">Agent 执行判断 <b>{{ decisions | length }}</b><span>只决定继续/停止，不执行新工具</span></div>
+  <div class="td-decisions">
+    {% for decision in decisions %}
+    <div class="td-decision">
+      <span>步骤 {{ decision.step }}</span>
+      <b>{{ "停止" if decision.action == "stop" else "继续" }}</b>
+      <span>{{ decision.reason }}</span>
+    </div>
+    {% endfor %}
+  </div>
 </section>
 {% endif %}
 

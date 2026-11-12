@@ -29,7 +29,9 @@ async def get_readout(session: AsyncSession) -> dict:
         "model_ready": config is not None,
         "model": config.model if config else None,
         "draft": counts.get("draft", 0),
-        "active": counts.get("queued", 0) + counts.get("running", 0),
+        "active": counts.get("queued", 0)
+        + counts.get("running", 0)
+        + counts.get("paused", 0),
         "done": sum(counts.get(status, 0) for status in DONE_STATUSES),
         "pending_tools": pending_tools or 0,
     }

@@ -409,3 +409,8 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D173 | 控制台提供显式“归档过期知识”：`valid_until <= now()` 的 tentative/approved 改为 archived，逐条写审计和事件；不做后台定时任务 | TTL 先靠检索过滤保证不生效，清理做成可观察的显式动作，后续再交给 worker 定时 |
 | D174 | V0.2.3 混合排序：`0.65*全文相似度 + 0.25*标题相似度 + 0.05*置信度 + 0.05*反馈有用率`，保留作用域/过期/产品过滤；不引入 embedding | 先用可解释的词法排序验证收益，避免在没有 embedding 条件时硬上向量库 |
 | D175 | 空检索也写 `knowledge.retrieved`；控制台展示近 30 天检索次数/无命中率/平均召回/反馈率；新增 `RetrievalCase` + hit@1/hit@3/MRR 评测骨架 | 没有 no-result 事件就无法衡量检索是否真的在帮上忙；先有回归集再谈语义召回 |
+| D176 | V0.3.0 步骤级执行监督：每步成功且还有剩余步骤时，LLM 只能返回 `continue` / `stop`；stop 只跳过未执行的已批准步骤，不能调用新工具；非法/失败默认 continue | 先让模型进入每步控制流，同时不越过“新副作用必须人确认”的边界 |
+| D177 | 监督调用有预算（默认 4 次/任务）且写 `agent.step_decision` 事件和 `task.draft.step_decisions`；任务详情展示判断 | 每步调模型有成本，必须可限流、可追溯；判断结果要让人看见，而不是只影响状态 |
+| D178 | 单步失败时可提出一个同任务替换步骤：任务进入 `paused`，修复参数存 `task.draft.repair`，不创建新 draft；人确认后才替换失败步骤并重新入队 | 让修复延续同一条任务轨迹，同时保留“新工具必须人确认”的边界 |
+| D179 | resume 只重跑未完成步骤：passed/skipped 直接跳过；失败步骤替换为 pending；`paused` 计入进行中/读数，支持取消；修复次数上限 2 | 没有步骤级跳过会把已通过步骤重跑；没有次数上限会无限修复 |
+| D180 | error 任务支持手动断点续跑：保留 passed/skipped，重置 running/failed/error 为 pending，旧状态存 `resume_attempts`，重新入队 | worker 崩溃后已有部分结果，直接重跑会浪费并扩大副作用；先做人工确认的 checkpoint 恢复 |

@@ -166,6 +166,7 @@ async def propose_task(
         session,
         f"{context}\n{text}",
         product_id=product_id,
+        user_id=actor.id if actor else None,
         limit=4,
     )
     knowledge_text = format_knowledge(knowledge_items)

@@ -138,6 +138,7 @@ async def maybe_recover_task(session: AsyncSession, task: Task) -> Task | None:
         session,
         f"{task.title}\n{failure_hint}"[:800],
         product_id=task.product_id,
+        user_id=task.created_by,
         limit=3,
         exclude_task_id=task.id,
     )

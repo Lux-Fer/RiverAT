@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 
 from app.models import (
+    AuditLog,
     KnowledgeEvent,
+    KnowledgeFeedback,
     KnowledgeItem,
     KnowledgeItemSource,
     Task,
@@ -138,6 +141,8 @@ async def test_failed_task_indexes_redacted_knowledge(session):
     assert item is not None
     assert item.kind == "failure_pattern"
     assert item.product_id == product.id
+    assert item.scope == "product"
+    assert item.valid_until is not None
     assert "super-secret" not in item.body
     assert "abc123" not in item.body
     sources = (
@@ -171,6 +176,7 @@ async def test_search_respects_product_scope(session):
         title="通用登录失败",
         body="connection refused 登录失败",
         product_id=None,
+        scope="global",
     )
     session.add_all([a, b, global_item])
     await session.commit()
@@ -217,6 +223,7 @@ async def test_planning_injects_retrieved_knowledge(session, client, monkeypatch
         title="登录冒烟经验",
         body="登录地址不可达时先检查服务是否启动，不要直接重试。",
         product_id=None,
+        scope="global",
     )
     session.add(item)
     await session.commit()
@@ -286,3 +293,107 @@ async def test_recovery_injects_retrieved_knowledge(session, client, monkeypatch
     prompt = "\n".join(message["content"] for message in seen[0])
     assert "登录失败：connection refused" in prompt
     assert "先确认目标服务启动" in prompt
+
+
+async def test_user_scope_and_expiry_filter(session):
+    user_a = uuid.uuid4()
+    user_b = uuid.uuid4()
+    now = datetime.now(UTC)
+    session.add_all(
+        [
+            KnowledgeItem(
+                item_key="user-a",
+                kind="preference",
+                title="用户 A 的登录偏好",
+                body="登录失败时先检查目标服务",
+                product_id=None,
+                scope="user",
+                owner_id=user_a,
+                valid_until=now + timedelta(days=10),
+            ),
+            KnowledgeItem(
+                item_key="user-b",
+                kind="preference",
+                title="用户 B 的登录偏好",
+                body="登录失败时先检查目标服务",
+                product_id=None,
+                scope="user",
+                owner_id=user_b,
+                valid_until=now + timedelta(days=10),
+            ),
+            KnowledgeItem(
+                item_key="expired",
+                kind="failure_pattern",
+                title="过期的登录经验",
+                body="登录失败时先检查目标服务",
+                product_id=None,
+                scope="global",
+                valid_until=now - timedelta(days=1),
+            ),
+        ]
+    )
+    await session.commit()
+
+    items = await search_knowledge(
+        session,
+        "登录失败 目标服务",
+        user_id=user_a,
+        limit=5,
+    )
+
+    assert {item["id"] for item in items} == {
+        item.id
+        for item in (
+            await session.execute(
+                select(KnowledgeItem).where(KnowledgeItem.item_key == "user-a")
+            )
+        ).scalars()
+    }
+
+
+async def test_feedback_promotes_knowledge(session, client):
+    product = await _product(session, "KNOW-FB")
+    task, _step = await _failed_task(session, product=product)
+    item = KnowledgeItem(
+        item_key="feedback",
+        kind="failure_pattern",
+        title="登录连接被拒绝",
+        body="登录地址不可达时先检查目标服务是否启动",
+        product_id=product.id,
+        confidence=0.5,
+        status="tentative",
+    )
+    session.add(item)
+    await session.commit()
+
+    page = await client.get(f"/tasks/{task.id}")
+    assert "有用" in page.text and "不相关" in page.text
+
+    response = await client.post(
+        f"/tasks/{task.id}/knowledge/{item.id}/feedback",
+        data={"helpful": "1"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    await session.refresh(item)
+    assert item.status == "approved"
+    assert item.confidence == 0.6
+    feedback = (
+        await session.execute(
+            select(KnowledgeFeedback).where(KnowledgeFeedback.item_id == item.id)
+        )
+    ).scalar_one()
+    assert feedback.helpful is True
+    events = (
+        await session.execute(
+            select(KnowledgeEvent).where(KnowledgeEvent.kind == "knowledge.feedback")
+        )
+    ).scalars().all()
+    assert events
+    logs = (
+        await session.execute(
+            select(AuditLog).where(AuditLog.action == "knowledge.feedback")
+        )
+    ).scalars().all()
+    assert logs

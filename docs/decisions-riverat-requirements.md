@@ -403,3 +403,5 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D167 | V0.2.0 M1：新增 `knowledge_event` 追加式事件账本，捕获 task/step/人工改参/恢复/结算事件；事件同事务写入、event_key 幂等、payload 脱敏 | 先有“全量、可追溯”的原始事实，才谈提炼；不能直接让模型把聊天当知识 |
 | D168 | 任务终态确定性入库：passed→`successful_plan`，failed/error→`failure_pattern`，带产品/工具/任务/来源、`tentative` 状态；检索用 pg_trgm，产品 A 不返回产品 B 知识 | 先验证“历史结果能否被复用”，不先上向量库；产品作用域必须硬隔离 |
 | D169 | M2：规划和修复前检索同产品知识并注入 prompt，标注不可信，写 `knowledge.retrieved` 事件；任务详情显示“相关知识” | 知识只有进入决策才有价值；不做知识页面先把闭环跑通 |
+| D170 | V0.2.1 记忆作用域：知识带 `scope=global/product/user` + `owner_id`，检索按当前产品/用户过滤；失败知识 TTL 30 天、成功方案 90 天；team 暂缓到有团队实体 | 没有作用域的知识会串产品或串用户；没有有效期会把旧经验当永久事实 |
+| D171 | 任务内知识反馈：有用 +0.1 并 approved，不相关 -0.05（低于 0.2 归档）；同一 item/task/user 唯一；同时写 feedback 表、`knowledge.feedback` 事件和审计 | 人工采纳/拒绝是比模型自评更可信的信号；先做最小反馈回路，不自动生成新知识 |

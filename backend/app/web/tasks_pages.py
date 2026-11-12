@@ -12,8 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_admin, require_engineer, require_user
 from app.db.session import get_session
-from app.models import User
-from app.services.knowledge_base import related_for_task
+from app.models import KnowledgeItem, User
+from app.services.knowledge_base import (
+    record_knowledge_feedback,
+    related_for_task,
+)
 from app.services.task_board import build_task_board
 from app.services.task_detail import build_task_detail
 from app.services.tasks import (
@@ -66,7 +69,7 @@ async def _render_detail(
 ) -> HTMLResponse:
     steps = await steps_for(session, task.id)
     view = await build_task_detail(session, task, steps)
-    related = await related_for_task(session, task, limit=3)
+    related = await related_for_task(session, task, user_id=user.id, limit=3)
     return templates.TemplateResponse(
         request=request,
         name="task_detail.html",
@@ -76,6 +79,7 @@ async def _render_detail(
             "user": user,
             "error": error,
             "related": related,
+            "feedback_saved": request.query_params.get("feedback") == "1",
         },
         status_code=422 if error else 200,
     )
@@ -112,6 +116,37 @@ async def task_detail_page(
     if task is None:
         raise HTTPException(status_code=404, detail="任务不存在")
     return await _render_detail(request, session, user, task)
+
+
+@router.post(
+    "/tasks/{task_id}/knowledge/{item_id}/feedback",
+    dependencies=[Depends(require_csrf)],
+)
+async def knowledge_feedback_form(
+    task_id: UUID,
+    item_id: UUID,
+    user: Annotated[User, Depends(require_engineer)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    helpful: Annotated[str, Form()] = "1",
+    reason: Annotated[str, Form()] = "",
+) -> RedirectResponse:
+    task = await get_task(session, task_id)
+    item = await session.get(KnowledgeItem, item_id)
+    if task is None or item is None:
+        raise HTTPException(status_code=404, detail="任务或知识不存在")
+
+    await record_knowledge_feedback(
+        session,
+        item=item,
+        task=task,
+        user=user,
+        helpful=helpful == "1",
+        reason=reason,
+    )
+    await session.commit()
+    return RedirectResponse(
+        f"/tasks/{task.id}?feedback=1#knowledge", status_code=303
+    )
 
 
 @router.post(

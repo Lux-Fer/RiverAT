@@ -321,6 +321,13 @@ class KnowledgeItem(Base):
     )
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
     status: Mapped[str] = mapped_column(String(32), default="tentative", index=True)
+    # V0.2.1：global / product / user；team 等有团队实体后再加
+    scope: Mapped[str] = mapped_column(
+        String(32), default="product", index=True
+    )
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), index=True
+    )
     tags: Mapped[list] = mapped_column(JSONB, default=list)
     valid_from: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -350,6 +357,31 @@ class KnowledgeItemSource(Base):
     )
     event_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("knowledge_event.id", ondelete="CASCADE"), index=True
+    )
+
+
+class KnowledgeFeedback(Base):
+    """V0.2.1：人对某条知识在某次任务里的有用/不相关反馈。"""
+
+    __tablename__ = "knowledge_feedback"
+    __table_args__ = (
+        UniqueConstraint("item_id", "task_id", "user_id", name="uq_knowledge_feedback"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=_new_uuid
+    )
+    item_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("knowledge_item.id", ondelete="CASCADE"), index=True
+    )
+    task_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("task.id", ondelete="SET NULL"), index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True)
+    helpful: Mapped[bool] = mapped_column(Boolean, default=True)
+    reason: Mapped[str] = mapped_column(String(500), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
     )
 
 

@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261212">
+  <link rel="stylesheet" href="/static/river.css?v=20261213">
   {% if view.active %}<meta http-equiv="refresh" content="5">{% endif %}
 {% endblock %}
 {% block content %}
@@ -86,18 +86,26 @@
 {% endif %}
 
 {% if related %}
-<section class="td-band" aria-label="相关知识">
+<section class="td-band" id="knowledge" aria-label="相关知识">
   <div class="flow-title">相关知识 <b>{{ related | length }}</b><span>从历史任务自动提炼，仅供参考</span></div>
+  {% if feedback_saved %}<p class="td-note">知识反馈已记录。</p>{% endif %}
   <div class="td-knowledge">
     {% for item in related %}
     <div class="td-kn">
       <div class="td-kn-head">
-        <span class="kind">{{ item.kind }}</span>
+        <span class="kind">{{ item.kind }} · {{ item.scope }}</span>
         <span class="score">{{ "%.2f" | format(item.score) }}</span>
       </div>
       <div class="td-kn-title">{{ item.title }}</div>
       <div class="td-kn-body">{{ item.body[:260] }}</div>
-      <div class="td-kn-meta">{{ item.status }} · confidence {{ "%.2f" | format(item.confidence) }}</div>
+      <div class="td-kn-foot">
+        <span class="td-kn-meta">{{ item.status }} · confidence {{ "%.2f" | format(item.confidence) }}</span>
+        <form class="td-kn-feedback" method="post" action="/tasks/{{ task.id }}/knowledge/{{ item.id }}/feedback">
+{% include "_csrf_input.html" %}
+          <button type="submit" name="helpful" value="1">有用</button>
+          <button type="submit" name="helpful" value="0">不相关</button>
+        </form>
+      </div>
     </div>
     {% endfor %}
   </div>

@@ -9,13 +9,16 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import and_, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.models import (
     KnowledgeEvent,
+    KnowledgeFeedback,
     KnowledgeItem,
     KnowledgeItemSource,
     Task,
@@ -89,26 +92,42 @@ async def record_retrieval(
     )
 
 
+def _scope_filter(product_id: UUID | None, user_id: UUID | None):
+    clauses = [KnowledgeItem.scope == "global"]
+    if product_id is not None:
+        clauses.append(
+            and_(
+                KnowledgeItem.scope == "product",
+                KnowledgeItem.product_id == product_id,
+            )
+        )
+    if user_id is not None:
+        clauses.append(
+            and_(
+                KnowledgeItem.scope == "user",
+                KnowledgeItem.owner_id == user_id,
+            )
+        )
+    return or_(*clauses)
+
+
 async def _recent_items(
     session: AsyncSession,
     product_id: UUID | None,
+    user_id: UUID | None,
     limit: int,
     *,
     exclude_task_id: UUID | None = None,
 ) -> list[dict]:
     stmt = (
         select(KnowledgeItem)
-        .where(KnowledgeItem.status.in_(("tentative", "approved")))
+        .where(
+            KnowledgeItem.status.in_(("tentative", "approved")),
+            _scope_filter(product_id, user_id),
+        )
         .order_by(KnowledgeItem.updated_at.desc())
         .limit(limit)
     )
-    if product_id is None:
-        stmt = stmt.where(KnowledgeItem.product_id.is_(None))
-    else:
-        stmt = stmt.where(
-            (KnowledgeItem.product_id == product_id)
-            | (KnowledgeItem.product_id.is_(None))
-        )
     if exclude_task_id is not None:
         stmt = stmt.where(
             KnowledgeItem.task_id.is_(None)
@@ -123,6 +142,7 @@ async def _recent_items(
             "title": item.title,
             "body": item.body,
             "status": item.status,
+            "scope": item.scope,
             "confidence": item.confidence,
             "score": 0.0,
         }
@@ -137,16 +157,24 @@ _SIMILAR_SQL = text(
            i.title,
            i.body,
            i.status,
+           i.scope,
            i.confidence,
            similarity(i.title || ' ' || i.body, :q) AS score
     FROM knowledge_item i
     WHERE i.status IN ('tentative', 'approved')
       AND (i.valid_until IS NULL OR i.valid_until > now())
       AND (
-        (CAST(:product_id AS uuid) IS NOT NULL
-         AND (i.product_id = CAST(:product_id AS uuid) OR i.product_id IS NULL))
-        OR
-        (CAST(:product_id AS uuid) IS NULL AND i.product_id IS NULL)
+        i.scope = 'global'
+        OR (
+          i.scope = 'product'
+          AND CAST(:product_id AS uuid) IS NOT NULL
+          AND i.product_id = CAST(:product_id AS uuid)
+        )
+        OR (
+          i.scope = 'user'
+          AND CAST(:user_id AS uuid) IS NOT NULL
+          AND i.owner_id = CAST(:user_id AS uuid)
+        )
       )
       AND (
         CAST(:exclude_task_id AS uuid) IS NULL
@@ -155,7 +183,11 @@ _SIMILAR_SQL = text(
       )
       AND similarity(i.title || ' ' || i.body, :q) >= 0.03
     ORDER BY
-      CASE WHEN i.product_id = CAST(:product_id AS uuid) THEN 0 ELSE 1 END,
+      CASE
+        WHEN i.scope = 'product' AND i.product_id = CAST(:product_id AS uuid) THEN 0
+        WHEN i.scope = 'user' THEN 1
+        ELSE 2
+      END,
       score DESC,
       i.confidence DESC,
       i.updated_at DESC
@@ -169,15 +201,20 @@ async def search_knowledge(
     query: str,
     *,
     product_id: UUID | None = None,
+    user_id: UUID | None = None,
     limit: int = 4,
     exclude_task_id: UUID | None = None,
 ) -> list[dict]:
-    """按产品作用域 + trigram 相似度检索；不跨产品泄露。"""
+    """按 scope + trigram 相似度检索；不跨产品/用户泄露。"""
 
     cleaned = (query or "").strip()
     if not cleaned:
         return await _recent_items(
-            session, product_id, limit, exclude_task_id=exclude_task_id
+            session,
+            product_id,
+            user_id,
+            limit,
+            exclude_task_id=exclude_task_id,
         )
 
     rows = (
@@ -186,6 +223,7 @@ async def search_knowledge(
             {
                 "q": cleaned[:2000],
                 "product_id": product_id,
+                "user_id": user_id,
                 "exclude_task_id": exclude_task_id,
                 "limit": limit,
             },
@@ -198,6 +236,7 @@ async def search_knowledge(
             "title": row["title"],
             "body": row["body"],
             "status": row["status"],
+            "scope": row["scope"],
             "confidence": float(row["confidence"] or 0),
             "score": float(row["score"] or 0),
         }
@@ -226,13 +265,18 @@ def format_knowledge(items: list[dict], *, limit: int = 3) -> str:
 
 
 async def related_for_task(
-    session: AsyncSession, task: Task, *, limit: int = 3
+    session: AsyncSession,
+    task: Task,
+    *,
+    user_id: UUID | None = None,
+    limit: int = 3,
 ) -> list[dict]:
     query = f"{task.title}\n{task.request_text or ''}"
     return await search_knowledge(
         session,
         query,
         product_id=task.product_id,
+        user_id=user_id,
         limit=limit,
         exclude_task_id=task.id,
     )
@@ -288,6 +332,21 @@ async def index_task_outcome(
     kind = "successful_plan" if task.status == "passed" else "failure_pattern"
     prefix = f"{product.code} · " if product else ""
     title = redact_text(f"{prefix}{task.title}")[:300]
+    if task.product_id:
+        scope = "product"
+        owner_id = None
+    elif task.created_by:
+        scope = "user"
+        owner_id = task.created_by
+    else:
+        scope = "global"
+        owner_id = None
+    ttl_days = (
+        get_settings().knowledge_success_ttl_days
+        if task.status == "passed"
+        else get_settings().knowledge_failure_ttl_days
+    )
+    now = datetime.now(UTC)
     body = "\n".join(
         [
             f"结果：{task.status}",
@@ -309,7 +368,10 @@ async def index_task_outcome(
         task_id=task.id,
         confidence=0.6 if task.status == "passed" else 0.45,
         status="tentative",
+        scope=scope,
+        owner_id=owner_id,
         tags=["auto", "task", task.status],
+        valid_until=now + timedelta(days=ttl_days),
     )
     session.add(item)
     await session.flush()
@@ -323,3 +385,76 @@ async def index_task_outcome(
         session.add(KnowledgeItemSource(item_id=item.id, event_id=event.id))
     await session.flush()
     return item
+
+
+async def record_knowledge_feedback(
+    session: AsyncSession,
+    *,
+    item: KnowledgeItem,
+    task: Task,
+    user,
+    helpful: bool,
+    reason: str = "",
+) -> KnowledgeFeedback:
+    """人工反馈：有用则提升置信度并标为 approved，不相关则衰减。"""
+
+    feedback = await session.scalar(
+        select(KnowledgeFeedback).where(
+            KnowledgeFeedback.item_id == item.id,
+            KnowledgeFeedback.task_id == task.id,
+            KnowledgeFeedback.user_id == user.id,
+        )
+    )
+    if feedback is None:
+        feedback = KnowledgeFeedback(
+            item_id=item.id,
+            task_id=task.id,
+            user_id=user.id,
+            helpful=helpful,
+            reason=reason.strip()[:500],
+        )
+        session.add(feedback)
+    else:
+        feedback.helpful = helpful
+        feedback.reason = reason.strip()[:500]
+
+    if helpful:
+        item.confidence = min(1.0, float(item.confidence or 0) + 0.1)
+        item.status = "approved"
+    else:
+        item.confidence = max(0.0, float(item.confidence or 0) - 0.05)
+        if item.confidence < 0.2:
+            item.status = "archived"
+    await session.flush()
+
+    await record_event(
+        session,
+        event_key=f"knowledge.feedback:{item.id}:{task.id}:{user.id}:{uuid4()}",
+        kind="knowledge.feedback",
+        product_id=task.product_id,
+        task_id=task.id,
+        actor_id=user.id,
+        payload={
+            "item_id": str(item.id),
+            "helpful": helpful,
+            "reason": feedback.reason,
+        },
+        source="human",
+    )
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=user,
+        action="knowledge.feedback",
+        target_type="knowledge_item",
+        target_id=str(item.id),
+        detail={
+            "task": str(task.id),
+            "helpful": helpful,
+            "confidence": round(float(item.confidence or 0), 2),
+            "status": item.status,
+        },
+    )
+    return feedback

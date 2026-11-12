@@ -31,6 +31,7 @@ ACTION_LABELS = {
     "task.requeue": "重新入队",
     "task.recovery": "Agent 修复草案",
     "task.resolved": "修复任务已解决",
+    "knowledge.feedback": "知识反馈",
     "task.cancel": "取消任务",
     "task.edit": "编辑任务参数",
     "task.rerun": "重跑任务",

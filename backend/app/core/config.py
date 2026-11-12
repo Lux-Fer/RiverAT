@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     agent_recovery_enabled: bool = True
     agent_recovery_max_steps: int = 3
     agent_replan_limit: int = 2
+    # V0.2.1：知识有效期；失败模式比成功方案衰减更快
+    knowledge_failure_ttl_days: int = 30
+    knowledge_success_ttl_days: int = 90
 
 
 @lru_cache

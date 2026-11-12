@@ -6,7 +6,7 @@
 
 把测试团队已有的能力，接成一条可见的工作流。
 
-`V0.2.2`　`私有化 / 内网`　`FastAPI · PostgreSQL · Redis · arq`
+`V0.2.3`　`私有化 / 内网`　`FastAPI · PostgreSQL · Redis · arq`
 
 </div>
 
@@ -173,13 +173,13 @@ uv run ruff check app tests
 - 工具以服务进程权限在 RiverAT 主机运行，没有沙箱；只安装可信工具。
 - 只支持本地执行，没有远程 runner / WinRM。
 - 工具产物文件不回收，工具工作目录不会自动清理。
-- CI 通知在 V0.2.2 只保存配置占位，不实际收发。
+- CI 通知在 V0.2.3 只保存配置占位，不实际收发。
 - v1.0 遗留 API（`/api/v1/plans`、`/runs`、`/releases` 等）仍挂载但已冻结，页面已下线，不要在其上开发。
 
 ---
 
 <div align="center">
 
-<sub>RiverAT V0.2.2 · 人在环 · 工具即能力 · 工作流可见 · 知识可追溯</sub>
+<sub>RiverAT V0.2.3 · 人在环 · 工具即能力 · 工作流可见 · 知识可追溯</sub>
 
 </div>

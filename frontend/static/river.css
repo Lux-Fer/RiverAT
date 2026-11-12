@@ -1450,6 +1450,11 @@ body.river .kn-actions { display: flex; align-items: baseline; gap: 12px; }
 body.river .kn-actions button { border: 0; background: none; padding: 0; color: var(--water); font: 11px/1.5 var(--sans); cursor: pointer; }
 body.river .kn-actions a { font-size: 11px; color: var(--ink-3); }
 body.river .kn-expire button { border: 0; background: none; padding: 0; color: var(--orange); font: 10px/1.5 var(--mono); cursor: pointer; }
+body.river .kn-observability {
+  display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px;
+  font: 9.5px/1.5 var(--mono); color: var(--ink-3);
+}
+body.river .kn-observability .k { color: var(--water); letter-spacing: .08em; }
 
 body.river .kn-list { margin-top: 4px; }
 body.river .kn-row { border-bottom: 1px solid var(--rule); }

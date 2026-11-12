@@ -18,6 +18,7 @@ from app.services.knowledge_base import (
     console_kinds,
     console_products,
     expire_knowledge,
+    retrieval_metrics,
     set_knowledge_status,
 )
 from app.web.csrf import require_csrf
@@ -58,6 +59,7 @@ async def _render(
         context={
             "items": items,
             "counts": await console_counts(session, user_id=user.id),
+            "metrics": await retrieval_metrics(session, days=30),
             "products": await console_products(session),
             "kinds": await console_kinds(session, user_id=user.id),
             "q": q,

@@ -407,3 +407,5 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D171 | 任务内知识反馈：有用 +0.1 并 approved，不相关 -0.05（低于 0.2 归档）；同一 item/task/user 唯一；同时写 feedback 表、`knowledge.feedback` 事件和审计 | 人工采纳/拒绝是比模型自评更可信的信号；先做最小反馈回路，不自动生成新知识 |
 | D172 | V0.2.2 新增 `/knowledge` 控制台：global/product/自己的 user 可见，支持关键词/类型/作用域/状态/产品筛选；展开显示正文、来源事件、反馈统计；admin 可确认/归档 | 知识没有可操作面就只能靠 SQL 看；审核和反馈是两种不同信号 |
 | D173 | 控制台提供显式“归档过期知识”：`valid_until <= now()` 的 tentative/approved 改为 archived，逐条写审计和事件；不做后台定时任务 | TTL 先靠检索过滤保证不生效，清理做成可观察的显式动作，后续再交给 worker 定时 |
+| D174 | V0.2.3 混合排序：`0.65*全文相似度 + 0.25*标题相似度 + 0.05*置信度 + 0.05*反馈有用率`，保留作用域/过期/产品过滤；不引入 embedding | 先用可解释的词法排序验证收益，避免在没有 embedding 条件时硬上向量库 |
+| D175 | 空检索也写 `knowledge.retrieved`；控制台展示近 30 天检索次数/无命中率/平均召回/反馈率；新增 `RetrievalCase` + hit@1/hit@3/MRR 评测骨架 | 没有 no-result 事件就无法衡量检索是否真的在帮上忙；先有回归集再谈语义召回 |

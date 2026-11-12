@@ -73,8 +73,6 @@ async def record_retrieval(
     product_id: UUID | None,
     items: list[dict],
 ) -> None:
-    if not items:
-        return
     await record_event(
         session,
         event_key=f"retrieval:{consumer}:{task_id or uuid4()}:{uuid4()}",
@@ -137,6 +135,7 @@ async def _recent_items(
     return [
         {
             "id": item.id,
+            "item_key": item.item_key,
             "task_id": item.task_id,
             "kind": item.kind,
             "title": item.title,
@@ -152,15 +151,28 @@ async def _recent_items(
 
 _SIMILAR_SQL = text(
     """
+    WITH feedback AS (
+      SELECT item_id,
+             avg(CASE WHEN helpful THEN 1.0 ELSE 0.0 END) AS helpful_ratio
+      FROM knowledge_feedback
+      GROUP BY item_id
+    )
     SELECT i.id,
+           i.item_key,
            i.kind,
            i.title,
            i.body,
            i.status,
            i.scope,
            i.confidence,
-           similarity(i.title || ' ' || i.body, :q) AS score
+           (
+             0.65 * similarity(i.title || ' ' || i.body, :q)
+             + 0.25 * similarity(i.title, :q)
+             + 0.05 * i.confidence
+             + 0.05 * coalesce(f.helpful_ratio, 0.5)
+           ) AS score
     FROM knowledge_item i
+    LEFT JOIN feedback f ON f.item_id = i.id
     WHERE i.status IN ('tentative', 'approved')
       AND (i.valid_until IS NULL OR i.valid_until > now())
       AND (
@@ -181,7 +193,10 @@ _SIMILAR_SQL = text(
         OR i.task_id IS NULL
         OR i.task_id <> CAST(:exclude_task_id AS uuid)
       )
-      AND similarity(i.title || ' ' || i.body, :q) >= 0.03
+      AND (
+        similarity(i.title || ' ' || i.body, :q) >= 0.03
+        OR similarity(i.title, :q) >= 0.05
+      )
     ORDER BY
       CASE
         WHEN i.scope = 'product' AND i.product_id = CAST(:product_id AS uuid) THEN 0
@@ -232,6 +247,7 @@ async def search_knowledge(
     return [
         {
             "id": row["id"],
+            "item_key": row["item_key"],
             "kind": row["kind"],
             "title": row["title"],
             "body": row["body"],
@@ -291,6 +307,47 @@ def _console_visible(user_id: UUID):
             KnowledgeItem.owner_id == user_id,
         ),
     )
+
+
+async def retrieval_metrics(session: AsyncSession, *, days: int = 30) -> dict:
+    since = datetime.now(UTC) - timedelta(days=days)
+    size = func.coalesce(
+        func.jsonb_array_length(KnowledgeEvent.payload["items"]), 0
+    )
+    total, empty, avg_items = (
+        await session.execute(
+            select(func.count(), func.count().filter(size == 0), func.avg(size))
+            .where(
+                KnowledgeEvent.kind == "knowledge.retrieved",
+                KnowledgeEvent.occurred_at >= since,
+            )
+        )
+    ).one()
+    total = int(total or 0)
+    empty = int(empty or 0)
+    feedback_total, helpful = (
+        await session.execute(
+            select(
+                func.count(),
+                func.coalesce(
+                    func.sum(case((KnowledgeFeedback.helpful.is_(True), 1), else_=0)),
+                    0,
+                ),
+            ).where(KnowledgeFeedback.created_at >= since)
+        )
+    ).one()
+    feedback_total = int(feedback_total or 0)
+    helpful = int(helpful or 0)
+    return {
+        "days": days,
+        "retrievals": total,
+        "empty": empty,
+        "empty_rate": round(empty / total, 3) if total else 0.0,
+        "avg_items": round(float(avg_items or 0), 2),
+        "feedback": feedback_total,
+        "helpful": helpful,
+        "helpful_rate": round(helpful / feedback_total, 3) if feedback_total else 0.0,
+    }
 
 
 async def console_counts(session: AsyncSession, *, user_id: UUID) -> dict:

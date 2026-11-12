@@ -112,7 +112,8 @@ async def test_task_creation_records_event(session, client, monkeypatch):
             select(KnowledgeEvent).where(KnowledgeEvent.task_id == task_id)
         )
     ).scalars().all()
-    assert [event.kind for event in events] == ["task.created"]
+    assert "task.created" in {event.kind for event in events}
+    assert "knowledge.retrieved" in {event.kind for event in events}
 
 
 async def test_failed_task_indexes_redacted_knowledge(session):

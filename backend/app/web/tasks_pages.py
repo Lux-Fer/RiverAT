@@ -298,6 +298,9 @@ async def rerun_task_form(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     await session.commit()
+    if new_task.status == "queued":
+        await get_task_dispatcher(request).dispatch(new_task.id, session)
+        await session.commit()
     return RedirectResponse(f"/tasks/{new_task.id}", status_code=303)
 
 @router.post(
@@ -332,6 +335,9 @@ async def manual_task_submit(
         return await _manual_error(request, session, user, str(exc))
 
     await session.commit()
+    if task.status == "queued":
+        await get_task_dispatcher(request).dispatch(task.id, session)
+        await session.commit()
     return RedirectResponse(f"/tasks/{task.id}", status_code=303)
 
 

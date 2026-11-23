@@ -23,6 +23,12 @@ from app.core.config import get_settings
 from app.models import Tool, User
 
 MAX_BUNDLE_BYTES = 50 * 1024 * 1024
+TOOL_RISKS = ("read_only", "write", "dangerous")
+
+
+def tool_risk(tool: Tool) -> str:
+    risk = (tool.manifest or {}).get("risk", "write")
+    return risk if risk in TOOL_RISKS else "write"
 
 
 class ToolError(ValueError):
@@ -65,6 +71,10 @@ def _validate(manifest: dict) -> None:
     schema = manifest.get("input_schema")
     if not isinstance(schema, dict) or schema.get("type") != "object":
         raise ToolError("input_schema 必须是 type=object 的 JSON Schema")
+
+    risk = manifest.get("risk", "write")
+    if risk not in TOOL_RISKS:
+        raise ToolError("risk 必须是 read_only / write / dangerous")
 
     runtime = manifest.get("runtime")
     if runtime is not None:

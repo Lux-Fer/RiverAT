@@ -414,3 +414,5 @@ RiverAT（River + AT，AT = AutoTest）是面向**中大型公司测试团队**�
 | D178 | 单步失败时可提出一个同任务替换步骤：任务进入 `paused`，修复参数存 `task.draft.repair`，不创建新 draft；人确认后才替换失败步骤并重新入队 | 让修复延续同一条任务轨迹，同时保留“新工具必须人确认”的边界 |
 | D179 | resume 只重跑未完成步骤：passed/skipped 直接跳过；失败步骤替换为 pending；`paused` 计入进行中/读数，支持取消；修复次数上限 2 | 没有步骤级跳过会把已通过步骤重跑；没有次数上限会无限修复 |
 | D180 | error 任务支持手动断点续跑：保留 passed/skipped，重置 running/failed/error 为 pending，旧状态存 `resume_attempts`，重新入队 | worker 崩溃后已有部分结果，直接重跑会浪费并扩大副作用；先做人工确认的 checkpoint 恢复 |
+| D181 | V0.3.1 工具风险分级：`tool.json.risk` 取 read_only/write/dangerous，默认 write；只有**全部步骤**显式 read_only 时才自动确认；自动确认仍写审计和事件 | 全量人工确认会拖慢只读检查；按工具作者声明放开最低风险，写入/高风险仍守住确认边界 |
+| D182 | 自动确认入口覆盖 assistant、手动创建和 rerun；`approved_by` 留空、`approved_at` 记录，`task.draft.auto_approved=true`；工具页显示风险 | 自动放行必须能区分“系统按策略放行”和“人确认”，否则审计失真 |

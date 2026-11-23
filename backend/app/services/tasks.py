@@ -26,7 +26,7 @@ from app.services.knowledge_base import (
     search_knowledge,
 )
 from app.services.redaction import redact_text
-from app.services.tools import available_tools
+from app.services.tools import available_tools, tool_risk
 
 SYSTEM_PROMPT = """你是 RiverAT 的测试任务助手。
 
@@ -278,6 +278,7 @@ async def propose_task(
         )
     )
     await session.flush()
+    await maybe_auto_approve_task(session, task)
     return task
 
 
@@ -416,7 +417,56 @@ async def create_manual_task(
         target_id=str(task.id),
         detail={"title": task.title[:120], "tool": tool.name, "keys": sorted(args)},
     )
+    await maybe_auto_approve_task(session, task)
     return task
+
+
+async def maybe_auto_approve_task(
+    session: AsyncSession, task: Task
+) -> bool:
+    """只有当全部步骤都是显式 read_only 工具时才自动确认。"""
+
+    if not get_settings().agent_auto_approve_read_only:
+        return False
+    if task.status != "draft":
+        return False
+    steps = await steps_for(session, task.id)
+    if not steps:
+        return False
+    for step in steps:
+        tool = await session.get(Tool, step.tool_id) if step.tool_id else None
+        if tool is None or tool.status != "approved" or tool_risk(tool) != "read_only":
+            return False
+
+    task.status = "queued"
+    task.approved_at = datetime.now(UTC)
+    task.approved_by = None
+    draft = dict(task.draft or {})
+    draft["auto_approved"] = True
+    draft["auto_approved_reason"] = "all steps use read_only tools"
+    task.draft = draft
+    await session.flush()
+
+    from app.services.audit import record
+
+    await record(
+        session,
+        actor=None,
+        action="task.auto_approve",
+        target_type="task",
+        target_id=str(task.id),
+        detail={"title": task.title[:120], "steps": len(steps)},
+    )
+    await record_event(
+        session,
+        event_key=f"task.auto_approved:{task.id}",
+        kind="task.auto_approved",
+        product_id=task.product_id,
+        task_id=task.id,
+        payload={"steps": len(steps), "reason": "read_only"},
+        source="agent",
+    )
+    return True
 
 
 async def approve_task(
@@ -683,6 +733,7 @@ async def rerun_task(    session: AsyncSession, task: Task, *, actor: User | Non
         target_id=str(new_task.id),
         detail={"from": str(task.id)[:8], "steps": len(steps)},
     )
+    await maybe_auto_approve_task(session, new_task)
     return new_task
 
 

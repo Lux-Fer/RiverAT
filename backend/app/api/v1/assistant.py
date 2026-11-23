@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +14,7 @@ from app.db.session import get_session
 from app.models import User
 from app.services.llm import LlmError
 from app.services.tasks import TaskError, propose_task, steps_for
+from app.worker.task_dispatch import get_task_dispatcher
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
@@ -26,6 +27,7 @@ class DraftRequest(BaseModel):
 @router.post("/messages", status_code=status.HTTP_201_CREATED)
 async def create_draft(
     payload: DraftRequest,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(require_engineer)],
 ) -> dict:
@@ -42,6 +44,9 @@ async def create_draft(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
     await session.commit()
+    if task.status == "queued":
+        await get_task_dispatcher(request).dispatch(task.id, session)
+        await session.commit()
     steps = await steps_for(session, task.id)
     return {
         "id": str(task.id),

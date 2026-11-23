@@ -177,6 +177,7 @@ async def resume(
 @router.post("/{task_id}/rerun", status_code=201)
 async def rerun(
     task_id: UUID,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(require_engineer)],
 ) -> dict:
@@ -189,6 +190,9 @@ async def rerun(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     await session.commit()
+    if new_task.status == "queued":
+        await get_task_dispatcher(request).dispatch(new_task.id, session)
+        await session.commit()
     return _detail(new_task, await steps_for(session, new_task.id))
 
 class ManualTaskCreate(BaseModel):
@@ -201,6 +205,7 @@ class ManualTaskCreate(BaseModel):
 @router.post("", status_code=201)
 async def create_manual(
     payload: ManualTaskCreate,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_session)],
     user: Annotated[User, Depends(require_engineer)],
 ) -> dict:
@@ -217,6 +222,9 @@ async def create_manual(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     await session.commit()
+    if task.status == "queued":
+        await get_task_dispatcher(request).dispatch(task.id, session)
+        await session.commit()
     return _detail(task, await steps_for(session, task.id))
 
 @router.post("/{task_id}/recover")

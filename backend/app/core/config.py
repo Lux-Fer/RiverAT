@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     # V0.3.0：单步失败后提出一个同任务修复，人确认后继续
     agent_step_repair_enabled: bool = True
     agent_step_repair_limit: int = 2
+    # V0.3.1：仅全部步骤都是显式 read_only 工具时自动确认
+    agent_auto_approve_read_only: bool = True
 
 
 @lru_cache

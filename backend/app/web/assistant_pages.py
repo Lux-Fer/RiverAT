@@ -25,6 +25,7 @@ from app.services.tools import available_tools
 from app.services.work_products import list_products
 from app.web.csrf import require_csrf
 from app.web.templates import templates
+from app.worker.task_dispatch import get_task_dispatcher
 
 router = APIRouter(tags=["assistant-pages"])
 
@@ -82,7 +83,7 @@ async def assistant_submit(
     product_id: Annotated[str, Form()] = "",
 ) -> HTMLResponse:
     try:
-        await propose_task(
+        task = await propose_task(
             session,
             text=text,
             product_id=UUID(product_id) if product_id else None,
@@ -92,4 +93,7 @@ async def assistant_submit(
         return await _render(request, session, user, error=str(exc))
 
     await session.commit()
+    if task.status == "queued":
+        await get_task_dispatcher(request).dispatch(task.id, session)
+        await session.commit()
     return RedirectResponse("/assistant", status_code=303)

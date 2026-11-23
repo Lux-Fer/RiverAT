@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block body_class %}river{% endblock %}
 {% block head %}
-  <link rel="stylesheet" href="/static/river.css?v=20261218">
+  <link rel="stylesheet" href="/static/river.css?v=20261219">
 {% endblock %}
 {% block content %}
 <div class="page-head">
@@ -59,6 +59,7 @@
       {% endif %}
       {% set runtime = (t.manifest or {}).get("runtime") or {} %}
       {% if runtime.get("setup") %}<div class="req">环境 {{ runtime.setup | length }} 步</div>{% endif %}
+      <div class="req">风险 {{ tool_risk_label((t.manifest or {}).get("risk", "write")) }}</div>
     </div>
     <div class="acts">
       {% if user.role == "admin" and t.status == "pending" %}

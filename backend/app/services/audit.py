@@ -28,6 +28,7 @@ ACTION_LABELS = {
     "host.create": "注册测试机",
     "task.create": "新建任务",
     "task.approve": "确认任务",
+    "task.auto_approve": "只读任务自动确认",
     "task.requeue": "重新入队",
     "task.recovery": "Agent 修复草案",
     "task.resolved": "修复任务已解决",

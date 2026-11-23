@@ -21,6 +21,7 @@ login-smoke/
   "name": "login_smoke",
   "version": "1.0.0",
   "description": "对被测产品执行登录冒烟，返回用例级结果",
+  "risk": "read_only",
   "entrypoint": {
     "linux":   ["python", "main.py"],
     "windows": ["python", "main.py"]
@@ -53,6 +54,7 @@ login-smoke/
 | `input_schema` | 是 | JSON Schema，`type` 必须是 `object`；平台据此校验参数与生成表单 |
 | `output_schema` | 否 | 只作文档用途，平台不强制校验 |
 | `description` | 否 | 会直接给模型看，写清楚"做什么、怎么用" |
+| `risk` | 否 | `read_only` / `write` / `dangerous`，默认 `write`；只有全部步骤显式 `read_only` 才可被自动确认 |
 | `timeout_seconds` | 否 | 默认 600；到点终止**整个进程树** |
 | `runtime.setup` | 否 | 依赖安装命令（argv 数组）；每份包**首次执行前跑一次**，成功后不再跑 |
 | `runtime.setup_timeout_seconds` | 否 | 默认 300；安装超时同样终止进程树 |

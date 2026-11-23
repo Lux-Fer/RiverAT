@@ -48,6 +48,16 @@ TOOL_STATUS_TONES = {
     "rejected": "f",
 }
 
+TOOL_RISK_LABELS = {
+    "read_only": "只读",
+    "write": "写入",
+    "dangerous": "高风险",
+}
+
+
+def tool_risk_label(value: str | None) -> str:
+    return TOOL_RISK_LABELS.get(value or "write", value or "写入")
+
 
 def status_label(value: str | None) -> str:
     if value is None:

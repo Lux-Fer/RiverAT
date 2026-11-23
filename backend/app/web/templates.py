@@ -18,6 +18,7 @@ from app.core.config import BASE_DIR, get_settings
 from app.services.labels import (
     status_label,
     status_tone,
+    tool_risk_label,
     tool_status_label,
     tool_status_tone,
 )
@@ -32,6 +33,7 @@ templates.env.globals["status_label"] = status_label
 templates.env.globals["status_tone"] = status_tone
 templates.env.globals["tool_status_label"] = tool_status_label
 templates.env.globals["tool_status_tone"] = tool_status_tone
+templates.env.globals["tool_risk_label"] = tool_risk_label
 
 
 def soft_markdown(text: str) -> Markup:

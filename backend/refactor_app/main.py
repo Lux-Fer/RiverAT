@@ -16,37 +16,36 @@ SYSTEM = (
 MODEL = "deepseek-flash"
 MAX_STEPS = 20
 
-def run(task: str) -> None:
-    messages = [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": task}
-    ]
+def run(user_input, messages):
+    messages.append({"role": "user", "content": user_input})
 
     for step in range(1, MAX_STEPS+1):
-        response = client.chat.completions.create(model=MODEL, messages=messages, tools=tools.TOOLS)
+        response = client.chat.completions.create(model=MODEL, messages=messages, tools=tools.get_schemas())
         msg = response.choices[0].message
         messages.append(msg.model_dump(exclude_none=True))
 
         if not msg.tool_calls:
-            print(f"\n[完成，共 {step} 步]\n{msg.content}")
-            return
+            return msg.content or ""
         
         for call in msg.tool_calls:
             name = call.function.name
-            print(f"[第 {step} 步] {name}({call.function.arguments[:80]})")
 
             try:
-                args = json.loads(call.function.arguments)
-                result = tools.TOOL_FUNCS[name](**args)
-            except Exception as e:
-                result = f"工具执行出错：{type(e).__name__}: {e}"
-            
+                args = json.loads(call.function.arguments or "{}")
+            except json.JSONDecodeError:
+                result = "Error: 参数不是合法的 JSON"
+            else:
+                print(f"🔧 {name}({call.function.arguments[:80]})")
+                result = tools.execute(name, args)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
     
     print(f"\n[达到 {MAX_STEPS} 步上限，已停止]")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        sys.exit('用法：python main.py "你的任务"')
-    
-    run(sys.argv[1])
+    messages = [{"role": "user", "content": SYSTEM}]
+
+    while True:
+        q = input("你> ").strip()
+        if q in ("exit", "quit"):
+            break
+        print("\n" + run(q, messages) + "\n")

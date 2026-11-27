@@ -1,7 +1,7 @@
 import json, os, subprocess
 import urllib.request
 from pathlib import Path
-from tools.permissions import WORKSPACE, resolve_in_workspace
+from permissions import WORKSPACE, resolve_in_workspace
 
 MAX_OUTPUT = 8000
 TOOLS = {}

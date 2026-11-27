@@ -3,7 +3,8 @@ from tools import tools
 import os
 import sys
 import json
-
+from tools.permissions import PermissionManager
+from tools.tools import execute
 client = OpenAI(
     api_key="sk-b97d83a1b16247278b967ddf3db4b154",
     base_url="https://api.deepseek.com"
@@ -16,8 +17,20 @@ SYSTEM = (
 MODEL = "deepseek-flash"
 MAX_STEPS = 20
 
+def handle_call(call, perms):
+    name = call.function.name
+    try:
+        args = json.loads(call.function.arguments or "{}")
+    except json.JSONDecodeError:
+        return "Error: 参数不是合法的 JSON"
+    decision = perms.check(name, args)
+    if not decision.allowed:
+        return f"[权限拒绝] {decision.reason}"
+    return execute(name, args)
+
 def run(user_input, messages):
     messages.append({"role": "user", "content": user_input})
+    perms = PermissionManager()
 
     for step in range(1, MAX_STEPS+1):
         response = client.chat.completions.create(model=MODEL, messages=messages, tools=tools.get_schemas())
@@ -28,15 +41,8 @@ def run(user_input, messages):
             return msg.content or ""
         
         for call in msg.tool_calls:
-            name = call.function.name
-
-            try:
-                args = json.loads(call.function.arguments or "{}")
-            except json.JSONDecodeError:
-                result = "Error: 参数不是合法的 JSON"
-            else:
-                print(f"🔧 {name}({call.function.arguments[:80]})")
-                result = tools.execute(name, args)
+            print(f"🔧 {call.function.name}({call.function.arguments[:80]})")
+            result = handle_call(call, perms)
             messages.append({"role": "tool", "tool_call_id": call.id, "content": result})
     
     print(f"\n[达到 {MAX_STEPS} 步上限，已停止]")

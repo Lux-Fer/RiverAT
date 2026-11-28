@@ -18,7 +18,8 @@ TOOL_RISK = {
     "read_files": Risk.SAFE,
     "write_files": Risk.CONFIRM,
     "run_shell": Risk.CONFIRM,
-    "fetch_url": Risk.CONFIRM
+    "fetch_url": Risk.CONFIRM,
+    "load_skill": Risk.SAFE
 }
 
 REMEMBERABLE = {"write_files"}
@@ -32,6 +33,9 @@ SHELL_DENY_PATTERNS = [
     r"(curl|wget)\b.*\|\s*(sh|bash)\b",               # curl ... | sh
     r">\s*/dev/sd",
 ]
+
+SKILLS_DIR = WORKSPACE / "skills"
+
 
 def resolve_in_workspace(path_str: str) -> Path | None:
     p = Path(path_str).expanduser()
@@ -77,8 +81,11 @@ class PermissionManager:
     def _hard_limits(self, name: str, args: dict) -> str | None:
         if name in ("read_files", "write_files", "list_dir"):
             path = args.get("path", ".")
-            if resolve_in_workspace(path) is None:
+            p = resolve_in_workspace(path)
+            if p is None:
                 return f"路径 {path!r}在工作区{WORKSPACE}之外，禁止访问。"
+            if name == "write_file" and p.is_relative_to(SKILLS_DIR):
+                return "技能目录是只读的，Agent 不能修改自己的技能。"
         if name == "run_shell":
             cmd = args.get("command", "")
             for pat in SHELL_DENY_PATTERNS:

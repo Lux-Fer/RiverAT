@@ -4,6 +4,7 @@ from pathlib import Path
 MAX_TOOL_CHARS = 4000
 KEEP_RECENT_TOOL_RESULTS = 3
 KEEP_LAST_TURNS = 2
+KEEP_PREFIXES = ("[skill]")
 
 STATE_DIR = Path(os.environ.get("RIVERAT_STATE_DIR", Path.home() / ".riverat_agent"))
 SESSION_DIR = STATE_DIR / "sessions"
@@ -24,7 +25,7 @@ def truncate_tool_result(text, limit=MAX_TOOL_CHARS):
     return f"{text[:half]}\n...[中间省略{len(text) - limit}字符]...\n{text[-half:]}"
 
 def clear_old_tool_result(messages, keep=KEEP_RECENT_TOOL_RESULTS):
-    tool_idx = [i for i, m in enumerate(messages) if m["role"] == "tool"]
+    tool_idx = [i for i, m in enumerate(messages) if m["role"] == "tool" and not m["content"].startswitch(KEEP_PREFIXES)]
     old = tool_idx[:keep] if keep > 0 else tool_idx
     for i in old:
         messages[i]["content"] = PLACE_HOLDER
@@ -72,16 +73,16 @@ def compact(client, model, messages):
         *recent,
     ]
 
-    def save_session(name, messages):
-        SESSION_DIR.mkdir(parents=True, exist_ok=True)
-        (SESSION_DIR / f"{name}.json").write_text(
-            json.dumps(messages, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
-    
-    def load_session(name):
-        path = SESSION_DIR / f"{name}.json"
-        if not path.exists():
-            return None
-        return json.loads(path.read_text(encoding="utf-8"))
+def save_session(name, messages):
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    (SESSION_DIR / f"{name}.json").write_text(
+        json.dumps(messages, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+def load_session(name):
+    path = SESSION_DIR / f"{name}.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
 
     

@@ -1,11 +1,10 @@
 from openai import OpenAI
 from tools import tools
-import os
-import sys
-import json
+import os, sys, json
 from permissions import PermissionManager
 from tools.tools import execute
 from context import (truncate_tool_result, clear_old_tool_result, compact, save_session, load_session)
+import skills
 
 client = OpenAI(
     api_key="sk-b97d83a1b16247278b967ddf3db4b154",
@@ -21,6 +20,10 @@ SYSTEM = (
 )
 MODEL = "deepseek-flash"
 MAX_STEPS = 20
+BASE_SYSTEM = (
+    "你是一个能使用工具的助手，在用户的工作区内完成任务。"
+    "必要时调用工具，完成后用简洁的语言汇报结果。"
+)
 
 usage = {"prompt_tokens": 0}
 
@@ -34,6 +37,9 @@ def handle_call(call, perms):
     if not decision.allowed:
         return f"[权限拒绝] {decision.reason}"
     return execute(name, args)
+
+def build_system():
+    return BASE_SYSTEM + skills.project_notes() + skills.skills_section()
 
 def run(user_input, messages, perms):
     messages.append({"role": "user", "content": user_input})
@@ -60,7 +66,9 @@ def run(user_input, messages, perms):
     print(f"\n[达到 {MAX_STEPS} 步上限，已停止]")
 
 def main():
-    messages = load_session("default") or [{"role": "system", "content": SYSTEM}]
+    messages = load_session("default") or [{"role": "system", "content": ""}]
+    messages[0] = {"role": "system", "content": build_system()}
+    
     perms = PermissionManager()
     while True:
         q = input("你> ").strip()

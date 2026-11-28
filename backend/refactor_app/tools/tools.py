@@ -2,6 +2,7 @@ import json, os, subprocess
 import urllib.request
 from pathlib import Path
 from permissions import WORKSPACE, resolve_in_workspace
+from skills import discover, parse_skill
 
 MAX_OUTPUT = 8000
 TOOLS = {}
@@ -74,6 +75,23 @@ def fetch_url(url):
     with urllib.request.urlopen(req, timeout=15) as resp:
         return resp.read().decode("utf-8", errors="replace")
 
+@tool(
+    name="load_skill",
+    description="读取一个技能的完整说明。任务和「可用技能」列表里某个技能的用途匹配时调用。",
+    parameters={"type": "object",
+                "properties": {"name": {"type": "string", "description": "技能名"}},
+                "required": ["name"]},
+)
+def load_skill(name):
+    found = discover()
+    if name not in found:
+        return f"Error: 没有名为 {name!r} 的技能，可用：{', '.join(found) or '无'}"
+    path = found[name]["path"]
+    _, body = parse_skill(path.read_text(encoding="utf-8"))
+    extras = sorted(p.name for p in path.parent.iterdir() if p.name != "SKILL.md")
+    rel = path.parent.relative_to(WORKSPACE)
+    note = f"\n\n（技能目录 {rel}/ 下还有：{', '.join(extras)}）" if extras else ""
+    return f"{SKILL_MARK} {name}\n{body}{note}"
 
 def execute(name, args):
     if name not in TOOLS:
